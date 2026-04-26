@@ -12,7 +12,13 @@ enum TourPackage { jumma, eid, custom }
 
 enum LanguageGuide { english, somali, arabic, italian }
 
-enum MealPreference { somaliTraditional, seafood, grilled, vegetarian, noPreference }
+enum MealPreference {
+  somaliTraditional,
+  seafood,
+  grilled,
+  vegetarian,
+  noPreference,
+}
 
 enum DriverOption { withDriver, selfDrive }
 
@@ -78,14 +84,14 @@ class ApartmentBookingData extends BookingFormData {
   final StayPurpose stayPurpose;
   final bool cleaningService;
   final bool earlyCheckIn;
-   final bool lateCheckout;
-   final bool acceptHouseRules;
-   final double? cleaningPrice;
-   final double? earlyCheckInPrice;
-   final double? lateCheckoutPrice;
-   final String? pricingType;
- 
-   ApartmentBookingData({
+  final bool lateCheckout;
+  final bool acceptHouseRules;
+  final double? cleaningPrice;
+  final double? earlyCheckInPrice;
+  final double? lateCheckoutPrice;
+  final String? pricingType;
+
+  ApartmentBookingData({
     required super.checkIn,
     required super.checkOut,
     required super.guests,
@@ -95,14 +101,14 @@ class ApartmentBookingData extends BookingFormData {
     required this.stayPurpose,
     this.cleaningService = false,
     this.earlyCheckIn = false,
-     this.lateCheckout = false,
-     this.acceptHouseRules = false,
-     this.cleaningPrice,
-     this.earlyCheckInPrice,
-     this.lateCheckoutPrice,
-     this.pricingType,
-     super.specialRequests,
-   });
+    this.lateCheckout = false,
+    this.acceptHouseRules = false,
+    this.cleaningPrice,
+    this.earlyCheckInPrice,
+    this.lateCheckoutPrice,
+    this.pricingType,
+    super.specialRequests,
+  });
 }
 
 // Tour Booking Data
@@ -320,6 +326,7 @@ class BookingSummary {
   final ServiceType serviceType;
   final String serviceTitle;
   final double basePrice;
+  final double subtotal;
   final double taxes;
   final double discount;
   final double totalPrice;
@@ -329,6 +336,7 @@ class BookingSummary {
     required this.serviceType,
     required this.serviceTitle,
     required this.basePrice,
+    required this.subtotal,
     this.taxes = 0.0,
     this.discount = 0.0,
     required this.totalPrice,

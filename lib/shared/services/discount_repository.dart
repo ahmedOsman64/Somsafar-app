@@ -19,11 +19,70 @@ class DiscountRepository extends StateNotifier<List<Discount>> {
       try {
         final List<dynamic> decoded = jsonDecode(storedData);
         state = decoded.map((json) => Discount.fromJson(json)).toList();
+        await checkExpirations(); // Automatically check and update expired discounts
       } catch (e) {
         state = [];
       }
     } else {
       state = [];
+      await _saveToPrefs();
+    }
+  }
+
+  Future<void> checkExpirations() async {
+    final now = DateTime.now();
+    bool hasChanges = false;
+    
+    final updatedList = state.map((d) {
+      if (d.status == DiscountStatus.active && now.isAfter(d.endDate)) {
+        hasChanges = true;
+        return Discount(
+          id: d.id,
+          providerId: d.providerId,
+          value: d.value,
+          isPercentage: d.isPercentage,
+          startDate: d.startDate,
+          endDate: d.endDate,
+          applicableServiceIds: d.applicableServiceIds,
+          status: DiscountStatus.ended, // Automatically deactivate
+          code: d.code,
+          createdAt: d.createdAt,
+        );
+      } else if (d.status == DiscountStatus.scheduled && (now.isAfter(d.startDate) || now.isAtSameMomentAs(d.startDate))) {
+        hasChanges = true;
+        if (now.isAfter(d.endDate)) {
+           return Discount(
+             id: d.id,
+             providerId: d.providerId,
+             value: d.value,
+             isPercentage: d.isPercentage,
+             startDate: d.startDate,
+             endDate: d.endDate,
+             applicableServiceIds: d.applicableServiceIds,
+             status: DiscountStatus.ended,
+             code: d.code,
+             createdAt: d.createdAt,
+           );
+        } else {
+           return Discount(
+             id: d.id,
+             providerId: d.providerId,
+             value: d.value,
+             isPercentage: d.isPercentage,
+             startDate: d.startDate,
+             endDate: d.endDate,
+             applicableServiceIds: d.applicableServiceIds,
+             status: DiscountStatus.active, // Automatically activate scheduled
+             code: d.code,
+             createdAt: d.createdAt,
+           );
+        }
+      }
+      return d;
+    }).toList();
+
+    if (hasChanges) {
+      state = updatedList;
       await _saveToPrefs();
     }
   }
@@ -50,6 +109,40 @@ class DiscountRepository extends StateNotifier<List<Discount>> {
   Future<void> deleteDiscount(String id) async {
     state = state.where((d) => d.id != id).toList();
     await _saveToPrefs();
+  }
+
+  static Discount? getBestDiscount(
+    List<Discount> discounts,
+    String serviceId,
+    String providerId,
+  ) {
+    final now = DateTime.now();
+    final activeDiscounts = discounts.where((d) {
+      final isDateValid =
+          (d.startDate.isBefore(now) ||
+              d.startDate.isAtSameMomentAs(now)) &&
+          (d.endDate.isAfter(now) || d.endDate.isAtSameMomentAs(now));
+      final isProviderMatch = d.providerId == providerId;
+      final isServiceMatch =
+          d.applicableServiceIds.isEmpty ||
+          d.applicableServiceIds.contains(serviceId);
+      return d.status == DiscountStatus.active &&
+          isDateValid &&
+          isProviderMatch &&
+          isServiceMatch;
+    }).toList();
+
+    if (activeDiscounts.isEmpty) return null;
+
+    // Pick the best discount: highest percentage first, then highest fixed amount
+    activeDiscounts.sort((a, b) {
+      // Percentages are generally better, prioritize them
+      if (a.isPercentage && !b.isPercentage) return -1;
+      if (!a.isPercentage && b.isPercentage) return 1;
+      // Both same type: pick higher value
+      return b.value.compareTo(a.value);
+    });
+    return activeDiscounts.first;
   }
 }
 

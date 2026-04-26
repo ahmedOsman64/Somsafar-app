@@ -13,6 +13,8 @@ import '../../../shared/services/tax_repository.dart';
 import '../../../shared/models/service_model.dart';
 import '../../../shared/services/system_settings_repository.dart';
 import '../../../shared/services/special_offer_repository.dart';
+import '../../../shared/services/discount_repository.dart';
+
 
 class TourBookingForm extends ConsumerStatefulWidget {
   final Service service;
@@ -311,6 +313,12 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
         );
         final multiplier = selectedPkg.multiplier ?? 1.0;
 
+        final activeDiscount = DiscountRepository.getBestDiscount(
+          ref.read(discountRepositoryProvider),
+          widget.service.id,
+          widget.service.providerId,
+        );
+
         _bookingSummary = BookingFormService.calculateTourPrice(
           bookingData,
           widget.service,
@@ -318,6 +326,7 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
           platformFeePercentage: settings.platformFee,
           packageMultiplier: multiplier,
           activeOffers: ref.read(activeSpecialOffersProvider),
+          activeDiscount: activeDiscount,
         );
       });
     }
@@ -1396,6 +1405,7 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
     ref.listen(activeSpecialOffersProvider, (_, __) => _updateBookingSummary());
     ref.listen(activeTaxesProvider, (_, __) => _updateBookingSummary());
     ref.listen(systemSettingsProvider, (_, __) => _updateBookingSummary());
+    ref.listen(discountRepositoryProvider, (_, __) => _updateBookingSummary());
 
     return Scaffold(
       backgroundColor: AppColors.background,

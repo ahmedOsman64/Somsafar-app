@@ -8,6 +8,8 @@ import '../../core/services/supabase_service.dart';
 import 'booking_backend_service.dart';
 import 'booking_form_service.dart';
 import 'service_repository.dart';
+import 'discount_repository.dart';
+import '../models/discount_model.dart';
 import 'system_settings_repository.dart';
 import 'special_offer_repository.dart';
 
@@ -564,6 +566,51 @@ class BookingIntegrationService {
           break;
       }
 
+      // Check for automatic discounts
+      final allDiscounts = _ref.read(discountRepositoryProvider);
+      final now = DateTime.now();
+
+      // Identify the provider for this service
+      final enriched = await _ensureServiceDetails(bookingData);
+      final providerId = service?.providerId ?? enriched['providerId'];
+      final serviceId = bookingData['serviceId'] ?? '';
+
+      final activeDiscount = allDiscounts
+          .where(
+            (d) =>
+                d.status == DiscountStatus.active &&
+                d.startDate.isBefore(now) &&
+                d.endDate.isAfter(now) &&
+                d.providerId == providerId &&
+                (d.applicableServiceIds.isEmpty ||
+                    d.applicableServiceIds.contains(serviceId)),
+          )
+          .firstOrNull;
+
+      if (activeDiscount != null) {
+        double discountAmount = 0;
+        if (activeDiscount.isPercentage) {
+          discountAmount = summary.totalPrice * (activeDiscount.value / 100);
+        } else {
+          discountAmount = activeDiscount.value;
+        }
+
+        summary = BookingSummary(
+          serviceType: summary.serviceType,
+          serviceTitle: summary.serviceTitle,
+          basePrice: summary.basePrice,
+          subtotal: summary.subtotal,
+          taxes: summary.taxes,
+          discount: summary.discount + discountAmount,
+          totalPrice: summary.totalPrice - discountAmount,
+          extras: {
+            ...summary.extras,
+            'automaticDiscount': activeDiscount.discountText,
+            'discountLabel': activeDiscount.badgeText,
+          },
+        );
+      }
+
       if (discountCode != null && discountCode.isNotEmpty) {
         final discountResult = await backend.applyDiscountCode(
           code: discountCode,
@@ -576,8 +623,11 @@ class BookingIntegrationService {
             serviceType: summary.serviceType,
             serviceTitle: summary.serviceTitle,
             basePrice: summary.basePrice,
+            subtotal: summary.subtotal,
             taxes: summary.taxes,
-            discount: (discountResult['discount'] as num).toDouble(),
+            discount:
+                summary.discount +
+                (discountResult['discount'] as num).toDouble(),
             totalPrice: (discountResult['finalAmount'] as num).toDouble(),
             extras: summary.extras,
           );
@@ -591,6 +641,7 @@ class BookingIntegrationService {
         serviceType: serviceType,
         serviceTitle: bookingData['serviceTitle'] ?? 'Service',
         basePrice: basePrice,
+        subtotal: basePrice,
         taxes: 0.0,
         totalPrice: basePrice,
       );

@@ -5,8 +5,6 @@ enum DiscountStatus { active, scheduled, ended }
 class Discount {
   final String id;
   final String providerId;
-  final String title;
-  final String description;
   final double value;
   final bool isPercentage;
   final DateTime startDate;
@@ -19,15 +17,13 @@ class Discount {
   Discount({
     required this.id,
     required this.providerId,
-    required this.title,
-    required this.description,
     required this.value,
     required this.isPercentage,
     required this.startDate,
     required this.endDate,
     required this.applicableServiceIds,
     required this.status,
-    required this.code,
+    this.code = '',
     required this.createdAt,
   });
 
@@ -35,8 +31,6 @@ class Discount {
     return Discount(
       id: json['id'] as String,
       providerId: json['provider_id'] as String,
-      title: json['title'] as String,
-      description: json['description'] as String? ?? '',
       value: (json['value'] as num).toDouble(),
       isPercentage: json['is_percentage'] as bool,
       startDate: DateTime.parse(json['start_date'] as String),
@@ -57,8 +51,6 @@ class Discount {
     return {
       'id': id,
       'provider_id': providerId,
-      'title': title,
-      'description': description,
       'value': value,
       'is_percentage': isPercentage,
       'start_date': startDate.toIso8601String(),
@@ -82,11 +74,15 @@ class Discount {
   }
 
   String get discountText {
-    if (isPercentage) {
-      return '${value.toInt()}% OFF';
-    } else {
-      return '\$${value.toInt()} OFF';
-    }
+    return isPercentage
+        ? '${value.toInt()}% OFF'
+        : '\$${value.toInt()} OFF';
+  }
+
+  /// Short badge label shown on cards (just the value, not the title)
+  String get badgeText {
+    if (isPercentage) return '${value.toInt()}% OFF';
+    return '\$${value.toInt()} OFF';
   }
 
   String get expiryText {

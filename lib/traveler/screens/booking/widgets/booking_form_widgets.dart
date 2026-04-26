@@ -559,6 +559,17 @@ class LivePriceSummaryBar extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.baseline,
                   textBaseline: TextBaseline.alphabetic,
                   children: [
+                    if (summary.discount > 0) ...[
+                      Text(
+                        '\$${summary.subtotal.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.6),
+                          fontSize: 16,
+                          decoration: TextDecoration.lineThrough,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
                     Text(
                       '\$${summary.totalPrice.toStringAsFixed(2)}',
                       style: const TextStyle(
@@ -593,13 +604,23 @@ class LivePriceSummaryBar extends StatelessWidget {
                     color: AppColors.secondary,
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Text(
-                    '-\$${summary.discount.toStringAsFixed(0)} OFF',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  child: Builder(
+                    builder: (context) {
+                      // discountLabel = short badge text e.g. "5% OFF"
+                      // automaticDiscount = full label e.g. "Summer Sale — 5% OFF"
+                      final label =
+                          summary.extras['discountLabel']?.toString() ??
+                          summary.extras['automaticDiscount']?.toString().split('—').last.trim() ??
+                          '-\$${summary.discount.toStringAsFixed(0)} OFF';
+                      return Text(
+                        label,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      );
+                    },
                   ),
                 ),
               const SizedBox(height: 4),

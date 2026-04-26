@@ -35,3 +35,7 @@ node_modules/
 .next/
 .env*
 dist/
+
+# Signing files
+*.jks
+android/key.properties

@@ -11,6 +11,8 @@ import '../../../shared/services/tax_repository.dart';
 import '../../../shared/services/system_settings_repository.dart';
 import '../../../shared/models/service_model.dart';
 import '../../../shared/services/special_offer_repository.dart';
+import '../../../shared/services/discount_repository.dart';
+
 
 class VehicleBookingForm extends ConsumerStatefulWidget {
   final Service service;
@@ -116,6 +118,12 @@ class _VehicleBookingFormState extends ConsumerState<VehicleBookingForm>
         childSeat: _childSeat,
         acceptRentalTerms: _acceptRentalTerms,
       );
+      final activeDiscount = DiscountRepository.getBestDiscount(
+        ref.read(discountRepositoryProvider),
+        widget.service.id,
+        widget.service.providerId,
+      );
+
       setState(() {
         _bookingSummary = BookingFormService.calculateVehiclePrice(
           data,
@@ -123,6 +131,7 @@ class _VehicleBookingFormState extends ConsumerState<VehicleBookingForm>
           ref.read(activeTaxesProvider),
           platformFeePercentage: ref.read(systemSettingsProvider).platformFee,
           activeOffers: ref.read(activeSpecialOffersProvider),
+          activeDiscount: activeDiscount,
         );
       });
     }
@@ -894,6 +903,7 @@ class _VehicleBookingFormState extends ConsumerState<VehicleBookingForm>
     ref.listen(activeSpecialOffersProvider, (_, __) => _updateBookingSummary());
     ref.listen(activeTaxesProvider, (_, __) => _updateBookingSummary());
     ref.listen(systemSettingsProvider, (_, __) => _updateBookingSummary());
+    ref.listen(discountRepositoryProvider, (_, __) => _updateBookingSummary());
 
     return Scaffold(
       backgroundColor: AppColors.background,

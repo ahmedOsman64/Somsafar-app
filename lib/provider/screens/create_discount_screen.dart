@@ -18,10 +18,7 @@ class CreateDiscountScreen extends ConsumerStatefulWidget {
 
 class _CreateDiscountScreenState extends ConsumerState<CreateDiscountScreen> {
   final _formKey = GlobalKey<FormState>();
-  late TextEditingController _titleController;
-  late TextEditingController _descriptionController;
   late TextEditingController _valueController;
-  late TextEditingController _codeController;
 
   bool _isPercentage = true;
   DateTime _startDate = DateTime.now();
@@ -31,17 +28,8 @@ class _CreateDiscountScreenState extends ConsumerState<CreateDiscountScreen> {
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(
-      text: widget.discountToEdit?.title ?? '',
-    );
-    _descriptionController = TextEditingController(
-      text: widget.discountToEdit?.description ?? '',
-    );
     _valueController = TextEditingController(
       text: widget.discountToEdit?.value.toString() ?? '',
-    );
-    _codeController = TextEditingController(
-      text: widget.discountToEdit?.code ?? '',
     );
     if (widget.discountToEdit != null) {
       _isPercentage = widget.discountToEdit!.isPercentage;
@@ -53,10 +41,7 @@ class _CreateDiscountScreenState extends ConsumerState<CreateDiscountScreen> {
 
   @override
   void dispose() {
-    _titleController.dispose();
-    _descriptionController.dispose();
     _valueController.dispose();
-    _codeController.dispose();
     super.dispose();
   }
 
@@ -89,15 +74,12 @@ class _CreateDiscountScreenState extends ConsumerState<CreateDiscountScreen> {
       final discount = Discount(
         id: widget.discountToEdit?.id ?? const Uuid().v4(),
         providerId: user.providerId ?? user.id,
-        title: _titleController.text,
-        description: _descriptionController.text,
         value: double.parse(_valueController.text),
         isPercentage: _isPercentage,
         startDate: _startDate,
         endDate: _endDate,
         applicableServiceIds: widget.discountToEdit?.applicableServiceIds ?? [],
         status: _status,
-        code: _codeController.text.toUpperCase(),
         createdAt: widget.discountToEdit?.createdAt ?? DateTime.now(),
       );
 
@@ -140,23 +122,6 @@ class _CreateDiscountScreenState extends ConsumerState<CreateDiscountScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildSectionTitle('Basic Information'),
-              _buildCard([
-                _buildTextField(
-                  controller: _titleController,
-                  label: 'Discount Title',
-                  hint: 'e.g., Summer Special',
-                  validator: (v) => v!.isEmpty ? 'Please enter a title' : null,
-                ),
-                const SizedBox(height: 16),
-                _buildTextField(
-                  controller: _descriptionController,
-                  label: 'Description',
-                  hint: 'Explain what this discount covers',
-                  maxLines: 3,
-                ),
-              ]),
-              const SizedBox(height: 24),
               _buildSectionTitle('Discount Details'),
               _buildCard([
                 Row(
@@ -205,12 +170,6 @@ class _CreateDiscountScreenState extends ConsumerState<CreateDiscountScreen> {
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 16),
-                _buildTextField(
-                  controller: _codeController,
-                  label: 'Promo Code (Optional)',
-                  hint: 'e.g., SUMMER20',
                 ),
               ]),
               const SizedBox(height: 24),

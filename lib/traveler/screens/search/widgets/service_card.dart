@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../shared/services/recently_viewed_provider.dart';
 import '../../../../shared/services/favorites_provider.dart';
 import '../../../../shared/models/service_model.dart';
+import '../../../../shared/services/discount_repository.dart';
 import '../../../../core/services/storage_service.dart';
 
 class ServiceCard extends ConsumerStatefulWidget {
@@ -160,7 +161,10 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
 
                 // Booking Box
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
@@ -181,11 +185,17 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              (widget.service.category.toString().toLowerCase().contains('apartment'))
+                              (widget.service.category
+                                      .toString()
+                                      .toLowerCase()
+                                      .contains('apartment'))
                                   ? 'Price per month'
-                                  : (widget.service.category.toString().toLowerCase().contains('tour'))
-                                      ? 'Price per person'
-                                      : 'Price per night',
+                                  : (widget.service.category
+                                        .toString()
+                                        .toLowerCase()
+                                        .contains('tour'))
+                                  ? 'Price per person'
+                                  : 'Price per night',
                               style: TextStyle(
                                 fontSize: 10,
                                 color: Colors.grey.shade500,
@@ -198,21 +208,75 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
                               crossAxisAlignment: CrossAxisAlignment.baseline,
                               textBaseline: TextBaseline.alphabetic,
                               children: [
-                                Text(
-                                  '\$${widget.service.price}',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.primary,
-                                  ),
+                                Builder(
+                                  builder: (context) {
+                                    final discounts = ref.watch(
+                                      discountRepositoryProvider,
+                                    );
+                                    final activeDiscount =
+                                        DiscountRepository.getBestDiscount(
+                                          discounts,
+                                          widget.service.id,
+                                          widget.service.providerId,
+                                        );
+
+                                    if (activeDiscount == null) {
+                                      return Text(
+                                        '\$${widget.service.price}',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.primary,
+                                        ),
+                                      );
+                                    }
+
+                                    double finalPrice = widget.service.price;
+                                    if (activeDiscount.isPercentage) {
+                                      finalPrice -=
+                                          widget.service.price *
+                                          (activeDiscount.value / 100);
+                                    } else {
+                                      finalPrice -= activeDiscount.value;
+                                    }
+
+                                    return Row(
+                                      children: [
+                                        Text(
+                                          '\$${widget.service.price}',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey.shade400,
+                                            decoration:
+                                                TextDecoration.lineThrough,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '\$${finalPrice.toStringAsFixed(0)}',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  },
                                 ),
                                 const SizedBox(width: 2),
                                 Text(
-                                  (widget.service.category.toString().toLowerCase().contains('apartment'))
+                                  (widget.service.category
+                                          .toString()
+                                          .toLowerCase()
+                                          .contains('apartment'))
                                       ? '/mo'
-                                      : (widget.service.category.toString().toLowerCase().contains('tour'))
-                                          ? '/person'
-                                          : '/nt',
+                                      : (widget.service.category
+                                            .toString()
+                                            .toLowerCase()
+                                            .contains('tour'))
+                                      ? '/person'
+                                      : '/nt',
                                   style: TextStyle(
                                     fontSize: 10,
                                     color: Colors.grey.shade500,
@@ -239,7 +303,11 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
                                 vertical: 6,
                               ),
                               decoration: BoxDecoration(
-                                border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                                border: Border.all(
+                                  color: AppColors.primary.withValues(
+                                    alpha: 0.3,
+                                  ),
+                                ),
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: const Text(
@@ -271,7 +339,9 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
                                 borderRadius: BorderRadius.circular(20),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: AppColors.primary.withValues(alpha: 0.2),
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.2,
+                                    ),
                                     blurRadius: 4,
                                     offset: const Offset(0, 2),
                                   ),
@@ -403,23 +473,77 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  (widget.service.category.toString().toLowerCase().contains('apartment'))
+                                  (widget.service.category
+                                          .toString()
+                                          .toLowerCase()
+                                          .contains('apartment'))
                                       ? 'Price/month'
-                                      : (widget.service.category.toString().toLowerCase().contains('tour'))
-                                          ? 'Price/person'
-                                          : 'Price/night',
+                                      : (widget.service.category
+                                            .toString()
+                                            .toLowerCase()
+                                            .contains('tour'))
+                                      ? 'Price/person'
+                                      : 'Price/night',
                                   style: const TextStyle(
                                     fontSize: 10,
                                     color: Colors.grey,
                                   ),
                                 ),
-                                Text(
-                                  '\$${widget.service.price}',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.primary,
-                                  ),
+                                Builder(
+                                  builder: (context) {
+                                    final discounts = ref.watch(
+                                      discountRepositoryProvider,
+                                    );
+                                    final activeDiscount =
+                                        DiscountRepository.getBestDiscount(
+                                          discounts,
+                                          widget.service.id,
+                                          widget.service.providerId,
+                                        );
+
+                                    if (activeDiscount == null) {
+                                      return Text(
+                                        '\$${widget.service.price}',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.primary,
+                                        ),
+                                      );
+                                    }
+
+                                    double finalPrice = widget.service.price;
+                                    if (activeDiscount.isPercentage) {
+                                      finalPrice -=
+                                          widget.service.price *
+                                          (activeDiscount.value / 100);
+                                    } else {
+                                      finalPrice -= activeDiscount.value;
+                                    }
+
+                                    return Row(
+                                      children: [
+                                        Text(
+                                          '\$${widget.service.price}',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.grey.shade400,
+                                            decoration:
+                                                TextDecoration.lineThrough,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '\$${finalPrice.toStringAsFixed(0)}',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  },
                                 ),
                               ],
                             ),
@@ -436,7 +560,9 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: AppColors.primary,
                                     side: BorderSide(
-                                      color: AppColors.primary.withValues(alpha: 0.3),
+                                      color: AppColors.primary.withValues(
+                                        alpha: 0.3,
+                                      ),
                                     ),
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 12,
@@ -506,20 +632,76 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
                     children: [
                       const Spacer(),
                       Text(
-                        (widget.service.category.toString().toLowerCase().contains('apartment'))
+                        (widget.service.category
+                                .toString()
+                                .toLowerCase()
+                                .contains('apartment'))
                             ? 'Price/month'
-                            : (widget.service.category.toString().toLowerCase().contains('tour'))
-                                ? 'Price/person'
-                                : 'Price/night',
-                        style: const TextStyle(fontSize: 11, color: Colors.grey),
-                      ),
-                      Text(
-                        '\$${widget.service.price}',
-                        style: TextStyle(
-                          fontSize: isNarrow ? 18 : 22,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
+                            : (widget.service.category
+                                  .toString()
+                                  .toLowerCase()
+                                  .contains('tour'))
+                            ? 'Price/person'
+                            : 'Price/night',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
                         ),
+                      ),
+                      Builder(
+                        builder: (context) {
+                          final discounts = ref.watch(
+                            discountRepositoryProvider,
+                          );
+                          final activeDiscount =
+                              DiscountRepository.getBestDiscount(
+                                discounts,
+                                widget.service.id,
+                                widget.service.providerId,
+                              );
+
+                          if (activeDiscount == null) {
+                            return Text(
+                              '\$${widget.service.price}',
+                              style: TextStyle(
+                                fontSize: isNarrow ? 18 : 22,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.primary,
+                              ),
+                            );
+                          }
+
+                          double finalPrice = widget.service.price;
+                          if (activeDiscount.isPercentage) {
+                            finalPrice -=
+                                widget.service.price *
+                                (activeDiscount.value / 100);
+                          } else {
+                            finalPrice -= activeDiscount.value;
+                          }
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                '\$${widget.service.price}',
+                                style: TextStyle(
+                                  fontSize: isNarrow ? 12 : 14,
+                                  color: Colors.grey.shade400,
+                                  decoration: TextDecoration.lineThrough,
+                                ),
+                              ),
+                              Text(
+                                '\$${finalPrice.toStringAsFixed(0)}',
+                                style: TextStyle(
+                                  fontSize: isNarrow ? 18 : 22,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
                       const SizedBox(height: 4),
                       const Row(
@@ -552,9 +734,13 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: AppColors.primary,
                                 side: BorderSide(
-                                  color: AppColors.primary.withValues(alpha: 0.3),
+                                  color: AppColors.primary.withValues(
+                                    alpha: 0.3,
+                                  ),
                                 ),
-                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -581,7 +767,9 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.primary,
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -738,6 +926,53 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
   }
 
   Widget _buildDiscountBadge() {
+    final discounts = ref.watch(discountRepositoryProvider);
+    final activeDiscount = DiscountRepository.getBestDiscount(
+      discounts,
+      widget.service.id,
+      widget.service.providerId,
+    );
+
+    if (activeDiscount != null) {
+      return Positioned(
+        bottom: 12,
+        left: 8,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: AppColors.secondary,
+            borderRadius: BorderRadius.circular(4),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.local_offer_rounded,
+                size: 12,
+                color: Colors.white,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                activeDiscount.badgeText,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     // Only showing stub discount badge for styling demonstration
     if (widget.service.rating != null &&
         widget.service.rating! >= 4.5 &&
@@ -844,7 +1079,10 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
         // _buildHighlightItem(Icons.hotel_outlined, '$rooms Rooms'),
         // _buildHighlightItem(Icons.star_outline_rounded, '$stars Stars'),
         if (widget.service.maxGuests != null)
-          _buildHighlightItem(Icons.people_outline_rounded, '${widget.service.maxGuests} Guests'),
+          _buildHighlightItem(
+            Icons.people_outline_rounded,
+            '${widget.service.maxGuests} Guests',
+          ),
         if (metadata['breakfastIncluded'] == true)
           _buildHighlightItem(Icons.restaurant_outlined, 'Breakfast'),
       ];
@@ -870,11 +1108,7 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Wrap(
-          spacing: 12,
-          runSpacing: 8,
-          children: highlights,
-        ),
+        Wrap(spacing: 12, runSpacing: 8, children: highlights),
         const SizedBox(height: 8),
         // Availability Status
         _buildAvailabilityBadge(),
@@ -901,7 +1135,9 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
   }
 
   Widget _buildAvailabilityBadge() {
-    final bool isHotel = widget.service.category.toLowerCase().contains('hotel');
+    final bool isHotel = widget.service.category.toLowerCase().contains(
+      'hotel',
+    );
     final metadata = widget.service.metadata;
     final int availableRooms =
         (metadata['availableRooms'] as num?)?.toInt() ?? 1;
@@ -960,7 +1196,7 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
     String availabilityText = 'Available Now';
     final String category = widget.service.category.toLowerCase();
     final String? package = metadata['package'] as String?;
-    
+
     if (category.contains('tour') && package != null) {
       // Capitalize first letter
       final formattedPackage = package[0].toUpperCase() + package.substring(1);
@@ -1081,7 +1317,7 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
 
   Widget _buildAmenitiesRow({required int maxItems}) {
     final List<String> serviceAmenities = widget.service.amenities ?? [];
-    
+
     if (serviceAmenities.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -1123,7 +1359,9 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
     if (a.contains('spa')) return Icons.spa;
     if (a.contains('security') || a.contains('safe')) return Icons.lock_outline;
     if (a.contains('coffee')) return Icons.coffee_maker_outlined;
-    if (a.contains('transport') || a.contains('pickup')) return Icons.airport_shuttle;
+    if (a.contains('transport') || a.contains('pickup')) {
+      return Icons.airport_shuttle;
+    }
     return Icons.done;
   }
 }

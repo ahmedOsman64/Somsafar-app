@@ -3,6 +3,7 @@ import '../models/tax_model.dart';
 import '../models/user_model.dart';
 import '../models/service_model.dart';
 import '../models/special_offer_model.dart';
+import '../models/discount_model.dart';
 
 class BookingFormService {
   // Form validation methods
@@ -117,14 +118,16 @@ class BookingFormService {
     }
 
     // Contact and preferences are optional as per requested flow
-    
+
     return FormValidationState(isValid: errors.isEmpty, errors: errors);
   }
 
   static FormValidationState validateJummaBooking(JummaBookingData data) {
     final errors = <String, String>{};
 
-    if (data.fullName.isEmpty) errors['fullName'] = 'Full name is required';
+    if (data.fullName.isEmpty) {
+      errors['fullName'] = 'Full name is required';
+    }
     if (data.preferredLocation.isEmpty) {
       errors['preferredLocation'] = 'Location is required';
     }
@@ -138,8 +141,12 @@ class BookingFormService {
   static FormValidationState validateEidBooking(EidBookingData data) {
     final errors = <String, String>{};
 
-    if (data.fullName.isEmpty) errors['fullName'] = 'Full name is required';
-    if (data.destination.isEmpty) errors['destination'] = 'Destination is required';
+    if (data.fullName.isEmpty) {
+      errors['fullName'] = 'Full name is required';
+    }
+    if (data.destination.isEmpty) {
+      errors['destination'] = 'Destination is required';
+    }
     if (data.numberOfDays <= 0) {
       errors['numberOfDays'] = 'Number of days must be at least 1';
     }
@@ -147,12 +154,20 @@ class BookingFormService {
     return FormValidationState(isValid: errors.isEmpty, errors: errors);
   }
 
-  static FormValidationState validateCustomTourBooking(CustomTourBookingData data) {
+  static FormValidationState validateCustomTourBooking(
+    CustomTourBookingData data,
+  ) {
     final errors = <String, String>{};
 
-    if (data.fullName.isEmpty) errors['fullName'] = 'Full name is required';
-    if (data.location.trim().isEmpty) errors['location'] = 'Location is required';
-    if (data.destination.isEmpty) errors['destination'] = 'Destination is required';
+    if (data.fullName.isEmpty) {
+      errors['fullName'] = 'Full name is required';
+    }
+    if (data.location.trim().isEmpty) {
+      errors['location'] = 'Location is required';
+    }
+    if (data.destination.isEmpty) {
+      errors['destination'] = 'Destination is required';
+    }
 
     return FormValidationState(isValid: errors.isEmpty, errors: errors);
   }
@@ -269,6 +284,7 @@ class BookingFormService {
     List<TaxModel> activeTaxes, {
     double platformFeePercentage = 0,
     List<SpecialOffer> activeOffers = const [],
+    Discount? activeDiscount,
   }) {
     double basePrice = service.price;
     double totalPrice = basePrice;
@@ -280,8 +296,7 @@ class BookingFormService {
 
     // Add extras
     if (data.breakfastIncluded) {
-      final breakfastCost =
-          (data.breakfastPrice ?? 0.0) * data.guests * nights;
+      final breakfastCost = (data.breakfastPrice ?? 0.0) * data.guests * nights;
       totalPrice += breakfastCost;
       extras['breakfast'] = breakfastCost;
     }
@@ -298,6 +313,10 @@ class BookingFormService {
       extras['extraBed'] = bedCost;
     }
 
+    double subtotal = totalPrice;
+
+    double totalDiscount = 0;
+
     // Apply special offer discount (before taxes)
     final offerResult = applySpecialOfferDiscount(
       serviceId: service.id,
@@ -305,14 +324,33 @@ class BookingFormService {
       activeOffers: activeOffers,
     );
     if (offerResult != null) {
-      totalPrice -= offerResult['discountAmount'] as double;
+      final offerAmount = offerResult['discountAmount'] as double;
+      totalPrice -= offerAmount;
+      totalDiscount += offerAmount;
       extras['specialOffer'] = offerResult['label'];
+    }
+
+    // Apply Automatic Discount (before taxes)
+    if (activeDiscount != null) {
+      double discountAmount = 0;
+      if (activeDiscount.isPercentage) {
+        discountAmount = totalPrice * (activeDiscount.value / 100);
+      } else {
+        discountAmount = activeDiscount.value;
+      }
+      totalPrice -= discountAmount;
+      totalDiscount += discountAmount;
+      extras['automaticDiscount'] = activeDiscount.discountText;
+      extras['discountLabel'] = activeDiscount.badgeText;
     }
 
     // Calculate taxes from active taxes
     double totalTaxAmount = 0;
-    final relevantTaxes = activeTaxes.where((t) =>
-      t.providerType == ProviderType.hotel || t.providerType == ProviderType.all);
+    final relevantTaxes = activeTaxes.where(
+      (t) =>
+          t.providerType == ProviderType.hotel ||
+          t.providerType == ProviderType.all,
+    );
 
     for (final tax in relevantTaxes) {
       if (tax.taxType == TaxType.percentage) {
@@ -336,7 +374,9 @@ class BookingFormService {
       serviceType: ServiceType.hotel,
       serviceTitle: 'Hotel Booking',
       basePrice: basePrice * nights * data.rooms,
+      subtotal: subtotal,
       taxes: totalTaxAmount,
+      discount: totalDiscount,
       totalPrice: totalPrice,
       extras: extras,
     );
@@ -348,6 +388,7 @@ class BookingFormService {
     List<TaxModel> activeTaxes, {
     double platformFeePercentage = 0,
     List<SpecialOffer> activeOffers = const [],
+    Discount? activeDiscount,
   }) {
     double basePrice = service.price;
     double totalPrice = basePrice;
@@ -382,6 +423,10 @@ class BookingFormService {
       extras['lateCheckout'] = lateCheckoutCost;
     }
 
+    double subtotal = totalPrice;
+
+    double totalDiscount = 0;
+
     // Apply special offer discount (before taxes)
     final offerResult = applySpecialOfferDiscount(
       serviceId: service.id,
@@ -389,16 +434,34 @@ class BookingFormService {
       activeOffers: activeOffers,
     );
     if (offerResult != null) {
-      totalPrice -= offerResult['discountAmount'] as double;
+      final offerAmount = offerResult['discountAmount'] as double;
+      totalPrice -= offerAmount;
+      totalDiscount += offerAmount;
       extras['specialOffer'] = offerResult['label'];
+    }
+
+    // Apply Automatic Discount (before taxes)
+    if (activeDiscount != null) {
+      double discountAmount = 0;
+      if (activeDiscount.isPercentage) {
+        discountAmount = totalPrice * (activeDiscount.value / 100);
+      } else {
+        discountAmount = activeDiscount.value;
+      }
+      totalPrice -= discountAmount;
+      totalDiscount += discountAmount;
+      extras['automaticDiscount'] = activeDiscount.discountText;
+      extras['discountLabel'] = activeDiscount.badgeText;
     }
 
     // Calculate taxes from active taxes
     double totalTaxAmount = 0;
-    final relevantTaxes = activeTaxes.where((t) =>
-      t.providerType == ProviderType.apartment ||
-      t.providerType == ProviderType.home ||
-      t.providerType == ProviderType.all);
+    final relevantTaxes = activeTaxes.where(
+      (t) =>
+          t.providerType == ProviderType.apartment ||
+          t.providerType == ProviderType.home ||
+          t.providerType == ProviderType.all,
+    );
 
     for (final tax in relevantTaxes) {
       if (tax.taxType == TaxType.percentage) {
@@ -422,7 +485,9 @@ class BookingFormService {
       serviceType: ServiceType.apartment,
       serviceTitle: 'Apartment Booking',
       basePrice: (basePrice / 30) * nights,
+      subtotal: subtotal,
       taxes: totalTaxAmount,
+      discount: totalDiscount,
       totalPrice: totalPrice,
       extras: extras,
     );
@@ -435,16 +500,19 @@ class BookingFormService {
     double platformFeePercentage = 0,
     double packageMultiplier = 1.0,
     List<SpecialOffer> activeOffers = const [],
+    Discount? activeDiscount,
   }) {
     double adultPrice = service.adultPrice ?? service.price;
-    double childPrice = service.childPrice ?? (service.adultPrice ?? service.price) * 0.5;
+    double childPrice =
+        service.childPrice ?? (service.adultPrice ?? service.price) * 0.5;
     // Calculate base price based on travelers and multiply by days
-    double baseTotalPrice = (adultPrice * data.adultTravelers) + (childPrice * data.childTravelers);
+    double baseTotalPrice =
+        (adultPrice * data.adultTravelers) + (childPrice * data.childTravelers);
     double totalPrice = baseTotalPrice * data.numberOfDays;
-    
+
     // Apply dynamic multiplier
     totalPrice *= packageMultiplier;
-    
+
     final extras = <String, dynamic>{};
     if (data.numberOfDays > 1) {
       extras['duration'] = '${data.numberOfDays} Days (x${data.numberOfDays})';
@@ -457,7 +525,8 @@ class BookingFormService {
         break;
       case TourPackage.eid:
         if (packageMultiplier > 1.0) {
-          extras['packageUpgrade'] = 'Eid Package (+${((packageMultiplier - 1.0) * 100).toStringAsFixed(0)}%)';
+          extras['packageUpgrade'] =
+              'Eid Package (+${((packageMultiplier - 1.0) * 100).toStringAsFixed(0)}%)';
         } else {
           extras['packageUpgrade'] = 'Eid Package';
         }
@@ -468,19 +537,24 @@ class BookingFormService {
     }
 
     // Add Preferred Services Prices
-    final extraPrices = service.metadata['extraServicePrices'] as Map<String, dynamic>? ?? {};
+    final extraPrices =
+        service.metadata['extraServicePrices'] as Map<String, dynamic>? ?? {};
     if (data.preferredServices != null) {
       for (final serviceName in data.preferredServices!) {
         final price = extraPrices[serviceName];
         if (price != null && price is num && price > 0) {
           final totalExtraPrice = price.toDouble() * data.numberOfDays;
           totalPrice += totalExtraPrice;
-          extras['extra_$serviceName'] = data.numberOfDays > 1 
-            ? '$serviceName (\$+${price.toStringAsFixed(2)} x ${data.numberOfDays} days = \$${totalExtraPrice.toStringAsFixed(2)})'
-            : '$serviceName (+\$${price.toStringAsFixed(2)})';
+          extras['extra_$serviceName'] = data.numberOfDays > 1
+              ? '$serviceName (\$+${price.toStringAsFixed(2)} x ${data.numberOfDays} days = \$${totalExtraPrice.toStringAsFixed(2)})'
+              : '$serviceName (+\$${price.toStringAsFixed(2)})';
         }
       }
     }
+
+    double subtotal = totalPrice;
+
+    double totalDiscount = 0;
 
     // Apply special offer discount (before taxes)
     final offerResult = applySpecialOfferDiscount(
@@ -489,14 +563,33 @@ class BookingFormService {
       activeOffers: activeOffers,
     );
     if (offerResult != null) {
-      totalPrice -= offerResult['discountAmount'] as double;
+      final offerAmount = offerResult['discountAmount'] as double;
+      totalPrice -= offerAmount;
+      totalDiscount += offerAmount;
       extras['specialOffer'] = offerResult['label'];
+    }
+
+    // Apply Automatic Discount (before taxes)
+    if (activeDiscount != null) {
+      double discountAmount = 0;
+      if (activeDiscount.isPercentage) {
+        discountAmount = totalPrice * (activeDiscount.value / 100);
+      } else {
+        discountAmount = activeDiscount.value;
+      }
+      totalPrice -= discountAmount;
+      totalDiscount += discountAmount;
+      extras['automaticDiscount'] = activeDiscount.discountText;
+      extras['discountLabel'] = activeDiscount.badgeText;
     }
 
     // Calculate taxes from active taxes
     double totalTaxAmount = 0;
-    final relevantTaxes = activeTaxes.where((t) =>
-      t.providerType == ProviderType.tour || t.providerType == ProviderType.all);
+    final relevantTaxes = activeTaxes.where(
+      (t) =>
+          t.providerType == ProviderType.tour ||
+          t.providerType == ProviderType.all,
+    );
 
     for (final tax in relevantTaxes) {
       if (tax.taxType == TaxType.percentage) {
@@ -509,9 +602,8 @@ class BookingFormService {
     totalPrice += totalTaxAmount;
 
     // Apply System Fee
-    double systemFeeAmount = 0;
     if (platformFeePercentage > 0) {
-      systemFeeAmount = totalPrice * (platformFeePercentage / 100);
+      final systemFeeAmount = totalPrice * (platformFeePercentage / 100);
       totalPrice += systemFeeAmount;
       extras['systemFee'] =
           'System Fee (${platformFeePercentage.toStringAsFixed(1)}%) : \$${systemFeeAmount.toStringAsFixed(2)}';
@@ -520,8 +612,10 @@ class BookingFormService {
     return BookingSummary(
       serviceType: ServiceType.tour,
       serviceTitle: 'Tour Booking',
-      basePrice: baseTotalPrice,
+      basePrice: baseTotalPrice * data.numberOfDays * packageMultiplier,
+      subtotal: subtotal,
       taxes: totalTaxAmount,
+      discount: totalDiscount,
       totalPrice: totalPrice,
       extras: extras,
     );
@@ -533,6 +627,7 @@ class BookingFormService {
     List<TaxModel> activeTaxes, {
     double platformFeePercentage = 0,
     List<SpecialOffer> activeOffers = const [],
+    Discount? activeDiscount,
   }) {
     double basePrice = service.price;
     double totalPrice = basePrice;
@@ -575,6 +670,10 @@ class BookingFormService {
       extras['childSeat'] = seatCost;
     }
 
+    double subtotal = totalPrice;
+
+    double totalDiscount = 0;
+
     // Apply special offer discount (before taxes)
     final offerResult = applySpecialOfferDiscount(
       serviceId: service.id,
@@ -582,14 +681,32 @@ class BookingFormService {
       activeOffers: activeOffers,
     );
     if (offerResult != null) {
-      totalPrice -= offerResult['discountAmount'] as double;
+      final offerAmount = offerResult['discountAmount'] as double;
+      totalPrice -= offerAmount;
+      totalDiscount += offerAmount;
       extras['specialOffer'] = offerResult['label'];
+    }
+
+    // Apply Automatic Discount (before taxes)
+    if (activeDiscount != null) {
+      double discountAmount = 0;
+      if (activeDiscount.isPercentage) {
+        discountAmount = totalPrice * (activeDiscount.value / 100);
+      } else {
+        discountAmount = activeDiscount.value;
+      }
+      totalPrice -= discountAmount;
+      totalDiscount += discountAmount;
+      extras['automaticDiscount'] = activeDiscount.discountText;
+      extras['discountLabel'] = activeDiscount.badgeText;
     }
 
     // Calculate taxes from active taxes
     double totalTaxAmount = 0;
     // Vehicles don't have a specific ProviderType but we can use 'all' or add one
-    final relevantTaxes = activeTaxes.where((t) => t.providerType == ProviderType.all);
+    final relevantTaxes = activeTaxes.where(
+      (t) => t.providerType == ProviderType.all,
+    );
 
     for (final tax in relevantTaxes) {
       if (tax.taxType == TaxType.percentage) {
@@ -601,11 +718,21 @@ class BookingFormService {
 
     totalPrice += totalTaxAmount;
 
+    // Apply System Fee
+    if (platformFeePercentage > 0) {
+      final systemFeeAmount = totalPrice * (platformFeePercentage / 100);
+      totalPrice += systemFeeAmount;
+      extras['systemFee'] =
+          'System Fee (${platformFeePercentage.toStringAsFixed(1)}%) : \$${systemFeeAmount.toStringAsFixed(2)}';
+    }
+
     return BookingSummary(
       serviceType: ServiceType.vehicle,
-      serviceTitle: 'Vehicle Rental',
+      serviceTitle: 'Vehicle Booking',
       basePrice: basePrice * (days == 0 ? 1 : days),
+      subtotal: subtotal,
       taxes: totalTaxAmount,
+      discount: totalDiscount,
       totalPrice: totalPrice,
       extras: extras,
     );
@@ -620,12 +747,14 @@ class BookingFormService {
     required double priceBeforeTaxes,
     required List<SpecialOffer> activeOffers,
   }) {
-    final offer = activeOffers.where(
-      (o) =>
-          o.isActive &&
-          o.linkedServiceId == serviceId &&
-          (o.discountPercent ?? 0) > 0,
-    ).firstOrNull;
+    final offer = activeOffers
+        .where(
+          (o) =>
+              o.isActive &&
+              o.linkedServiceId == serviceId &&
+              (o.discountPercent ?? 0) > 0,
+        )
+        .firstOrNull;
 
     if (offer == null) return null;
 

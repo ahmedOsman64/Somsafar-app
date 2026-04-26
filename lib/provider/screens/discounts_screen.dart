@@ -6,11 +6,25 @@ import '../../shared/services/discount_repository.dart';
 import 'create_discount_screen.dart';
 import '../../shared/widgets/confirmation_dialog.dart';
 
-class ProviderDiscountsScreen extends ConsumerWidget {
+class ProviderDiscountsScreen extends ConsumerStatefulWidget {
   const ProviderDiscountsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProviderDiscountsScreen> createState() =>
+      _ProviderDiscountsScreenState();
+}
+
+class _ProviderDiscountsScreenState extends ConsumerState<ProviderDiscountsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      ref.read(discountRepositoryProvider.notifier).checkExpirations();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final discounts = ref.watch(filteredDiscountsProvider);
 
     // Calculate stats
@@ -395,7 +409,7 @@ class ProviderDiscountsScreen extends ConsumerWidget {
                           children: [
                             Expanded(
                               child: Text(
-                                discount.title,
+                                discount.discountText,
                                 style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
@@ -409,22 +423,6 @@ class ProviderDiscountsScreen extends ConsumerWidget {
                           ],
                         ),
                         const SizedBox(height: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppColors.background,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            'CODE: ${discount.code}',
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primary,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
                         const Spacer(),
                         Row(
                           children: [
@@ -499,7 +497,7 @@ class ProviderDiscountsScreen extends ConsumerWidget {
     final confirmed = await ConfirmationDialog.show(
       context: context,
       title: 'Delete Discount?',
-      message: 'Are you sure you want to delete "${discount.title}"?',
+      message: 'Are you sure you want to delete "${discount.discountText}"?',
       confirmLabel: 'Yes, Delete',
       type: ConfirmationDialogType.danger,
       icon: Icons.delete_forever_outlined,

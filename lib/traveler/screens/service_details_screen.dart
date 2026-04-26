@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../shared/services/service_repository.dart';
 import '../../shared/models/service_model.dart';
+import '../../shared/services/discount_repository.dart';
 
 class ServiceDetailsScreen extends ConsumerWidget {
   final String serviceId;
@@ -101,7 +102,8 @@ class ServiceDetailsScreen extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    if (service.amenities != null && service.amenities!.isNotEmpty)
+                    if (service.amenities != null &&
+                        service.amenities!.isNotEmpty)
                       Wrap(
                         spacing: 16,
                         runSpacing: 16,
@@ -115,7 +117,10 @@ class ServiceDetailsScreen extends ConsumerWidget {
                     else
                       Text(
                         'No specific amenities listed.',
-                        style: TextStyle(color: Colors.grey[500], fontStyle: FontStyle.italic),
+                        style: TextStyle(
+                          color: Colors.grey[500],
+                          fontStyle: FontStyle.italic,
+                        ),
                       ),
                     const SizedBox(height: 24),
                     _buildSpecificationsSection(context, service),
@@ -146,20 +151,90 @@ class ServiceDetailsScreen extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    '\$${service.price.toStringAsFixed(0)}',
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
+                  Builder(
+                    builder: (context) {
+                      final discounts = ref.watch(discountRepositoryProvider);
+                      final activeDiscount = DiscountRepository.getBestDiscount(
+                        discounts,
+                        service.id,
+                        service.providerId,
+                      );
+
+                      if (activeDiscount == null) {
+                        return Text(
+                          '\$${service.price.toStringAsFixed(0)}',
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
+                          ),
+                        );
+                      }
+
+                      double finalPrice = service.price;
+                      if (activeDiscount.isPercentage) {
+                        finalPrice -=
+                            service.price * (activeDiscount.value / 100);
+                      } else {
+                        finalPrice -= activeDiscount.value;
+                      }
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                '\$${service.price.toStringAsFixed(0)}',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey.shade400,
+                                  decoration: TextDecoration.lineThrough,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.secondary,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  activeDiscount.badgeText,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            '\$${finalPrice.toStringAsFixed(0)}',
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                   Text(
-                    (service.category.toString().toLowerCase().contains('apartment'))
+                    (service.category.toString().toLowerCase().contains(
+                          'apartment',
+                        ))
                         ? 'per month'
-                        : (service.category.toString().toLowerCase().contains('tour'))
-                            ? 'per person'
-                            : 'per night',
+                        : (service.category.toString().toLowerCase().contains(
+                            'tour',
+                          ))
+                        ? 'per person'
+                        : 'per night',
                     style: const TextStyle(color: AppColors.grey),
                   ),
                 ],
@@ -184,7 +259,6 @@ class ServiceDetailsScreen extends ConsumerWidget {
     );
   }
 
-
   Widget _buildSpecificationsSection(BuildContext context, Service service) {
     final metadata = service.metadata;
     final category = service.category.toString().toLowerCase();
@@ -194,9 +268,9 @@ class ServiceDetailsScreen extends ConsumerWidget {
       children: [
         Text(
           'Information & Policies',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
         Container(
@@ -301,18 +375,56 @@ class ServiceDetailsScreen extends ConsumerWidget {
 
                 // Package Specific Info
                 if (metadata['package'] == 'jumma') ...[
-                  _buildInfoRow(Icons.mosque_outlined, 'Prayer Location', metadata['preferredLocation'] ?? 'N/A'),
-                  _buildInfoRow(Icons.directions_bus_outlined, 'Transport', metadata['jummaTransport'] ?? 'N/A'),
-                  _buildInfoRow(Icons.apartment_outlined, 'Stay Type', metadata['accommodationType'] ?? 'N/A'),
-                  _buildInfoRow(Icons.restaurant_outlined, 'Lunch', metadata['includeLunch'] == true ? 'Included' : 'Not Included'),
+                  _buildInfoRow(
+                    Icons.mosque_outlined,
+                    'Prayer Location',
+                    metadata['preferredLocation'] ?? 'N/A',
+                  ),
+                  _buildInfoRow(
+                    Icons.directions_bus_outlined,
+                    'Transport',
+                    metadata['jummaTransport'] ?? 'N/A',
+                  ),
+                  _buildInfoRow(
+                    Icons.apartment_outlined,
+                    'Stay Type',
+                    metadata['accommodationType'] ?? 'N/A',
+                  ),
+                  _buildInfoRow(
+                    Icons.restaurant_outlined,
+                    'Lunch',
+                    metadata['includeLunch'] == true
+                        ? 'Included'
+                        : 'Not Included',
+                  ),
                 ] else if (metadata['package'] == 'eid') ...[
-                  _buildInfoRow(Icons.celebration_outlined, 'Eid Package', metadata['eidType'] ?? 'N/A'),
-                  _buildInfoRow(Icons.map_outlined, 'Destination', metadata['destination'] ?? 'N/A'),
-                  _buildInfoRow(Icons.calendar_month_outlined, 'Duration', '${metadata['numberOfDays'] ?? 'N/A'} Days'),
+                  _buildInfoRow(
+                    Icons.celebration_outlined,
+                    'Eid Package',
+                    metadata['eidType'] ?? 'N/A',
+                  ),
+                  _buildInfoRow(
+                    Icons.map_outlined,
+                    'Destination',
+                    metadata['destination'] ?? 'N/A',
+                  ),
+                  _buildInfoRow(
+                    Icons.calendar_month_outlined,
+                    'Duration',
+                    '${metadata['numberOfDays'] ?? 'N/A'} Days',
+                  ),
                   // _buildInfoRow(Icons.hotel_outlined, 'Hotel Rating', '${metadata['hotelRating'] ?? 'N/A'} Stars'),
-                  _buildInfoRow(Icons.restaurant_outlined, 'Food Package', metadata['foodPackage'] ?? 'N/A'),
+                  _buildInfoRow(
+                    Icons.restaurant_outlined,
+                    'Food Package',
+                    metadata['foodPackage'] ?? 'N/A',
+                  ),
                 ] else if (metadata['package'] == 'custom') ...[
-                  _buildInfoRow(Icons.account_balance_wallet_outlined, 'Suggested Budget', metadata['budgetRange'] ?? 'N/A'),
+                  _buildInfoRow(
+                    Icons.account_balance_wallet_outlined,
+                    'Suggested Budget',
+                    metadata['budgetRange'] ?? 'N/A',
+                  ),
                   if (metadata['availableServices'] != null)
                     _buildInfoRow(
                       Icons.room_service_outlined,
@@ -336,7 +448,7 @@ class ServiceDetailsScreen extends ConsumerWidget {
                     (metadata['includes'] as List).join(', '),
                   ),
               ],
-              
+
               // Extras & Prices
               if (service.breakfastPrice != null && service.breakfastPrice! > 0)
                 _buildInfoRow(
@@ -344,7 +456,8 @@ class ServiceDetailsScreen extends ConsumerWidget {
                   'Breakfast',
                   '\$${service.breakfastPrice!.toStringAsFixed(0)} / person',
                 ),
-              if (service.airportPickupPrice != null && service.airportPickupPrice! > 0)
+              if (service.airportPickupPrice != null &&
+                  service.airportPickupPrice! > 0)
                 _buildInfoRow(
                   Icons.local_airport,
                   'Airport Pickup',
@@ -398,10 +511,7 @@ class ServiceDetailsScreen extends ConsumerWidget {
         children: [
           Icon(icon, size: 20, color: AppColors.primary),
           const SizedBox(width: 12),
-          Text(
-            '$label:',
-            style: const TextStyle(fontWeight: FontWeight.w500),
-          ),
+          Text('$label:', style: const TextStyle(fontWeight: FontWeight.w500)),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -417,26 +527,47 @@ class ServiceDetailsScreen extends ConsumerWidget {
 
   IconData _getIconForAmenity(String amenity) {
     final a = amenity.toLowerCase();
-    if (a.contains('wifi')) return Icons.wifi;
-    if (a.contains('ac') || a.contains('air condition')) return Icons.ac_unit;
-    if (a.contains('pool')) return Icons.pool;
-    if (a.contains('parking')) return Icons.local_parking;
-    if (a.contains('breakfast')) return Icons.free_breakfast;
-    if (a.contains('gym') || a.contains('fitness')) return Icons.fitness_center;
-    if (a.contains('tv')) return Icons.tv;
-    if (a.contains('restaurant') || a.contains('food')) return Icons.restaurant;
-    if (a.contains('spa')) return Icons.spa;
-    if (a.contains('security') || a.contains('safe')) return Icons.lock_outline;
-    if (a.contains('coffee')) return Icons.coffee_maker_outlined;
-    if (a.contains('transport') || a.contains('pickup')) return Icons.airport_shuttle;
+    if (a.contains('wifi')) {
+      return Icons.wifi;
+    }
+    if (a.contains('ac') || a.contains('air condition')) {
+      return Icons.ac_unit;
+    }
+    if (a.contains('pool')) {
+      return Icons.pool;
+    }
+    if (a.contains('parking')) {
+      return Icons.local_parking;
+    }
+    if (a.contains('breakfast')) {
+      return Icons.free_breakfast;
+    }
+    if (a.contains('gym') || a.contains('fitness')) {
+      return Icons.fitness_center;
+    }
+    if (a.contains('tv')) {
+      return Icons.tv;
+    }
+    if (a.contains('restaurant') || a.contains('food')) {
+      return Icons.restaurant;
+    }
+    if (a.contains('spa')) {
+      return Icons.spa;
+    }
+    if (a.contains('security') || a.contains('safe')) {
+      return Icons.lock_outline;
+    }
+    if (a.contains('coffee')) {
+      return Icons.coffee_maker_outlined;
+    }
+    if (a.contains('transport') || a.contains('pickup')) {
+      return Icons.airport_shuttle;
+    }
     return Icons.done;
   }
 
   void _navigateToBooking(BuildContext context, Service service) {
-    context.push(
-      '/traveler/booking/${service.id}',
-      extra: service,
-    );
+    context.push('/traveler/booking/${service.id}', extra: service);
   }
 }
 
@@ -464,7 +595,11 @@ class _ServiceImageCarouselState extends State<ServiceImageCarousel> {
     if (widget.images.isEmpty) {
       return Container(
         color: Colors.grey[200],
-        child: const Icon(Icons.image_not_supported, size: 50, color: Colors.grey),
+        child: const Icon(
+          Icons.image_not_supported,
+          size: 50,
+          color: Colors.grey,
+        ),
       );
     }
 
@@ -584,10 +719,7 @@ class _AmenityChip extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
           ),
         ],
       ),
