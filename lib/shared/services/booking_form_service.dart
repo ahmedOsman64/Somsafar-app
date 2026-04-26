@@ -317,31 +317,44 @@ class BookingFormService {
 
     double totalDiscount = 0;
 
-    // Apply special offer discount (before taxes)
-    final offerResult = applySpecialOfferDiscount(
-      serviceId: service.id,
-      priceBeforeTaxes: totalPrice,
-      activeOffers: activeOffers,
-    );
-    if (offerResult != null) {
-      final offerAmount = offerResult['discountAmount'] as double;
-      totalPrice -= offerAmount;
-      totalDiscount += offerAmount;
-      extras['specialOffer'] = offerResult['label'];
+    // Calculate potential discounts
+    double specialOfferAmount = 0;
+    Map<String, dynamic>? offerResult;
+    if (activeOffers.isNotEmpty) {
+      offerResult = applySpecialOfferDiscount(
+        serviceId: service.id,
+        priceBeforeTaxes: totalPrice,
+        activeOffers: activeOffers,
+      );
+      if (offerResult != null) {
+        specialOfferAmount = offerResult['discountAmount'] as double;
+      }
     }
 
-    // Apply Automatic Discount (before taxes)
+    double automaticDiscountAmount = 0;
     if (activeDiscount != null) {
-      double discountAmount = 0;
       if (activeDiscount.isPercentage) {
-        discountAmount = totalPrice * (activeDiscount.value / 100);
+        automaticDiscountAmount = totalPrice * (activeDiscount.value / 100);
       } else {
-        discountAmount = activeDiscount.value;
+        automaticDiscountAmount = activeDiscount.value;
       }
-      totalPrice -= discountAmount;
-      totalDiscount += discountAmount;
-      extras['automaticDiscount'] = activeDiscount.discountText;
+    }
+
+    // Apply the provider's discount if available, otherwise check for special offers
+    if (automaticDiscountAmount > 0) {
+      totalPrice -= automaticDiscountAmount;
+      totalDiscount = automaticDiscountAmount;
+      extras['automaticDiscount'] = activeDiscount!.discountText;
       extras['discountLabel'] = activeDiscount.badgeText;
+    } else if (specialOfferAmount > 0) {
+      totalPrice -= specialOfferAmount;
+      totalDiscount = specialOfferAmount;
+      extras['specialOffer'] = offerResult!['label'];
+      if (offerResult['offer'] != null &&
+          offerResult['offer'] is SpecialOffer) {
+        extras['discountLabel'] =
+            (offerResult['offer'] as SpecialOffer).discount;
+      }
     }
 
     // Calculate taxes from active taxes
@@ -427,31 +440,44 @@ class BookingFormService {
 
     double totalDiscount = 0;
 
-    // Apply special offer discount (before taxes)
-    final offerResult = applySpecialOfferDiscount(
-      serviceId: service.id,
-      priceBeforeTaxes: totalPrice,
-      activeOffers: activeOffers,
-    );
-    if (offerResult != null) {
-      final offerAmount = offerResult['discountAmount'] as double;
-      totalPrice -= offerAmount;
-      totalDiscount += offerAmount;
-      extras['specialOffer'] = offerResult['label'];
+    // Calculate potential discounts
+    double specialOfferAmount = 0;
+    Map<String, dynamic>? offerResult;
+    if (activeOffers.isNotEmpty) {
+      offerResult = applySpecialOfferDiscount(
+        serviceId: service.id,
+        priceBeforeTaxes: totalPrice,
+        activeOffers: activeOffers,
+      );
+      if (offerResult != null) {
+        specialOfferAmount = offerResult['discountAmount'] as double;
+      }
     }
 
-    // Apply Automatic Discount (before taxes)
+    double automaticDiscountAmount = 0;
     if (activeDiscount != null) {
-      double discountAmount = 0;
       if (activeDiscount.isPercentage) {
-        discountAmount = totalPrice * (activeDiscount.value / 100);
+        automaticDiscountAmount = totalPrice * (activeDiscount.value / 100);
       } else {
-        discountAmount = activeDiscount.value;
+        automaticDiscountAmount = activeDiscount.value;
       }
-      totalPrice -= discountAmount;
-      totalDiscount += discountAmount;
-      extras['automaticDiscount'] = activeDiscount.discountText;
+    }
+
+    // Apply the provider's discount if available, otherwise check for special offers
+    if (automaticDiscountAmount > 0) {
+      totalPrice -= automaticDiscountAmount;
+      totalDiscount = automaticDiscountAmount;
+      extras['automaticDiscount'] = activeDiscount!.discountText;
       extras['discountLabel'] = activeDiscount.badgeText;
+    } else if (specialOfferAmount > 0) {
+      totalPrice -= specialOfferAmount;
+      totalDiscount = specialOfferAmount;
+      extras['specialOffer'] = offerResult!['label'];
+      if (offerResult['offer'] != null &&
+          offerResult['offer'] is SpecialOffer) {
+        extras['discountLabel'] =
+            (offerResult['offer'] as SpecialOffer).discount;
+      }
     }
 
     // Calculate taxes from active taxes
@@ -556,31 +582,44 @@ class BookingFormService {
 
     double totalDiscount = 0;
 
-    // Apply special offer discount (before taxes)
-    final offerResult = applySpecialOfferDiscount(
-      serviceId: service.id,
-      priceBeforeTaxes: totalPrice,
-      activeOffers: activeOffers,
-    );
-    if (offerResult != null) {
-      final offerAmount = offerResult['discountAmount'] as double;
-      totalPrice -= offerAmount;
-      totalDiscount += offerAmount;
-      extras['specialOffer'] = offerResult['label'];
+    // Calculate potential discounts
+    double specialOfferAmount = 0;
+    Map<String, dynamic>? offerResult;
+    if (activeOffers.isNotEmpty) {
+      offerResult = applySpecialOfferDiscount(
+        serviceId: service.id,
+        priceBeforeTaxes: totalPrice,
+        activeOffers: activeOffers,
+      );
+      if (offerResult != null) {
+        specialOfferAmount = offerResult['discountAmount'] as double;
+      }
     }
 
-    // Apply Automatic Discount (before taxes)
+    double automaticDiscountAmount = 0;
     if (activeDiscount != null) {
-      double discountAmount = 0;
       if (activeDiscount.isPercentage) {
-        discountAmount = totalPrice * (activeDiscount.value / 100);
+        automaticDiscountAmount = totalPrice * (activeDiscount.value / 100);
       } else {
-        discountAmount = activeDiscount.value;
+        automaticDiscountAmount = activeDiscount.value;
       }
-      totalPrice -= discountAmount;
-      totalDiscount += discountAmount;
-      extras['automaticDiscount'] = activeDiscount.discountText;
+    }
+
+    // Apply the provider's discount if available, otherwise check for special offers
+    if (automaticDiscountAmount > 0) {
+      totalPrice -= automaticDiscountAmount;
+      totalDiscount = automaticDiscountAmount;
+      extras['automaticDiscount'] = activeDiscount!.discountText;
       extras['discountLabel'] = activeDiscount.badgeText;
+    } else if (specialOfferAmount > 0) {
+      totalPrice -= specialOfferAmount;
+      totalDiscount = specialOfferAmount;
+      extras['specialOffer'] = offerResult!['label'];
+      if (offerResult['offer'] != null &&
+          offerResult['offer'] is SpecialOffer) {
+        extras['discountLabel'] =
+            (offerResult['offer'] as SpecialOffer).discount;
+      }
     }
 
     // Calculate taxes from active taxes
@@ -674,31 +713,44 @@ class BookingFormService {
 
     double totalDiscount = 0;
 
-    // Apply special offer discount (before taxes)
-    final offerResult = applySpecialOfferDiscount(
-      serviceId: service.id,
-      priceBeforeTaxes: totalPrice,
-      activeOffers: activeOffers,
-    );
-    if (offerResult != null) {
-      final offerAmount = offerResult['discountAmount'] as double;
-      totalPrice -= offerAmount;
-      totalDiscount += offerAmount;
-      extras['specialOffer'] = offerResult['label'];
+    // Calculate potential discounts
+    double specialOfferAmount = 0;
+    Map<String, dynamic>? offerResult;
+    if (activeOffers.isNotEmpty) {
+      offerResult = applySpecialOfferDiscount(
+        serviceId: service.id,
+        priceBeforeTaxes: totalPrice,
+        activeOffers: activeOffers,
+      );
+      if (offerResult != null) {
+        specialOfferAmount = offerResult['discountAmount'] as double;
+      }
     }
 
-    // Apply Automatic Discount (before taxes)
+    double automaticDiscountAmount = 0;
     if (activeDiscount != null) {
-      double discountAmount = 0;
       if (activeDiscount.isPercentage) {
-        discountAmount = totalPrice * (activeDiscount.value / 100);
+        automaticDiscountAmount = totalPrice * (activeDiscount.value / 100);
       } else {
-        discountAmount = activeDiscount.value;
+        automaticDiscountAmount = activeDiscount.value;
       }
-      totalPrice -= discountAmount;
-      totalDiscount += discountAmount;
-      extras['automaticDiscount'] = activeDiscount.discountText;
+    }
+
+    // Apply the provider's discount if available, otherwise check for special offers
+    if (automaticDiscountAmount > 0) {
+      totalPrice -= automaticDiscountAmount;
+      totalDiscount = automaticDiscountAmount;
+      extras['automaticDiscount'] = activeDiscount!.discountText;
       extras['discountLabel'] = activeDiscount.badgeText;
+    } else if (specialOfferAmount > 0) {
+      totalPrice -= specialOfferAmount;
+      totalDiscount = specialOfferAmount;
+      extras['specialOffer'] = offerResult!['label'];
+      if (offerResult['offer'] != null &&
+          offerResult['offer'] is SpecialOffer) {
+        extras['discountLabel'] =
+            (offerResult['offer'] as SpecialOffer).discount;
+      }
     }
 
     // Calculate taxes from active taxes

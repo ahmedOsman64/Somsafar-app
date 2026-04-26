@@ -272,6 +272,19 @@ class BookingIntegrationService {
     final backend = _ref.read(bookingBackendProvider);
 
     try {
+      // 1. Identify the provider and service for discount/tax lookup
+      final enriched = await _ensureServiceDetails(bookingData);
+      final providerId = service?.providerId ?? enriched['providerId'];
+      final serviceId = bookingData['serviceId'] ?? '';
+
+      // 2. Check for automatic discounts using the central repository logic
+      final allDiscounts = _ref.read(discountRepositoryProvider);
+      final activeDiscount = DiscountRepository.getBestDiscount(
+        allDiscounts,
+        serviceId,
+        providerId,
+      );
+
       BookingSummary summary;
 
       switch (serviceType) {
@@ -297,8 +310,8 @@ class BookingIntegrationService {
             hotelData,
             service ??
                 Service(
-                  id: bookingData['serviceId'] ?? '',
-                  providerId: '',
+                  id: serviceId,
+                  providerId: providerId,
                   title: '',
                   category: 'Hotel',
                   price: basePrice,
@@ -312,6 +325,7 @@ class BookingIntegrationService {
                 .read(systemSettingsProvider)
                 .platformFee,
             activeOffers: _ref.read(activeSpecialOffersProvider),
+            activeDiscount: activeDiscount,
           );
           break;
 
@@ -330,12 +344,22 @@ class BookingIntegrationService {
             acceptHouseRules: bookingData['acceptHouseRules'] ?? false,
             pricingType: service?.pricingType ?? bookingData['pricingType'],
           );
+          summary = BookingSummary(
+            serviceType: ServiceType.apartment,
+            serviceTitle: 'Apartment Booking',
+            basePrice: (basePrice / 30) *
+                apartmentData.checkOut
+                    .difference(apartmentData.checkIn)
+                    .inDays,
+            subtotal: basePrice,
+            totalPrice: basePrice,
+          ); // Fallback init
           summary = BookingFormService.calculateApartmentPrice(
             apartmentData,
             service ??
                 Service(
-                  id: bookingData['serviceId'] ?? '',
-                  providerId: '',
+                  id: serviceId,
+                  providerId: providerId,
                   title: '',
                   category: 'Apartment',
                   price: basePrice,
@@ -349,6 +373,7 @@ class BookingIntegrationService {
                 .read(systemSettingsProvider)
                 .platformFee,
             activeOffers: _ref.read(activeSpecialOffersProvider),
+            activeDiscount: activeDiscount,
           );
           break;
 
@@ -376,8 +401,8 @@ class BookingIntegrationService {
               jummaData,
               service ??
                   Service(
-                    id: '',
-                    providerId: '',
+                    id: serviceId,
+                    providerId: providerId,
                     title: '',
                     category: 'Tour',
                     price: basePrice,
@@ -391,6 +416,7 @@ class BookingIntegrationService {
                   .read(systemSettingsProvider)
                   .platformFee,
               activeOffers: _ref.read(activeSpecialOffersProvider),
+              activeDiscount: activeDiscount,
             );
           } else if (bookingData['package'] == TourPackage.eid) {
             final eidData = EidBookingData(
@@ -418,8 +444,8 @@ class BookingIntegrationService {
               eidData,
               service ??
                   Service(
-                    id: '',
-                    providerId: '',
+                    id: serviceId,
+                    providerId: providerId,
                     title: '',
                     category: 'Tour',
                     price: basePrice,
@@ -433,6 +459,7 @@ class BookingIntegrationService {
                   .read(systemSettingsProvider)
                   .platformFee,
               activeOffers: _ref.read(activeSpecialOffersProvider),
+              activeDiscount: activeDiscount,
             );
           } else if (bookingData['package'] == TourPackage.custom) {
             final customData = CustomTourBookingData(
@@ -459,8 +486,8 @@ class BookingIntegrationService {
               customData,
               service ??
                   Service(
-                    id: '',
-                    providerId: '',
+                    id: serviceId,
+                    providerId: providerId,
                     title: '',
                     category: 'Tour',
                     price: basePrice,
@@ -474,6 +501,7 @@ class BookingIntegrationService {
                   .read(systemSettingsProvider)
                   .platformFee,
               activeOffers: _ref.read(activeSpecialOffersProvider),
+              activeDiscount: activeDiscount,
             );
           } else {
             final tourData = TourBookingData(
@@ -500,8 +528,8 @@ class BookingIntegrationService {
               tourData,
               service ??
                   Service(
-                    id: '',
-                    providerId: '',
+                    id: serviceId,
+                    providerId: providerId,
                     title: '',
                     category: 'Tour',
                     price: basePrice,
@@ -515,6 +543,7 @@ class BookingIntegrationService {
                   .read(systemSettingsProvider)
                   .platformFee,
               activeOffers: _ref.read(activeSpecialOffersProvider),
+              activeDiscount: activeDiscount,
             );
           }
           break;
@@ -547,8 +576,8 @@ class BookingIntegrationService {
             vehicleData,
             service ??
                 Service(
-                  id: bookingData['serviceId'] ?? '',
-                  providerId: '',
+                  id: serviceId,
+                  providerId: providerId,
                   title: '',
                   category: 'Vehicle',
                   price: basePrice,
@@ -562,53 +591,9 @@ class BookingIntegrationService {
                 .read(systemSettingsProvider)
                 .platformFee,
             activeOffers: _ref.read(activeSpecialOffersProvider),
+            activeDiscount: activeDiscount,
           );
           break;
-      }
-
-      // Check for automatic discounts
-      final allDiscounts = _ref.read(discountRepositoryProvider);
-      final now = DateTime.now();
-
-      // Identify the provider for this service
-      final enriched = await _ensureServiceDetails(bookingData);
-      final providerId = service?.providerId ?? enriched['providerId'];
-      final serviceId = bookingData['serviceId'] ?? '';
-
-      final activeDiscount = allDiscounts
-          .where(
-            (d) =>
-                d.status == DiscountStatus.active &&
-                d.startDate.isBefore(now) &&
-                d.endDate.isAfter(now) &&
-                d.providerId == providerId &&
-                (d.applicableServiceIds.isEmpty ||
-                    d.applicableServiceIds.contains(serviceId)),
-          )
-          .firstOrNull;
-
-      if (activeDiscount != null) {
-        double discountAmount = 0;
-        if (activeDiscount.isPercentage) {
-          discountAmount = summary.totalPrice * (activeDiscount.value / 100);
-        } else {
-          discountAmount = activeDiscount.value;
-        }
-
-        summary = BookingSummary(
-          serviceType: summary.serviceType,
-          serviceTitle: summary.serviceTitle,
-          basePrice: summary.basePrice,
-          subtotal: summary.subtotal,
-          taxes: summary.taxes,
-          discount: summary.discount + discountAmount,
-          totalPrice: summary.totalPrice - discountAmount,
-          extras: {
-            ...summary.extras,
-            'automaticDiscount': activeDiscount.discountText,
-            'discountLabel': activeDiscount.badgeText,
-          },
-        );
       }
 
       if (discountCode != null && discountCode.isNotEmpty) {
