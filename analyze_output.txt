@@ -1,0 +1,19 @@
+Analyzing SomSafar...                                           
+
+warning - The operand can't be 'null', so the condition is always 'true' - lib\admin\screens\admin_banner_manager_screen.dart:50:15 - unnecessary_null_comparison
+  error - The argument type 'Future<String?>' can't be assigned to the parameter type 'String'.  - lib\admin\screens\admin_banner_manager_screen.dart:52:32 - argument_type_not_assignable
+warning - Dead code - lib\admin\screens\admin_banner_manager_screen.dart:54:12 - dead_code
+   info - Statements in an if should be enclosed in a block - lib\shared\services\auth_service.dart:33:15 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\shared\services\auth_service.dart:35:15 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\shared\services\auth_service.dart:37:15 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\shared\services\auth_service.dart:41:15 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\shared\services\auth_service.dart:43:15 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\shared\services\auth_service.dart:45:15 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\shared\services\user_repository.dart:24:11 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\shared\services\user_repository.dart:26:11 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\shared\services\user_repository.dart:28:11 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\shared\services\user_repository.dart:32:11 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\shared\services\user_repository.dart:34:11 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\shared\services\user_repository.dart:36:11 - curly_braces_in_flow_control_structures
+
+15 issues found. (ran in 15.2s)

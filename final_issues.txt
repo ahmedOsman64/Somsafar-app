@@ -1,0 +1,38 @@
+﻿Resolving dependencies...
+Downloading packages...
+  _fe_analyzer_shared 94.0.0 (97.0.0 available)
+  analyzer 10.0.2 (11.0.0 available)
+  app_links 6.4.1 (7.0.0 available)
+  characters 1.4.0 (1.4.1 available)
+  cross_file 0.3.5+1 (0.3.5+2 available)
+  ffi 2.1.5 (2.2.0 available)
+  fl_chart 0.69.2 (1.1.1 available)
+  flutter_dotenv 5.2.1 (6.0.0 available)
+  flutter_lints 5.0.0 (6.0.0 available)
+  flutter_riverpod 2.6.1 (3.2.1 available)
+  go_router 14.8.1 (17.1.0 available)
+  google_fonts 6.3.3 (8.0.2 available)
+  image_picker_android 0.8.13+12 (0.8.13+14 available)
+  image_picker_ios 0.8.13+3 (0.8.13+6 available)
+  intl 0.19.0 (0.20.2 available)
+  lints 5.1.1 (6.1.0 available)
+  mailer 6.6.0 (7.1.0 available)
+  matcher 0.12.17 (0.12.19 available)
+  material_color_utilities 0.11.1 (0.13.0 available)
+! meta 1.18.1 (overridden)
+  path_provider_foundation 2.5.1 (2.6.0 available)
+  riverpod 2.6.1 (3.2.1 available)
+  shared_preferences_android 2.4.18 (2.4.21 available)
+  source_span 1.10.1 (1.10.2 available)
+  test_api 0.7.7 (0.7.10 available)
+  uuid 4.5.2 (4.5.3 available)
+Got dependencies!
+25 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Analyzing SomSafar...                                           
+
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\traveler\screens\booking\hotel_booking_form.dart:277:15 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\traveler\screens\booking\hotel_booking_form.dart:278:15 - deprecated_member_use
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\traveler\screens\booking\hotel_booking_form.dart:298:15 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\traveler\screens\booking\hotel_booking_form.dart:299:15 - deprecated_member_use
+

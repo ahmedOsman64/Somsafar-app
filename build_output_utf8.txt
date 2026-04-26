@@ -1,0 +1,28 @@
+﻿Running Gradle task 'assembleDebug'...                             11.5s
+flutter : Gradle 
+build failed to 
+produce an .apk file. 
+It's likely that this 
+file was generated 
+under D:\Projects\Soms
+afar_booking_system\So
+msafar_booking_system-
+main\build, but the 
+tool couldn't find it.
+At line:1 char:1
++ flutter build apk 
+--debug > 
+build_output.txt 2>&1
++ ~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~
+    + CategoryInfo    
+          : NotSpeci  
+  fied: (Gradle bui   
+ ld fa...uldn't fi    
+nd it.:String) []    
+, RemoteException
+    + FullyQualifiedE 
+   rrorId : NativeCo  
+  mmandError
+ 

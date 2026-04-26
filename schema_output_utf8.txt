@@ -1,0 +1,57 @@
+﻿
+--- checking table: users ---
+Columns:
+  - id
+  - name
+  - email
+  - role
+  - status
+  - created_at
+  - admin_role
+  - provider_type
+  - phone
+  - location
+  - metadata
+  - traveler_type
+  - provider_id
+  - profile_image
+  - nationality
+  - date_of_birth
+  - updated_at
+
+--- checking table: services ---
+Columns:
+  - id
+  - provider_id
+  - title
+  - category
+  - description
+  - price
+  - location
+  - images
+  - status
+  - metadata
+  - rating
+  - reviews
+  - is_verified
+  - discount
+  - amenities
+  - created_at
+  - breakfast_price
+  - airport_pickup_price
+  - extra_bed_price
+  - cleaning_price
+  - early_check_in_price
+  - late_check_out_price
+
+--- checking table: bookings ---
+Table exists but has no data or is restricted.
+
+--- checking table: chats ---
+Table exists but has no data or is restricted.
+
+--- checking table: payment_accounts ---
+Error accessing table: PostgrestException(message: Could not find the table 'public.payment_accounts' in the schema cache, code: PGRST205, details: Not Found, hint: Perhaps you meant the table 'public.payments')
+
+--- checking table: payments ---
+Table exists but has no data or is restricted.

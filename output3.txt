@@ -1,0 +1,28 @@
+﻿Loading environment variables...
+Connecting to Supabase...
+Executing SQL to create support_tickets table and policies...
+Failed to execute SQL via RPC. Error: PostgrestException(message: Could not find the function public.exec_sql(sql_query) in the schema cache, code: PGRST202, details: Searched for the function public.exec_sql with parameter sql_query or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache., hint: null)
+---
+Please run the following SQL snippet in your Supabase SQL Editor:
+CREATE TABLE IF NOT EXISTS support_tickets (
+  id UUID PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_name TEXT NOT NULL,
+  user_email TEXT NOT NULL,
+  issue_type TEXT NOT NULL,
+  description TEXT,
+  status TEXT NOT NULL DEFAULT 'open',
+  priority TEXT NOT NULL DEFAULT 'medium',
+  messages JSONB DEFAULT '[]'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE support_tickets ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can insert their own tickets" ON support_tickets FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can view their own tickets" ON support_tickets FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can update their own tickets" ON support_tickets FOR UPDATE USING (auth.uid() = user_id);
+
+-- Depending on your admin setup, you might need a policy for admins to view/edit all tickets.
+    
+Wait, support_tickets table EXISTS: []

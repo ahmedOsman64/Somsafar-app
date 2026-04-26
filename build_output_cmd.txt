@@ -1,0 +1,2 @@
+Running Gradle task 'assembleDebug'...                             11.5s
+Gradle build failed to produce an .apk file. It's likely that this file was generated under D:\Projects\Somsafar_booking_system\Somsafar_booking_system-main\build, but the tool couldn't find it.

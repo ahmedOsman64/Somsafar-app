@@ -1,0 +1,70 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/review_model.dart';
+import 'package:flutter/foundation.dart';
+import '../../core/services/supabase_service.dart';
+import '../models/user_model.dart';
+import 'auth_service.dart';
+
+
+
+class ReviewRepository extends StateNotifier<List<Review>> {
+  ReviewRepository() : super([]) {
+    _initStream();
+  }
+
+  void _initStream() {
+    SupabaseConfig.client.from('reviews').stream(primaryKey: ['id']).listen((data) {
+      if (!mounted) return;
+      state = data.map((res) => Review.fromMap(res)).toList();
+    });
+  }
+
+  Future<void> fetchReviews() async {
+    try {
+      final data = await SupabaseConfig.client.from('reviews').select();
+      if (!mounted) return;
+      state = data.map((res) => Review.fromMap(res)).toList();
+    } catch (e) {
+      debugPrint('Fetch reviews error: $e');
+    }
+  }
+
+  Future<void> addReview(Review review) async {
+    try {
+      await SupabaseConfig.client.from('reviews').insert(review.toMap());
+    } catch (e) {
+      debugPrint('Add review error: $e');
+    }
+  }
+
+  Future<void> deleteReview(String id) async {
+    try {
+      await SupabaseConfig.client.from('reviews').delete().eq('id', id);
+    } catch (e) {
+      debugPrint('Delete review error: $e');
+    }
+  }
+}
+
+final reviewProvider = StateNotifierProvider<ReviewRepository, List<Review>>((ref) {
+  return ReviewRepository();
+});
+
+// Selector for filtered reviews (specific to provider or all for admin)
+final filteredReviewsProvider = Provider<List<Review>>((ref) {
+  final user = ref.watch(authProvider);
+  final reviews = ref.watch(reviewProvider);
+
+  if (user == null) return [];
+
+  if (user.role == UserRole.admin) {
+    return reviews;
+  }
+
+  if (user.role == UserRole.provider || user.role == UserRole.providerHelper) {
+    final providerKey = user.providerId ?? user.id;
+    return reviews.where((r) => r.providerId == providerKey).toList();
+  }
+
+  return reviews.where((r) => r.travelerId == user.id).toList();
+});

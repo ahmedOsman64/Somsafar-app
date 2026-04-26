@@ -1,0 +1,19 @@
+Analyzing SomSafar...
+
+  error - lib\admin\screens\admin_banner_manager_screen.dart:52:32 - The argument type 'Future<String?>' can't be assigned to the parameter type 'String'.  - argument_type_not_assignable
+warning - lib\admin\screens\admin_banner_manager_screen.dart:50:15 - The operand can't be 'null', so the condition is always 'true'. Remove the condition. - unnecessary_null_comparison
+warning - lib\admin\screens\admin_banner_manager_screen.dart:54:12 - Dead code. Try removing the code, or fixing the code before it so that it can be reached. - dead_code
+   info - lib\shared\services\auth_service.dart:33:15 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - lib\shared\services\auth_service.dart:35:15 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - lib\shared\services\auth_service.dart:37:15 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - lib\shared\services\auth_service.dart:41:15 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - lib\shared\services\auth_service.dart:43:15 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - lib\shared\services\auth_service.dart:45:15 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - lib\shared\services\user_repository.dart:24:11 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - lib\shared\services\user_repository.dart:26:11 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - lib\shared\services\user_repository.dart:28:11 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - lib\shared\services\user_repository.dart:32:11 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - lib\shared\services\user_repository.dart:34:11 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - lib\shared\services\user_repository.dart:36:11 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+
+15 issues found.

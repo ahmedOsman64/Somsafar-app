@@ -1,0 +1,13 @@
+@echo off
+echo Running flutter clean...
+call flutter clean
+cd android
+echo Running gradlew clean...
+call .\gradlew clean
+cd ..
+echo Running flutter pub get...
+call flutter pub get
+echo Manual cleanup...
+if exist build rmdir /s /q build
+if exist .dart_tool rmdir /s /q .dart_tool
+echo Deep clean completed.
