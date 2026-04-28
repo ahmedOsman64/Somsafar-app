@@ -346,10 +346,9 @@ class BookingIntegrationService {
           summary = BookingSummary(
             serviceType: ServiceType.apartment,
             serviceTitle: 'Apartment Booking',
-            basePrice: (basePrice / 30) *
-                apartmentData.checkOut
-                    .difference(apartmentData.checkIn)
-                    .inDays,
+            basePrice:
+                (basePrice / 30) *
+                apartmentData.checkOut.difference(apartmentData.checkIn).inDays,
             subtotal: basePrice,
             totalPrice: basePrice,
           ); // Fallback init
