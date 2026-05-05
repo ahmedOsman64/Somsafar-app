@@ -21,7 +21,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 800),
     );
     _animation = CurvedAnimation(parent: _controller, curve: Curves.easeInOut);
     _controller.forward();
@@ -29,8 +29,19 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   Future<void> _initializeApp() async {
-    // Wait for animation to finish AND for services to initialize
-    await Future.delayed(const Duration(seconds: 2));
+    // Wait for animation to finish briefly
+    await Future.delayed(const Duration(milliseconds: 800));
+
+    // Wait for services to initialize if they haven't yet
+    // This is crucial to avoid flickering or premature redirect to login
+    int timeoutCount = 0;
+    while (mounted &&
+        (!ref.read(settingsProvider).initialized ||
+            !ref.read(authServiceProvider).initialized) &&
+        timeoutCount < 50) { // Max 5 seconds wait
+      await Future.delayed(const Duration(milliseconds: 100));
+      timeoutCount++;
+    }
 
     // Check if services are initialized
     final settings = ref.read(settingsProvider);
@@ -71,7 +82,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Image.asset('assets/images/logo.png', width: 200, height: 200),
+                Image.asset(
+                  'assets/images/logo.png',
+                  width: 180,
+                  fit: BoxFit.contain,
+                ),
                 const SizedBox(height: 24),
                 const CircularProgressIndicator(
                   valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1A237E)),

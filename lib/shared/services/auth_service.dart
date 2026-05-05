@@ -49,8 +49,8 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<void> _initInitialState() async {
-    // A slight delay to ensure everything is ready
-    await Future.delayed(Duration.zero);
+    // A slight delay to ensure Supabase client is fully ready
+    await Future.delayed(const Duration(milliseconds: 100));
     final session = SupabaseConfig.client.auth.currentSession;
     debugPrint('AuthService: Current session: ${session?.user.id}');
 
@@ -60,8 +60,15 @@ class AuthService extends ChangeNotifier {
         debugPrint('AuthService: Initialized (No session)');
         notifyListeners();
       }
+    } else {
+      // If we have a session, fetch profile immediately to avoid waiting for listener
+      debugPrint('AuthService: Session found on startup, fetching profile...');
+      await _fetchAndSetProfile(session);
+      if (!_initialized) {
+        _initialized = true;
+        notifyListeners();
+      }
     }
-    // If session != null, the listener will handle it and set _initialized = true
   }
 
   @override

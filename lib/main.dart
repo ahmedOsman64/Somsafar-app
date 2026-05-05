@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -16,12 +17,10 @@ void main() async {
   // Initialize Supabase
   await SupabaseConfig.initialize();
 
-  // Seed missing lookup data (essential categories, regions, etc.)
-  try {
-    await LookupService.seedMissingLookups();
-  } catch (e) {
+  // Seed missing lookup data in background (essential categories, regions, etc.)
+  unawaited(LookupService.seedMissingLookups().catchError((e) {
     debugPrint('Failed to seed missing lookups: $e');
-  }
+  }));
 
   runApp(const ProviderScope(child: SomSafarApp()));
 }

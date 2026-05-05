@@ -21,20 +21,24 @@ class SupabaseConfig {
           : _fallbackAnonKey);
 
   static Future<void> initialize() async {
-    try {
-      await dotenv.load(fileName: 'assets/.env');
-    } catch (e) {
-      debugPrint(
-        'Warning: Failed to load .env file. Using fallback or custom configuration.',
-      );
-    }
+    final results = await Future.wait([
+      dotenv.load(fileName: 'assets/.env').catchError((e) {
+        debugPrint('Warning: Failed to load .env file. Using fallback or custom configuration.');
+      }),
+      SharedPreferences.getInstance(),
+    ]);
 
-    // Load custom configuration from SharedPreferences if it exists
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = results[1] as SharedPreferences;
     _customUrl = prefs.getString('sys_supabase_url');
     _customAnonKey = prefs.getString('sys_supabase_anon_key');
 
-    await Supabase.initialize(url: url, anonKey: anonKey);
+    await Supabase.initialize(
+      url: url,
+      anonKey: anonKey,
+      authOptions: const FlutterAuthClientOptions(
+        authFlowType: AuthFlowType.pkce,
+      ),
+    );
   }
 
   static SupabaseClient get client => Supabase.instance.client;
