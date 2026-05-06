@@ -7,6 +7,9 @@ import '../models/user_model.dart';
 import 'auth_service.dart';
 import 'user_repository.dart';
 import 'lookup_service.dart';
+import 'system_activity_repository.dart';
+import 'notification_repository.dart';
+import '../models/notification_model.dart';
 import '../../core/services/supabase_service.dart';
 
 class ServiceRepository extends StateNotifier<List<Service>> {
