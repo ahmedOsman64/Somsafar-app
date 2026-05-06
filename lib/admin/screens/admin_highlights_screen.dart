@@ -78,7 +78,6 @@ class AdminHighlightsScreen extends ConsumerWidget {
   void _showAddHighlightDialog(BuildContext context, WidgetRef ref) {
     final titleController = TextEditingController();
     final locationController = TextEditingController();
-    final imageController = TextEditingController();
     final tagController = TextEditingController();
     final mediaService = MediaService();
     XFile? pickedImage;
