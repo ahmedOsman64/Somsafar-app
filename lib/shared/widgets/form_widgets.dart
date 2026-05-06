@@ -113,6 +113,7 @@ class AppDropdown<T> extends StatelessWidget {
   final List<DropdownMenuItem<T>> items;
   final void Function(T?) onChanged;
   final String? Function(T?)? validator;
+  final String? hint;
 
   const AppDropdown({
     super.key,
@@ -121,6 +122,7 @@ class AppDropdown<T> extends StatelessWidget {
     required this.items,
     required this.onChanged,
     this.validator,
+    this.hint,
   });
 
   @override
@@ -154,6 +156,7 @@ class AppDropdown<T> extends StatelessWidget {
           items: uniqueItems,
           onChanged: onChanged,
           validator: validator,
+          hint: hint != null ? Text(hint!) : null,
           decoration: InputDecoration(
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,

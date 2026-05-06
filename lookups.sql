@@ -52,6 +52,13 @@ INSERT INTO public.lookups (category, key, label, icon) VALUES
 ('amenity_apt', 'washing_machine', 'Washing Machine', 'local_laundry_service'),
 ('amenity_apt', 'balcony', 'Balcony', 'balcony'),
 ('amenity_apt', 'tv', 'TV', 'tv'),
+('amenity_apt', 'ac', 'Air Conditioning', 'ac_unit'),
+('amenity_apt', 'wifi', 'WiFi', 'wifi'),
+('amenity_apt', 'parking', 'Parking', 'local_parking'),
+('amenity_apt', 'pool', 'Swimming Pool', 'pool'),
+('amenity_apt', 'gym', 'Gym / Fitness', 'fitness_center'),
+('amenity_apt', 'heating', 'Heating', 'hvac'),
+('amenity_apt', 'security', '24/7 Security', 'security'),
 
 -- Languages
 ('language', 'en', 'English', 'language'),

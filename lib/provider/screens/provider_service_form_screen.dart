@@ -1015,66 +1015,30 @@ class _ProviderServiceFormScreenState
           children: [
             ref.watch(regionsProvider).when(
                   data: (items) {
-                    final suggestionList = items.map((e) => e.label).toList();
-
-                    return Autocomplete<String>(
-                      initialValue: TextEditingValue(text: _regionController.text),
-                      optionsBuilder: (TextEditingValue textEditingValue) {
-                        if (textEditingValue.text == '') {
-                          return suggestionList;
+                    return AppDropdown<String>(
+                      label: 'Region (Gobol) *',
+                      hint: 'Select Region',
+                      value: _regionController.text.isNotEmpty ? _regionController.text : null,
+                      items: items.map((e) {
+                        return DropdownMenuItem<String>(
+                          value: e.label,
+                          child: Text(e.label),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() {
+                            _regionController.text = val;
+                          });
                         }
-                        return suggestionList.where((String option) {
-                          return option.toLowerCase().contains(
-                                textEditingValue.text.toLowerCase(),
-                              );
-                        });
                       },
-                      onSelected: (String selection) {
-                        setState(() {
-                          _regionController.text = selection;
-                        });
-                      },
-                      fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-                        // Keep our custom controller in sync if needed, but here we just use the one provided
-                        return AppTextField(
-                          controller: controller,
-                          label: 'Region (Gobal) *',
-                          hint: 'Select or type region...',
-                          prefixIcon: const Icon(Icons.map_outlined),
-                          validator: (val) =>
-                              val == null || val.isEmpty ? 'Region is required' : null,
-                        );
-                      },
-                      optionsViewBuilder: (context, onSelected, options) {
-                        return Align(
-                          alignment: Alignment.topLeft,
-                          child: Material(
-                            elevation: 4.0,
-                            borderRadius: BorderRadius.circular(12),
-                            child: SizedBox(
-                              height: 200,
-                              width: MediaQuery.of(context).size.width - 48,
-                              child: ListView.builder(
-                                padding: const EdgeInsets.all(8.0),
-                                itemCount: options.length,
-                                itemBuilder: (BuildContext context, int index) {
-                                  final String option = options.elementAt(index);
-                                  return ListTile(
-                                    title: Text(option),
-                                    onTap: () => onSelected(option),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                        );
-                      },
+                      validator: (val) => val == null || val.isEmpty ? 'Region is required' : null,
                     );
                   },
                   loading: () => const LinearProgressIndicator(),
                   error: (e, _) => AppTextField(
                     controller: _regionController,
-                    label: 'Region (Gobal) *',
+                    label: 'Region (Gobol) *',
                     hint: 'Type region name...',
                     prefixIcon: const Icon(Icons.map_outlined),
                   ),
