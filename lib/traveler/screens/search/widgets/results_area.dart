@@ -56,7 +56,7 @@ class ResultsArea extends StatelessWidget {
                 ? LayoutBuilder(
                     builder: (context, constraints) {
                       final width = constraints.maxWidth;
-                      int crossAxisCount = isMobile ? 1 : 4;
+                      int crossAxisCount = isMobile ? 2 : 4;
 
                       if (!isMobile) {
                         if (showMapView) {
@@ -76,9 +76,11 @@ class ResultsArea extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 16, bottom: 80),
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: crossAxisCount,
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 16,
-                          mainAxisExtent: width > 1200 ? 500 : (width > 900 ? 480 : 470),
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          mainAxisExtent: isMobile
+                              ? 360
+                              : (width > 1200 ? 500 : (width > 900 ? 480 : 470)),
                         ),
                         itemCount: filteredServices.length,
                         itemBuilder: (context, index) => ServiceCard(

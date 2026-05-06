@@ -38,7 +38,7 @@ class _TravelerSearchScreenState extends ConsumerState<TravelerSearchScreen> {
   String _sortBy = 'Recommended';
 
   // Filter states
-  RangeValues _priceRange = const RangeValues(0, 500);
+  RangeValues _priceRange = const RangeValues(0, 5000);
   final List<String> _selectedPropertyTypes = [];
   final List<String> _selectedAmenities = [];
   bool _verifiedOnly = false;
@@ -81,7 +81,7 @@ class _TravelerSearchScreenState extends ConsumerState<TravelerSearchScreen> {
 
   void _resetFilters() {
     setState(() {
-      _priceRange = const RangeValues(0, 500);
+      _priceRange = const RangeValues(0, 5000);
       _selectedPropertyTypes.clear();
       _selectedAmenities.clear();
       _verifiedOnly = false;
@@ -114,7 +114,7 @@ class _TravelerSearchScreenState extends ConsumerState<TravelerSearchScreen> {
 
       bool matchesPropertyType =
           _selectedPropertyTypes.isEmpty ||
-          _selectedPropertyTypes.any((type) => type.toLowerCase() == service.category.toLowerCase());
+          _selectedPropertyTypes.any((type) => type.trim().toLowerCase() == service.category.trim().toLowerCase());
 
       bool matchesVerified = !_verifiedOnly || (service.isVerified == true);
 
@@ -169,8 +169,8 @@ class _TravelerSearchScreenState extends ConsumerState<TravelerSearchScreen> {
           SliverPersistentHeader(
             pinned: true,
             delegate: SearchHeaderDelegate(
-              minHeight: isMobile ? 250 : 160,
-              maxHeight: isMobile ? 250 : 160,
+              minHeight: isMobile ? 185 : 160,
+              maxHeight: isMobile ? 185 : 160,
               child: _buildHeaderBar(isMobile),
             ),
           ),

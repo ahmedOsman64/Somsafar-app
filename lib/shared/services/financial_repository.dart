@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/financial_model.dart';
@@ -25,6 +26,8 @@ class FinancialState {
 
 class FinancialRepository extends StateNotifier<FinancialState> {
   final Ref _ref;
+  StreamSubscription? _subscription;
+
   FinancialRepository(this._ref)
     : super(
         const FinancialState(
@@ -36,53 +39,52 @@ class FinancialRepository extends StateNotifier<FinancialState> {
           ),
           transactions: [],
         ),
-      );
+      ) {
+    _listenToAuth();
+  }
 
-  void _initStream(User? user) {
-    if (user == null) {
-      debugPrint('FinancialRepository: No user, skipping stream.');
-      return;
-    }
+  void _listenToAuth() {
+    _ref.listen<User?>(authProvider, (previous, next) {
+      if (next == null) {
+        _subscription?.cancel();
+        _subscription = null;
+        state = const FinancialState(
+          metrics: FinancialMetrics(
+            totalRevenue: 0.0,
+            platformFees: 0.0,
+            pendingPayouts: 0.0,
+            weeklyRevenue: [0, 0, 0, 0, 0, 0, 0],
+          ),
+          transactions: [],
+        );
+      } else if (previous?.id != next.id) {
+        _initStream(next);
+      }
+    }, fireImmediately: true);
+  }
+
+  void _initStream(User user) {
+    _subscription?.cancel();
 
     debugPrint('FinancialRepository: Initializing stream for role ${user.role}...');
+
+    dynamic query = SupabaseConfig.client
+        .from('payments')
+        .stream(primaryKey: ['id']);
 
     // Security: Role-based filtering
     if (user.role == UserRole.provider || user.role == UserRole.providerHelper) {
       final providerKey = user.providerId ?? user.id;
       debugPrint('FinancialRepository: Filtering for provider_id: $providerKey');
-      
-      SupabaseConfig.client
-          .from('payments')
-          .stream(primaryKey: ['id'])
-          .eq('provider_id', providerKey)
-          .listen(
-            (data) => _processData(data),
-            onError: (error) => debugPrint('FinancialRepository: Stream error: $error'),
-          );
-    } else if (user.role == UserRole.admin) {
-      // Admins see everything
-      debugPrint('FinancialRepository: Admin access, streaming all payments.');
-      SupabaseConfig.client
-          .from('payments')
-          .stream(primaryKey: ['id'])
-          .listen(
-            (data) => _processData(data),
-            onError: (error) => debugPrint('FinancialRepository: Stream error: $error'),
-          );
-    } else if (user.role == UserRole.traveler) {
-      // Travelers see their own payments (linked via booking_id -> traveler_id)
-      // Note: Supabase streams don't support complex joins, so we rely on RLS 
-      // or a specific traveler_id column if it were added.
-      // Based on our RLS policy, simply streaming without filter works because RLS filters it.
-      debugPrint('FinancialRepository: Traveler access, streaming related payments.');
-      SupabaseConfig.client
-          .from('payments')
-          .stream(primaryKey: ['id'])
-          .listen(
-            (data) => _processData(data),
-            onError: (error) => debugPrint('FinancialRepository: Stream error: $error'),
-          );
-    }
+      query = query.eq('provider_id', providerKey);
+    } 
+    // Travelers see their own via RLS, so no explicit filter needed if traveler_id isn't in payments table
+    // Admins see everything (no filter)
+
+    _subscription = query.listen(
+      (data) => _processData(data),
+      onError: (error) => debugPrint('FinancialRepository: Stream error: $error'),
+    );
   }
 
   void _processData(List<Map<String, dynamic>> data) {
@@ -173,8 +175,5 @@ class FinancialRepository extends StateNotifier<FinancialState> {
 
 final financialProvider =
     StateNotifierProvider<FinancialRepository, FinancialState>((ref) {
-  final user = ref.watch(authProvider);
-  final repo = FinancialRepository(ref);
-  repo._initStream(user);
-  return repo;
+  return FinancialRepository(ref);
 });

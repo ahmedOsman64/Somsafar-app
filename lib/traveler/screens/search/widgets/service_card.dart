@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../core/theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../shared/services/recently_viewed_provider.dart';
@@ -98,7 +99,7 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
         Expanded(
           flex: 6,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -111,7 +112,7 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
                       child: Text(
                         widget.service.title,
                         style: const TextStyle(
-                          fontSize: 16,
+                          fontSize: 13,
                           fontWeight: FontWeight.bold,
                           height: 1.2,
                         ),
@@ -119,25 +120,25 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 4),
                     _buildRatingBadge(),
                   ],
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
 
                 Row(
                   children: [
                     Icon(
                       Icons.location_on,
-                      size: 14,
+                      size: 12,
                       color: AppColors.primary.withValues(alpha: 0.7),
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 3),
                     Expanded(
                       child: Text(
                         widget.service.location,
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: 11,
                           color: Colors.grey.shade600,
                           fontWeight: FontWeight.w500,
                         ),
@@ -147,17 +148,12 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
 
-                // Category and Highlights
+                // Highlights
                 _buildHighlights(),
 
                 const Spacer(),
-
-                // Amenities Row
-                _buildAmenitiesRow(maxItems: 5),
-
-                const SizedBox(height: 8),
 
                 // Booking Box
                 Container(
@@ -292,35 +288,6 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          GestureDetector(
-                            onTap: () => context.push(
-                              '/traveler/service/${widget.service.id}',
-                              extra: widget.service,
-                            ),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: AppColors.primary.withValues(
-                                    alpha: 0.3,
-                                  ),
-                                ),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: const Text(
-                                'View',
-                                style: TextStyle(
-                                  color: AppColors.primary,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
                           GestureDetector(
                             onTap: () {
                               if (widget.service.id.isEmpty) return;
@@ -842,12 +809,9 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
                 scale: _isHovered ? 1.05 : 1.0,
                 duration: const Duration(milliseconds: 400),
                 curve: Curves.easeOutCubic,
-                child: Image.network(
-                  images[index],
+                child: AppNetworkImage(
+                  imageUrl: images[index],
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => const Center(
-                    child: Icon(Icons.broken_image, color: Colors.grey),
-                  ),
                 ),
               );
             },

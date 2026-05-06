@@ -508,8 +508,26 @@ class AuthService extends ChangeNotifier {
           e.message.toLowerCase().contains('email rate limit exceeded')) {
         return 'Email rate limit exceeded. Please try using a new email address, or adjust the Rate Limits in your Supabase Dashboard.';
       }
+      
+      final errStr = e.message.toLowerCase();
+      if (errStr.contains('socketexception') || 
+          errStr.contains('failed host lookup') || 
+          errStr.contains('connection failed') ||
+          errStr.contains('errno = 7') ||
+          errStr.contains('os error')) {
+        return 'Please check your internet connection';
+      }
       return e.message;
     } catch (e) {
+      final err = e.toString().toLowerCase();
+      if (err.contains('socketexception') || 
+          err.contains('failed host lookup') || 
+          err.contains('connection failed') ||
+          err.contains('errno = 7') ||
+          err.contains('pending response rejected') ||
+          err.contains('os error')) {
+        return 'Please check your internet connection';
+      }
       return 'Signup failed. Please try again.';
     }
   }
@@ -605,6 +623,24 @@ class AuthService extends ChangeNotifier {
       // If we reach here, re-authentication succeeded
       await SupabaseConfig.client.auth.updateUser(
         sb.UserAttributes(password: newPassword),
+      );
+
+      // Record the password change in the users table metadata
+      final now = DateTime.now();
+      final updatedMeta = {
+        ...state!.metadata,
+        'last_password_change': now.toIso8601String(),
+      };
+
+      await SupabaseConfig.client.from('users').update({
+        'metadata': updatedMeta,
+        'updated_at': now.toIso8601String(),
+      }).eq('id', state!.id);
+
+      // Update local state
+      state = state!.copyWith(
+        metadata: updatedMeta,
+        updatedAt: now,
       );
 
       return null; // Success

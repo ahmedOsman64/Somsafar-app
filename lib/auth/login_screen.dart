@@ -55,18 +55,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     final authService = ref.read(authServiceProvider);
 
-    debugPrint('DEBUG: Calling AuthService.login for ${_emailController.text}');
     final error = await authService.login(
       _emailController.text,
       _passwordController.text,
     );
+
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
 
     if (error == null) {
       debugPrint('DEBUG: Login success, waiting for router redirect...');
       await _saveCredentials();
     } else if (error == 'MFA_REQUIRED') {
       if (mounted) {
-        setState(() => _isLoading = false);
         final mfaSuccess = await showDialog<bool>(
           context: context,
           barrierDismissible: false,
@@ -75,13 +77,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
         if (mfaSuccess == true) {
           await _saveCredentials();
-          // Profile is already set in AuthService.verifyMFAChallenge
         }
       }
     } else {
       debugPrint('DEBUG: Login failed: $error');
       if (mounted) {
-        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('❌ $error'),

@@ -28,20 +28,31 @@ class UserRepository extends StateNotifier<List<User>> {
         _subscription = null;
         state = [];
       } else if (previous?.id != next.id) {
-        // Restart stream for new user
-        _initStream();
+        // Restart stream for new user session
+        _initStream(next);
       }
     }, fireImmediately: true);
   }
 
-  void _initStream() {
+  void _initStream(User user) {
     _subscription?.cancel();
     
-    debugPrint('UserRepository: Initializing stream...');
-    _subscription = SupabaseConfig.client
+    debugPrint('UserRepository: Initializing stream for role ${user.role}...');
+    
+    dynamic query = SupabaseConfig.client
         .from('users')
-        .stream(primaryKey: ['id'])
-        .listen((data) {
+        .stream(primaryKey: ['id']);
+
+    // DB-level filtering to prevent data leaks and reduce bandwidth
+    if (user.role == UserRole.admin) {
+      // Admins see everyone
+    } else {
+      // Providers, Helpers, and Travelers only stream their own profile data
+      // This ensures immediate updates for status changes or profile edits.
+      query = query.eq('id', user.id);
+    }
+
+    _subscription = query.listen((data) {
       if (!mounted) return;
       debugPrint('UserRepository: Received ${data.length} records');
       

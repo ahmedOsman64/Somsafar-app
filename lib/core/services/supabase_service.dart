@@ -32,9 +32,17 @@ class SupabaseConfig {
     _customUrl = prefs.getString('sys_supabase_url');
     _customAnonKey = prefs.getString('sys_supabase_anon_key');
 
+    final supabaseUrl = url;
+    final supabaseAnonKey = anonKey;
+
+    if (supabaseUrl.isEmpty || !supabaseUrl.startsWith('http')) {
+      debugPrint('Error: Invalid Supabase URL: "$supabaseUrl". Initialization aborted.');
+      return;
+    }
+
     await Supabase.initialize(
-      url: url,
-      anonKey: anonKey,
+      url: supabaseUrl,
+      anonKey: supabaseAnonKey,
       authOptions: const FlutterAuthClientOptions(
         authFlowType: AuthFlowType.pkce,
       ),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/user_model.dart';
@@ -113,19 +114,45 @@ class SystemActivity {
 }
 
 class SystemActivityRepository extends StateNotifier<List<SystemActivity>> {
-  SystemActivityRepository() : super([]) {
-    _initStream();
+  final Ref _ref;
+  StreamSubscription? _subscription;
+
+  SystemActivityRepository(this._ref) : super([]) {
+    _listenToAuth();
   }
 
-  void _initStream() {
-    SupabaseConfig.client
+  void _listenToAuth() {
+    _ref.listen<User?>(authProvider, (previous, next) {
+      if (next == null) {
+        _subscription?.cancel();
+        _subscription = null;
+        state = [];
+      } else if (previous?.id != next.id) {
+        _initStream(next);
+      }
+    }, fireImmediately: true);
+  }
+
+  void _initStream(User user) {
+    _subscription?.cancel();
+    
+    dynamic query = SupabaseConfig.client
         .from('system_activities')
-        .stream(primaryKey: ['id'])
-        .order('created_at', ascending: false)
-        .listen((data) {
-          if (!mounted) return;
-          state = data.map((map) => SystemActivity.fromMap(map)).toList();
-        });
+        .stream(primaryKey: ['id']);
+
+    // DB-level filtering based on role
+    if (user.role == UserRole.provider || user.role == UserRole.providerHelper) {
+      final providerKey = user.providerId ?? user.id;
+      query = query.eq('provider_id', providerKey);
+    } else if (user.role == UserRole.traveler) {
+      query = query.eq('user_id', user.id);
+    }
+    // Admins get no filter (query remains the same)
+
+    _subscription = query.order('created_at', ascending: false).listen((data) {
+      if (!mounted) return;
+      state = data.map((map) => SystemActivity.fromMap(map)).toList();
+    }, onError: (e) => debugPrint('SystemActivity stream error: $e'));
   }
 
   Future<void> fetchActivities() async {
@@ -257,6 +284,51 @@ class SystemActivityRepository extends StateNotifier<List<SystemActivity>> {
       ),
     );
   }
+
+  void logServiceAddition(String serviceTitle, String providerName, String providerId) {
+    addActivity(
+      SystemActivity(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        title: 'New Service: $serviceTitle',
+        subtitle: 'Listed by $providerName',
+        type: ActivityType.serviceListing,
+        timestamp: DateTime.now(),
+        icon: Icons.hotel,
+        iconColor: Colors.orange,
+        providerId: providerId,
+      ),
+    );
+  }
+
+  void logServiceUpdate(String serviceTitle, String action, String providerId) {
+    addActivity(
+      SystemActivity(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        title: 'Service Updated: $serviceTitle',
+        subtitle: 'Action: $action',
+        type: ActivityType.statusUpdate,
+        timestamp: DateTime.now(),
+        icon: Icons.edit_note,
+        iconColor: Colors.blue,
+        providerId: providerId,
+      ),
+    );
+  }
+
+  void logServiceDeletion(String serviceTitle, String providerId) {
+    addActivity(
+      SystemActivity(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        title: 'Service Deleted: $serviceTitle',
+        subtitle: 'Removed from the platform',
+        type: ActivityType.userDeletion,
+        timestamp: DateTime.now(),
+        icon: Icons.delete_sweep,
+        iconColor: Colors.red,
+        providerId: providerId,
+      ),
+    );
+  }
 }
 
 // Global provider for all activities
@@ -264,7 +336,7 @@ final activityProvider =
     StateNotifierProvider<SystemActivityRepository, List<SystemActivity>>((
       ref,
     ) {
-      return SystemActivityRepository();
+      return SystemActivityRepository(ref);
     });
 
 // Selector for Admin role (sees everything)

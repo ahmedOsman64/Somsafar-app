@@ -498,6 +498,13 @@ class AdminShell extends ConsumerWidget {
         route: '/admin/regions',
         roles: [AdminRole.superAdmin, AdminRole.opsAdmin],
       ),
+      _NavItem(
+        label: 'Highlights',
+        icon: Icons.landscape_outlined,
+        selectedIcon: Icons.landscape,
+        route: '/admin/highlights',
+        roles: [AdminRole.superAdmin, AdminRole.opsAdmin],
+      ),
     ];
 
     return allItems.where((item) => item.roles.contains(role)).toList();
@@ -536,5 +543,6 @@ String _getPageTitle(BuildContext context) {
   if (location.contains('security')) return 'Security Command';
   if (location.contains('helpers')) return 'Provider Helpers';
   if (location.contains('regions')) return 'Destination Manager';
+  if (location.contains('highlights')) return 'Explore Highlights';
   return 'Admin Portal';
 }

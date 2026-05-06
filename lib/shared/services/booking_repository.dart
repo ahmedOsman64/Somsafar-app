@@ -13,6 +13,7 @@ import '../../core/services/supabase_service.dart';
 class BookingRepository extends StateNotifier<List<Booking>> {
   final Ref? _ref;
   StreamSubscription? _subscription;
+  int _lastUpdateId = 0;
 
   BookingRepository(this._ref, {bool listen = true}) : super([]) {
     if (listen) {
@@ -42,12 +43,56 @@ class BookingRepository extends StateNotifier<List<Booking>> {
         .from('bookings')
         .stream(primaryKey: ['id'])
         .listen(
-          (data) {
+          (data) async {
             if (!mounted) return;
+            
+            final currentUpdateId = ++_lastUpdateId;
+            
             debugPrint(
-              'BookingRepository: Stream received ${data.length} records',
+              'BookingRepository: Stream received ${data.length} records. Enriching (ID: $currentUpdateId)...',
             );
-            _updateStateFromRaw(data);
+            
+            // Map the raw booking data
+            final bookings = data
+                .where((res) => res['id'] != null && (res['id'] as String).isNotEmpty)
+                .map((res) => _mapRawToBooking(res))
+                .toList();
+
+            if (bookings.isEmpty) {
+              if (currentUpdateId == _lastUpdateId) state = [];
+              return;
+            }
+
+            try {
+              final enrichedBookings = await Future.wait(
+                bookings.map((booking) async {
+                  try {
+                    final travelerResponse = await SupabaseConfig.client
+                        .from('travelers')
+                        .select()
+                        .eq('booking_id', booking.id);
+
+                    final List<TravelerDetail> travelers = (travelerResponse as List)
+                        .map((t) => TravelerDetail.fromJson(t))
+                        .toList();
+
+                    return booking.copyWith(travelers: travelers);
+                  } catch (e) {
+                    debugPrint('Error enriching booking ${booking.id}: $e');
+                    return booking;
+                  }
+                }),
+              );
+
+              if (mounted && currentUpdateId == _lastUpdateId) {
+                state = enrichedBookings;
+                debugPrint('BookingRepository: Enriched ${state.length} bookings with travelers (ID: $currentUpdateId)');
+              }
+            } catch (e) {
+              debugPrint('BookingRepository: Enrichment error: $e');
+              // Fallback to raw bookings if enrichment fails and it's still the latest
+              if (mounted && currentUpdateId == _lastUpdateId) state = bookings;
+            }
           },
           onError: (error) {
             debugPrint('BookingRepository: Stream error: $error');
@@ -217,8 +262,7 @@ class BookingRepository extends StateNotifier<List<Booking>> {
       debugPrint('Update booking status error: $e');
       state = previousBookings;
     } finally {
-      // Automatic refresh to sync all data (including travelers)
-      fetchBookings();
+      // Automatic refresh no longer needed as stream handles enrichment
     }
   }
 
@@ -340,12 +384,6 @@ class BookingRepository extends StateNotifier<List<Booking>> {
             data: {'bookingId': booking.id},
           );
           
-      // --- AUTOMATIC REFRESH ---
-      // Ensure the full merged data (with travelers) is fetched
-      await fetchBookings();
-      
-      // Also refresh services to reflect new availability/slots
-      _ref?.read(serviceProvider.notifier).fetchServices();
     } catch (e) {
       debugPrint('Create booking error: $e');
       if (e.toString().contains('Not enough slots')) {
@@ -359,6 +397,17 @@ class BookingRepository extends StateNotifier<List<Booking>> {
 
   Future<void> updateBooking(Booking booking) async {
     try {
+      // Security: Ensure authorized access
+      final user = _ref?.read(authProvider);
+      if (user == null) throw Exception('Authentication required');
+      
+      final isMyTrip = booking.travelerId == user.id;
+      final isMyServiceBooking = booking.providerId == (user.providerId ?? user.id);
+      
+      if (user.role != UserRole.admin && !isMyTrip && !isMyServiceBooking) {
+        throw Exception('Security Alert: Unauthorized attempt to update booking owned by another user.');
+      }
+
       // Optimistic Update
       state = [
         for (final b in state)

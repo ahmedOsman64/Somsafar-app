@@ -9,20 +9,33 @@ import 'shared/services/lookup_service.dart';
 import 'shared/services/settings_repository.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  runZonedGuarded(
+    () async {
+      WidgetsFlutterBinding.ensureInitialized();
 
-  // Configure Google Fonts to always allow runtime fetching
-  GoogleFonts.config.allowRuntimeFetching = true;
+      // Configure Google Fonts to always allow runtime fetching
+      GoogleFonts.config.allowRuntimeFetching = true;
 
-  // Initialize Supabase
-  await SupabaseConfig.initialize();
+      // Initialize Supabase
+      try {
+        await SupabaseConfig.initialize();
+      } catch (e) {
+        debugPrint('Critical: Supabase initialization failed: $e');
+      }
 
-  // Seed missing lookup data in background (essential categories, regions, etc.)
-  unawaited(LookupService.seedMissingLookups().catchError((e) {
-    debugPrint('Failed to seed missing lookups: $e');
-  }));
+      // Seed missing lookup data in background (essential categories, regions, etc.)
+      unawaited(
+        LookupService.seedMissingLookups().catchError((e) {
+          debugPrint('Failed to seed missing lookups: $e');
+        }),
+      );
 
-  runApp(const ProviderScope(child: SomSafarApp()));
+      runApp(const ProviderScope(child: SomSafarApp()));
+    },
+    (error, stack) {
+      debugPrint('Uncaught global error: $error\n$stack');
+    },
+  );
 }
 
 class SomSafarApp extends ConsumerWidget {
@@ -40,7 +53,14 @@ class SomSafarApp extends ConsumerWidget {
       themeMode: settings.isDarkMode ? ThemeMode.dark : ThemeMode.light,
       debugShowCheckedModeBanner: false,
       routerConfig: router,
-      builder: (context, child) => child!,
+      builder: (context, child) {
+        if (child == null) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        return child;
+      },
     );
   }
 }

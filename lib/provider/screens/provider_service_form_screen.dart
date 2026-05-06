@@ -2390,7 +2390,7 @@ class _ProviderServiceFormScreenState
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
-        ref.watch(servicesProvider).when(
+        ref.watch(lookupServicesProvider).when(
               data: (items) => Wrap(
                 spacing: 8,
                 runSpacing: 8,

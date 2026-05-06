@@ -106,8 +106,8 @@ class FiltersSidebar extends StatelessWidget {
                   RangeSlider(
                     values: priceRange,
                     min: 0,
-                    max: 500,
-                    divisions: 10,
+                    max: 5000,
+                    divisions: 50,
                     activeColor: const Color(
                       0xFF0D3B66,
                     ), // Match image's dark blue

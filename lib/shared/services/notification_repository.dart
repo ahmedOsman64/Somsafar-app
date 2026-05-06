@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/notification_model.dart';
+import '../models/user_model.dart';
 import '../../core/services/supabase_service.dart';
 import 'auth_service.dart';
 
@@ -10,18 +11,20 @@ class NotificationRepository extends StateNotifier<List<AppNotification>> {
   StreamSubscription? _subscription;
 
   NotificationRepository(this._ref) : super([]) {
-    _init();
+    _listenToAuth();
   }
 
-  void _init() {
-    final user = _ref.watch(authProvider);
-    if (user != null) {
-      fetchNotifications();
-      _subscribeToNotifications(user.id);
-    } else {
-      state = [];
-      _subscription?.cancel();
-    }
+  void _listenToAuth() {
+    _ref.listen<User?>(authProvider, (previous, next) {
+      if (next == null) {
+        _subscription?.cancel();
+        _subscription = null;
+        state = [];
+      } else if (previous?.id != next.id) {
+        _subscribeToNotifications(next.id);
+        fetchNotifications(); // Initial fetch
+      }
+    }, fireImmediately: true);
   }
 
   Future<void> fetchNotifications() async {

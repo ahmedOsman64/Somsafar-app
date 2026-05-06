@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -16,6 +17,7 @@ import '../../shared/services/notification_repository.dart';
 import '../../shared/services/banner_repository.dart';
 import '../../shared/services/review_repository.dart';
 import '../../shared/services/lookup_service.dart';
+import '../../shared/services/highlight_repository.dart';
 import '../../core/widgets/responsive.dart';
 
 class TravelerHomeScreen extends ConsumerStatefulWidget {
@@ -36,7 +38,6 @@ class _TravelerHomeScreenState extends ConsumerState<TravelerHomeScreen> {
     final services = ref.watch(filteredServicesProvider);
     final specialOffers = ref.watch(activeSpecialOffersProvider);
 
-    final categoriesAsync = ref.watch(categoriesProvider);
     final regionsAsync = ref.watch(regionsProvider);
 
     final screenWidth = MediaQuery.of(context).size.width;
@@ -44,8 +45,6 @@ class _TravelerHomeScreenState extends ConsumerState<TravelerHomeScreen> {
     final isTablet = screenWidth >= 600 && screenWidth < 1024;
 
     final logoSize = isDesktop ? 42.0 : (isTablet ? 38.0 : 34.0);
-    final brandFontSize = isDesktop ? 24.0 : (isTablet ? 22.0 : 20.0);
-    final brandSpacing = isDesktop ? 14.0 : 10.0;
 
     // Filter active services based on selection
 
@@ -141,16 +140,6 @@ class _TravelerHomeScreenState extends ConsumerState<TravelerHomeScreen> {
                   height: logoSize,
                   fit: BoxFit.contain,
                 ),
-                SizedBox(width: brandSpacing),
-                Text(
-                  'SomSafar',
-                  style: GoogleFonts.poppins(
-                    fontSize: brandFontSize,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                    letterSpacing: -0.5,
-                  ),
-                ),
 
                 // Space to push remaining icons to the right
                 const Spacer(),
@@ -238,51 +227,36 @@ class _TravelerHomeScreenState extends ConsumerState<TravelerHomeScreen> {
             ),
           ),
 
-          // 🖼 Hero Section
-          SliverToBoxAdapter(child: _HeroSection()),
-
-          // 🎯 Categories Section
+          // 🖼 Hero Section (Includes Search Bar overlapping at bottom)
           SliverToBoxAdapter(
-            child: categoriesAsync.when(
-              data: (categoriesList) => _CategoriesSection(
-                categories: categoriesList,
-                selectedCategory: _selectedCategory,
-                onCategorySelected: (categoryKey) {
-                  setState(() => _selectedCategory = categoryKey);
-                  // Navigate to search screen with category filter
-                  context.push('/traveler/search?category=$categoryKey');
-                },
-              ),
-              loading: () => const SizedBox(
-                height: 80,
-                child: Center(child: CircularProgressIndicator()),
-              ),
-              error: (_, __) => const SizedBox.shrink(),
+            child: _HeroSection(
+              selectedCategory: _selectedCategory,
+              onCategorySelected: (categoryKey) {
+                setState(() => _selectedCategory = categoryKey);
+                // Navigate to search screen with category filter
+                context.push('/traveler/search?category=$categoryKey');
+              },
             ),
           ),
 
-          // 🔥 Special Offers
-          if (specialOffers.isNotEmpty)
-            SliverToBoxAdapter(
-              child: _SpecialOffersSection(offers: specialOffers),
-            ),
-
-          // ⭐ Featured Destinations (hidden when a destination is explored)
+          // ⭐ Featured Destinations (Circular Somalia Regions)
           if (dynamicDestinations.isNotEmpty && _selectedDestination == null)
             SliverToBoxAdapter(
-              child: _FeaturedDestinationsSection(
-                destinations: dynamicDestinations,
-                onExplore: (city) {
-                  setState(() => _selectedDestination = city);
-                  // Scroll down slightly so the services are visible
-                  Future.delayed(const Duration(milliseconds: 100), () {
-                    _scrollController.animateTo(
-                      _scrollController.position.pixels + 100,
-                      duration: const Duration(milliseconds: 400),
-                      curve: Curves.easeOut,
-                    );
-                  });
-                },
+              child: Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: _FeaturedDestinationsSection(
+                  destinations: dynamicDestinations,
+                  onExplore: (city) {
+                    setState(() => _selectedDestination = city);
+                    Future.delayed(const Duration(milliseconds: 100), () {
+                      _scrollController.animateTo(
+                        _scrollController.position.pixels + 100,
+                        duration: const Duration(milliseconds: 400),
+                        curve: Curves.easeOut,
+                      );
+                    });
+                  },
+                ),
               ),
             ),
 
@@ -305,10 +279,20 @@ class _TravelerHomeScreenState extends ConsumerState<TravelerHomeScreen> {
               ),
             ),
 
-          // 🏨 Recently Viewed & Recommended (hidden when a destination is explored)
+          // 🏨 Recommended Services (Favorites / Top)
           if (_selectedDestination == null)
             SliverToBoxAdapter(
               child: _RecommendedServicesSection(services: displayServices),
+            ),
+
+          // 🏖️ Somalia Travel Highlights
+          if (_selectedDestination == null)
+            const SliverToBoxAdapter(child: _TravelHighlightsSection()),
+
+          // 🔥 Special Offers
+          if (specialOffers.isNotEmpty)
+            SliverToBoxAdapter(
+              child: _SpecialOffersSection(offers: specialOffers),
             ),
 
           // 💬 Reviews Section
@@ -444,6 +428,14 @@ class _TravelerHomeScreenState extends ConsumerState<TravelerHomeScreen> {
 
 // 🖼 Hero Section Widget
 class _HeroSection extends ConsumerStatefulWidget {
+  final String? selectedCategory;
+  final Function(String) onCategorySelected;
+
+  const _HeroSection({
+    required this.selectedCategory,
+    required this.onCategorySelected,
+  });
+
   @override
   ConsumerState<_HeroSection> createState() => _HeroSectionState();
 }
@@ -490,155 +482,249 @@ class _HeroSectionState extends ConsumerState<_HeroSection> {
     super.dispose();
   }
 
-  String _getGreeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) {
-      return 'Good Morning';
-    } else if (hour < 17) {
-      return 'Good Afternoon';
-    } else {
-      return 'Good Evening';
-    }
-  }
-
-  Color _getGreetingColor() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) {
-      return const Color.fromARGB(255, 253, 216, 83); // Morning
-    } else if (hour < 17) {
-      return const Color.fromARGB(255, 247, 192, 120); // Afternoon
-    } else {
-      return Colors.blue.shade200; // Evening
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final banners = ref.watch(activeBannersProvider);
-    final greeting = _getGreeting();
-    final greetingColor = _getGreetingColor();
     final userName = ref.watch(authProvider)?.name ?? 'Traveler';
+    final categoriesAsync = ref.watch(categoriesProvider);
+    final firstName = userName.split(' ').first;
 
-    return Container(
-      height: context.isMobile
-          ? MediaQuery.of(context).size.height * 0.6
-          : MediaQuery.of(context).size.height * 0.7,
+    final heroHeight = context.isMobile
+        ? MediaQuery.of(context).size.height * 0.45
+        : MediaQuery.of(context).size.height * 0.5;
+
+    return SizedBox(
+      height: heroHeight + 28, // heroHeight + half of search bar height to accommodate overlap
       child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.topCenter,
         children: [
-          // Background images (rotating)
-          PageView.builder(
-            controller: _pageController,
-            onPageChanged: (index) {
-              _currentPage = index;
-            },
-            itemCount: banners.length,
-            itemBuilder: (context, index) {
-              final banner = banners[index];
-              return Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0xFF1E3A8A), Color(0xFF3B82F6)],
+          // Background images (rotating) - Positioned to stay within heroHeight
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: heroHeight,
+            child: PageView.builder(
+              controller: _pageController,
+              onPageChanged: (index) {
+                _currentPage = index;
+              },
+              itemCount: banners.length,
+              itemBuilder: (context, index) {
+                final banner = banners[index];
+                return Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0xFF1E3A8A), Color(0xFF3B82F6)],
+                    ),
                   ),
-                ),
-                child: Image.network(
-                  banner.imageUrl,
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Colors.blue[900]!, Colors.blue[600]!],
+                  child: Image.network(
+                    banner.imageUrl,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Colors.blue[900]!, Colors.blue[600]!],
+                          ),
                         ),
-                      ),
-                      child: Center(
-                        child: Icon(
-                          Icons.location_city,
-                          size: 80,
-                          color: Colors.white.withAlpha(100),
+                        child: Center(
+                          child: Icon(
+                            Icons.location_city,
+                            size: 80,
+                            color: Colors.white.withAlpha(100),
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                ),
-              );
-            },
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
           ),
 
-          // Gradient overlay
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withAlpha(100),
-                  Colors.black.withAlpha(200),
-                ],
+          // Gradient overlay - Positioned to stay within heroHeight
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: heroHeight,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withAlpha(50),
+                    Colors.black.withAlpha(120),
+                  ],
+                ),
               ),
             ),
           ),
 
-          // Content
-          Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    '$greeting, $userName! 👋',
-                    style: GoogleFonts.poppins(
-                      fontSize: !context.isMobile ? 24 : 18,
-                      fontWeight: FontWeight.w600,
-                      color: greetingColor,
-                      letterSpacing: 0.8,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black.withAlpha(150),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+          // Content - Positioned to stay within heroHeight
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: heroHeight,
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 12),
+                    Text(
+                      'Hello! $firstName',
+                      style: GoogleFonts.poppins(
+                        fontSize: !context.isMobile ? 32 : 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        letterSpacing: 0.5,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black.withAlpha(100),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Discover Somalia With Comfort & Trust',
-                    style: GoogleFonts.poppins(
-                      fontSize: !context.isMobile
-                          ? 42
-                          : 28, // Responsive font size
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black.withAlpha(100),
-                          blurRadius: 10,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+                    const SizedBox(height: 4),
+                    Text(
+                      'Where would you like to go?',
+                      style: GoogleFonts.poppins(
+                        fontSize: !context.isMobile ? 18 : 16,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white.withAlpha(230),
+                        shadows: [
+                          Shadow(
+                            color: Colors.black.withAlpha(100),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Experience the heart of Somalia with every stay and story',
-                    style: GoogleFonts.poppins(
-                      fontSize: !context.isMobile
-                          ? 18
-                          : 14, // Responsive font size
-                      color: Colors.white.withAlpha(200),
+                    const Spacer(),
+                    
+                    // Categories
+                    categoriesAsync.when(
+                      data: (categoriesList) {
+                        final displayCats = categoriesList.where((c) => 
+                          ['hotel', 'apartment', 'tour'].contains(c.key.toLowerCase())
+                        ).toList();
+                        final cats = displayCats.isNotEmpty ? displayCats : categoriesList.take(3).toList();
+                        
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 24),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                children: cats.map((category) {
+                                  final isSelected =
+                                      category.key == widget.selectedCategory;
+                                  return GestureDetector(
+                                    onTap: () =>
+                                        widget.onCategorySelected(category.key),
+                                    child: _CategoryIconCard(
+                                      icon: getLookupIcon(category.icon),
+                                      label: category.label,
+                                      isSelected: isSelected,
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                          ],
+                        );
+                      },
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
                     ),
-                    textAlign: TextAlign.center,
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // 🌙 Curved white background at the bottom of the hero image
+          Positioned(
+            bottom: 28, // Adjusted to sit at the bottom of heroHeight
+            left: 0,
+            right: 0,
+            height: 40,
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Color(0xFFF3F4F6), // Matches typical scaffold background
+                borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+              ),
+            ),
+          ),
+
+          // 🔍 Search Bar (Overlapping) - Now at the absolute bottom of the taller Stack
+          Positioned(
+            bottom: 0,
+            left: 24,
+            right: 24,
+            child: Container(
+              height: 56,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withAlpha(20),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
                   ),
-                  const SizedBox(height: 16),
                 ],
+              ),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  debugPrint('DEBUG: Search bar tapped');
+                  context.push('/traveler/search');
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 16,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.search,
+                        color: AppColors.primary,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Where to go',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            color: Colors.grey[400],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -661,30 +747,21 @@ class _FeaturedDestinationsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Featured Destinations',
-            style: GoogleFonts.poppins(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: AppColors.dark,
-            ),
-          ),
-          const SizedBox(height: 20),
           SizedBox(
-            height: 300,
+            height: 100,
             child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               scrollDirection: Axis.horizontal,
               itemCount: destinations.length,
-              separatorBuilder: (context, index) => const SizedBox(width: 16),
+              separatorBuilder: (context, index) => const SizedBox(width: 24),
               itemBuilder: (context, index) {
                 final destination = destinations[index];
-                return _DestinationCard(
+                return _DestinationCircularCard(
                   city: destination['city'],
-                  hotels: destination['hotels'],
                   image: destination['image'],
                   onExplore: onExplore,
                 );
@@ -692,6 +769,99 @@ class _FeaturedDestinationsSection extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _DestinationCircularCard extends StatefulWidget {
+  final String city;
+  final String image;
+  final void Function(String city) onExplore;
+
+  const _DestinationCircularCard({
+    required this.city,
+    required this.image,
+    required this.onExplore,
+  });
+
+  @override
+  State<_DestinationCircularCard> createState() => _DestinationCircularCardState();
+}
+
+class _DestinationCircularCardState extends State<_DestinationCircularCard> {
+  bool _isHovered = false;
+
+  Widget _buildErrorState() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.blue[100],
+        shape: BoxShape.circle,
+      ),
+      child: Center(
+        child: Icon(
+          Icons.location_city,
+          size: 24,
+          color: Colors.blue[400],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: () => widget.onExplore(widget.city),
+        child: Column(
+          children: [
+            AnimatedScale(
+              scale: _isHovered ? 1.1 : 1.0,
+              duration: const Duration(milliseconds: 200),
+              child: Container(
+                width: 70,
+                height: 70,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.blue[100]!, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(_isHovered ? 20 : 10),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: ClipOval(
+                  child: widget.image.startsWith('assets/')
+                      ? Image.asset(
+                          widget.image,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _buildErrorState(),
+                        )
+                      : Image.network(
+                          widget.image,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _buildErrorState(),
+                        ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              widget.city,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: AppColors.dark,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1241,89 +1411,136 @@ class _DestinationServiceCardState
 }
 
 // 🏨 Recommended Services Section
-class _RecommendedServicesSection extends StatelessWidget {
+class _RecommendedServicesSection extends StatefulWidget {
   final List<Service> services;
 
   const _RecommendedServicesSection({required this.services});
 
   @override
+  State<_RecommendedServicesSection> createState() => _RecommendedServicesSectionState();
+}
+
+class _RecommendedServicesSectionState extends State<_RecommendedServicesSection> {
+  late PageController _pageController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(viewportFraction: 0.65, initialPage: widget.services.length > 1 ? 1 : 0);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(vertical: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Flexible(
-                child: Text(
-                  'My Favorites',
-                  style: GoogleFonts.poppins(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.dark,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Flexible(
+                  child: Text(
+                    'Recommended',
+                    style: GoogleFonts.poppins(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.dark,
+                    ),
                   ),
                 ),
-              ),
-              TextButton(
-                onPressed: () {},
-                child: Text(
-                  'Explore More',
-                  style: GoogleFonts.poppins(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w600,
+                TextButton(
+                  onPressed: () {},
+                  child: Text(
+                    'View All',
+                    style: GoogleFonts.poppins(
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-          const SizedBox(height: 20),
-          if (services.isEmpty)
-            Container(
-              height: 150,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey[200]!),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.favorite_border,
-                    color: Colors.grey[300],
-                    size: 48,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'No favorites yet',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey[400],
+          const SizedBox(height: 16),
+          if (widget.services.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Container(
+                height: 150,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey[200]!),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.recommend,
+                      color: Colors.grey[300],
+                      size: 48,
                     ),
-                  ),
-                  Text(
-                    'Tap the heart icon to save services here.',
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: Colors.grey[400],
+                    const SizedBox(height: 12),
+                    Text(
+                      'No recommendations yet',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[400],
+                      ),
                     ),
-                  ),
-                ],
+                    Text(
+                      'Tap the heart icon to save services here.',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: Colors.grey[400],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             )
           else
             SizedBox(
-              height: 290,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: services.length,
-                separatorBuilder: (context, index) => const SizedBox(width: 16),
-                itemBuilder: (context, index) {
-                  return _ServiceHorizontalCard(service: services[index]);
+              height: 380,
+              child: AnimatedBuilder(
+                animation: _pageController,
+                builder: (context, child) {
+                  return PageView.builder(
+                    controller: _pageController,
+                    itemCount: widget.services.length,
+                    itemBuilder: (context, index) {
+                      double value = 1.0;
+                      if (_pageController.position.haveDimensions) {
+                        value = _pageController.page! - index;
+                        value = (1 - (value.abs() * 0.15)).clamp(0.0, 1.0);
+                      } else {
+                        final initialPage = widget.services.length > 1 ? 1 : 0;
+                        value = initialPage == index ? 1.0 : 0.85;
+                      }
+
+                      return Center(
+                        child: SizedBox(
+                          height: Curves.easeOut.transform(value) * 380,
+                          width: double.infinity,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: _ServiceHorizontalCard(service: widget.services[index]),
+                          ),
+                        ),
+                      );
+                    },
+                  );
                 },
               ),
             ),
@@ -1343,8 +1560,7 @@ class _ServiceHorizontalCard extends ConsumerStatefulWidget {
       _ServiceHorizontalCardState();
 }
 
-class _ServiceHorizontalCardState
-    extends ConsumerState<_ServiceHorizontalCard> {
+class _ServiceHorizontalCardState extends ConsumerState<_ServiceHorizontalCard> {
   bool _isHovered = false;
 
   @override
@@ -1360,251 +1576,169 @@ class _ServiceHorizontalCardState
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          width: 240,
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(32),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withAlpha(_isHovered ? 25 : 10),
-                blurRadius: _isHovered ? 15 : 10,
-                offset: Offset(0, _isHovered ? 6 : 4),
+                color: Colors.black.withAlpha(_isHovered ? 40 : 15),
+                blurRadius: _isHovered ? 20 : 10,
+                offset: Offset(0, _isHovered ? 10 : 4),
               ),
             ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            fit: StackFit.expand,
             children: [
-              // Image
-              Container(
-                height: 140,
-                decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(16),
-                  ),
-                  color: Colors.grey[200],
+              // Background Image
+              AnimatedScale(
+                scale: _isHovered ? 1.05 : 1.0,
+                duration: const Duration(milliseconds: 300),
+                child: Image.network(
+                  service.images.isNotEmpty
+                      ? service.images.first
+                      : 'https://picsum.photos/seed/${service.id}/400/600',
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Colors.blue[300]!, Colors.blue[500]!],
+                        ),
+                      ),
+                      child: Center(
+                        child: Icon(
+                          service.category.toLowerCase() == 'apartment'
+                              ? Icons.apartment
+                              : service.category.toLowerCase() == 'tour'
+                              ? Icons.explore
+                              : Icons.hotel,
+                          size: 60,
+                          color: Colors.white.withAlpha(150),
+                        ),
+                      ),
+                    );
+                  },
                 ),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.network(
-                      service.images.isNotEmpty
-                          ? service.images.first
-                          : 'https://picsum.photos/seed/${service.id}/240/140',
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          decoration: BoxDecoration(
-                            borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(16),
-                            ),
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [Colors.blue[300]!, Colors.blue[500]!],
-                            ),
-                          ),
-                          child: Center(
-                            child: Icon(
-                              service.category.toLowerCase() == 'apartment'
-                                  ? Icons.apartment
-                                  : service.category.toLowerCase() == 'tour'
-                                  ? Icons.explore
-                                  : Icons.hotel,
-                              size: 40,
-                              color: Colors.white.withAlpha(150),
-                            ),
-                          ),
-                        );
-                      },
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          decoration: BoxDecoration(
-                            borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(16),
-                            ),
-                            color: Colors.grey[200],
-                          ),
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded /
-                                        loadingProgress.expectedTotalBytes!
-                                  : null,
-                              strokeWidth: 2,
-                            ),
-                          ),
-                        );
-                      },
+              ),
+              
+              // Gradient Overlay
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: 120,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withAlpha(150),
+                        Colors.black.withAlpha(200),
+                      ],
                     ),
-                    // Quick Preview Button over image
-                    Positioned(
-                      top: 8,
-                      left: 8,
-                      child: GestureDetector(
-                        onTap: () => _openQuickPreview(context, service),
-                        child: AnimatedOpacity(
-                          duration: const Duration(milliseconds: 200),
-                          opacity: _isHovered ? 1.0 : 0.8,
-                          child: Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: Colors.black54,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(
-                              Icons.visibility_outlined,
-                              color: Colors.white,
-                              size: 18,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: Container(
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                        child: IconButton(
-                          icon: Icon(
-                            ref
-                                    .watch(favoritesProvider)
-                                    .any((s) => s.id == service.id)
-                                ? Icons.favorite
-                                : Icons.favorite_border,
-                            color: Colors.red,
-                            size: 20,
-                          ),
-                          onPressed: () {
-                            ref
-                                .read(favoritesProvider.notifier)
-                                .toggleFavorite(service);
-                          },
-                          constraints: const BoxConstraints(),
-                          padding: const EdgeInsets.all(6),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
 
-              // Details
-              Padding(
-                padding: const EdgeInsets.all(12),
+              // Heart Icon
+              Positioned(
+                top: 16,
+                right: 16,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withAlpha(100),
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    icon: Icon(
+                      ref.watch(favoritesProvider).any((s) => s.id == service.id)
+                          ? Icons.favorite
+                          : Icons.favorite_border,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                    onPressed: () {
+                      ref.read(favoritesProvider.notifier).toggleFavorite(service);
+                    },
+                    constraints: const BoxConstraints(),
+                    padding: const EdgeInsets.all(10),
+                  ),
+                ),
+              ),
+
+              // Location & Rating
+              Positioned(
+                bottom: 20,
+                left: 20,
+                right: 20,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       service.title,
                       style: GoogleFonts.poppins(
-                        fontSize: 15,
+                        color: Colors.white,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.dark,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Row(
-                      children: [
-                        const Icon(
-                          Icons.location_on,
-                          size: 11,
-                          color: AppColors.primary,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            service.location,
-                            style: GoogleFonts.poppins(
-                              fontSize: 11,
-                              color: Colors.grey[600],
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    // Real Amenities icons
-                    if (service.amenities != null &&
-                        service.amenities!.isNotEmpty)
-                      Row(
-                        children: service.amenities!.take(3).map((a) {
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 6),
-                            child: Icon(
-                              _getIconForAmenity(a),
-                              size: 12,
-                              color: AppColors.primary.withValues(alpha: 0.5),
-                            ),
-                          );
-                        }).toList(),
-                      )
-                    else
-                      const SizedBox(height: 12),
-
-                    const SizedBox(height: 12),
-                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '\$${service.price.toStringAsFixed(0)}',
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.primary,
+                        Expanded(
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.location_on,
+                                color: Colors.white70,
+                                size: 14,
                               ),
-                            ),
-                            Text(
-                              '/night',
-                              style: TextStyle(
-                                fontSize: 9,
-                                color: Colors.grey[500],
-                              ),
-                            ),
-                          ],
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _isHovered
-                                ? AppColors.secondary
-                                : AppColors.primary,
-                            borderRadius: BorderRadius.circular(8),
-                            boxShadow: [
-                              if (_isHovered)
-                                BoxShadow(
-                                  color: AppColors.secondary.withValues(
-                                    alpha: 0.3,
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  service.location,
+                                  style: GoogleFonts.poppins(
+                                    color: Colors.white70,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
                                   ),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 4),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
+                              ),
                             ],
                           ),
-                          child: Text(
-                            'View',
-                            style: GoogleFonts.poppins(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
-                          ),
                         ),
+                        const SizedBox(width: 8),
+                        if (service.rating != null)
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.star,
+                                color: Colors.amber,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                service.rating!.toStringAsFixed(1),
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
                       ],
                     ),
                   ],
@@ -1616,98 +1750,8 @@ class _ServiceHorizontalCardState
       ),
     );
   }
-
-  IconData _getIconForAmenity(String amenity) {
-    final a = amenity.toLowerCase();
-    if (a.contains('wifi')) return Icons.wifi;
-    if (a.contains('ac') || a.contains('air condition')) return Icons.ac_unit;
-    if (a.contains('pool')) return Icons.pool;
-    if (a.contains('parking')) return Icons.local_parking;
-    if (a.contains('breakfast')) return Icons.free_breakfast;
-    if (a.contains('gym') || a.contains('fitness')) return Icons.fitness_center;
-    if (a.contains('tv')) return Icons.tv;
-    if (a.contains('restaurant') || a.contains('food')) return Icons.restaurant;
-    if (a.contains('transport') || a.contains('pickup')) {
-      return Icons.airport_shuttle;
-    }
-    return Icons.done;
-  }
 }
 
-// 🎯 Categories Section
-class _CategoriesSection extends StatelessWidget {
-  final List<LookupItem> categories;
-  final String? selectedCategory;
-  final Function(String) onCategorySelected;
-
-  const _CategoriesSection({
-    required this.categories,
-    required this.selectedCategory,
-    required this.onCategorySelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isMobile = context.isMobile;
-    return Container(
-      padding: EdgeInsets.symmetric(vertical: isMobile ? 24 : 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center, // Center title as well
-        children: [
-          Text(
-            'Explore Categories',
-            style: GoogleFonts.poppins(
-              fontSize: isMobile ? 22 : 26, // Responsive size
-              fontWeight: FontWeight.bold,
-              color: AppColors.dark,
-            ),
-          ),
-          SizedBox(height: isMobile ? 16 : 24),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: isMobile
-                ? Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    alignment: WrapAlignment.center,
-                    children: categories.map((category) {
-                      final isSelected = category.key == selectedCategory;
-                      return GestureDetector(
-                        onTap: () => onCategorySelected(category.key),
-                        child: _CategoryIconCard(
-                          icon: getLookupIcon(category.icon),
-                          label: category.label,
-                          isSelected: isSelected,
-                        ),
-                      );
-                    }).toList(),
-                  )
-                : SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: categories.map((category) {
-                        final isSelected = category.key == selectedCategory;
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: GestureDetector(
-                            onTap: () => onCategorySelected(category.key),
-                            child: _CategoryIconCard(
-                              icon: getLookupIcon(category.icon),
-                              label: category.label,
-                              isSelected: isSelected,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _CategoryIconCard extends StatelessWidget {
   final IconData icon;
@@ -1723,58 +1767,62 @@ class _CategoryIconCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isMobile = context.isMobile;
-    // Calculate a width that allows 3 items to fit on standard mobile screens (e.g. 360-400px width)
-    // 3 items * 105px + 2 * 12px (spacing) = 315 + 24 = 339px
-    final cardWidth = isMobile ? 105.0 : 140.0;
-    final cardHeight = isMobile ? 105.0 : 130.0;
+    final cardWidth = isMobile ? 100.0 : 110.0;
+    final cardHeight = isMobile ? 105.0 : 120.0;
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      width: cardWidth,
-      height: cardHeight,
-      padding: EdgeInsets.all(isMobile ? 10 : 16),
-      decoration: BoxDecoration(
-        color: isSelected ? AppColors.primary : Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(isMobile ? 16 : 20),
-        boxShadow: [
-          BoxShadow(
-            color: isSelected
-                ? AppColors.primary.withValues(alpha: 0.2)
-                : Colors.black.withValues(alpha: 0.05),
-            blurRadius: 15,
-            offset: const Offset(0, 6),
-          ),
-        ],
-        border: Border.all(
-          color: isSelected ? AppColors.primary : Colors.grey[100]!,
-          width: 1.5,
-        ),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            color: isSelected ? Colors.white : AppColors.primary,
-            size: isMobile ? 28 : 36, // Responsive icon
-          ),
-          SizedBox(height: isMobile ? 8 : 12),
-          Text(
-            label,
-            style: GoogleFonts.poppins(
-              fontSize: isMobile ? 13 : 15, // Responsive text
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-              color: isSelected
-                  ? Colors.white
-                  : (Theme.of(context).brightness == Brightness.dark
-                        ? Colors.white
-                        : AppColors.dark),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          width: cardWidth,
+          height: cardHeight,
+          padding: EdgeInsets.all(isMobile ? 8 : 12),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white.withAlpha(60) : Colors.white.withAlpha(20),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: isSelected ? Colors.white : Colors.white.withAlpha(60),
+              width: isSelected ? 2 : 1,
             ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(isSelected ? 40 : 20),
+                blurRadius: 15,
+                offset: const Offset(0, 8),
+              ),
+              if (isSelected)
+                BoxShadow(
+                  color: Colors.white.withAlpha(30),
+                  blurRadius: 12,
+                  spreadRadius: 1,
+                ),
+            ],
           ),
-        ],
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                color: Colors.white,
+                size: isMobile ? 28 : 32,
+              ),
+              SizedBox(height: isMobile ? 8 : 12),
+              Text(
+                label,
+                style: GoogleFonts.poppins(
+                  fontSize: isMobile ? 12 : 14,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                  color: Colors.white,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -2368,6 +2416,163 @@ class _MobileAppPromotion extends StatelessWidget {
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+// 🏖️ Travel Highlights Section
+class _TravelHighlightsSection extends ConsumerWidget {
+  const _TravelHighlightsSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final highlightsData = ref.watch(activeHighlightsProvider);
+
+    // Fallback static data if database is empty
+    final List<Map<String, String>> fallbackHighlights = [
+      {
+        'title': 'Liido Beach',
+        'location': 'Mogadishu',
+        'image': 'https://images.unsplash.com/photo-1544102807-640a23277732?auto=format&fit=crop&w=600&q=80',
+        'tag': 'Beach',
+      },
+      {
+        'title': 'Laas Geel',
+        'location': 'Hargeisa',
+        'image': 'https://images.unsplash.com/photo-1610473264667-27f99990543e?auto=format&fit=crop&w=600&q=80',
+        'tag': 'History',
+      },
+      {
+        'title': 'Daallo Mountains',
+        'location': 'Erigavo',
+        'image': 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=600&q=80',
+        'tag': 'Nature',
+      },
+    ];
+
+    final displayItems = highlightsData.isNotEmpty
+        ? highlightsData.map((h) => {
+            'title': h.title,
+            'location': h.location,
+            'image': h.imageUrl,
+            'tag': h.tag,
+          }).toList()
+        : fallbackHighlights;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Text(
+              'Explore Somalia',
+              style: GoogleFonts.poppins(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: AppColors.dark,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 240,
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              scrollDirection: Axis.horizontal,
+              itemCount: displayItems.length,
+              itemBuilder: (context, index) {
+                final item = displayItems[index];
+                return Container(
+                  width: 200,
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withAlpha(20),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.network(
+                        item['image']!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: Colors.grey[200],
+                          child: const Icon(Icons.image_not_supported),
+                        ),
+                      ),
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              Colors.black.withAlpha(150),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: 12,
+                        right: 12,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            item['tag']!,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 12,
+                        left: 12,
+                        right: 12,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item['title']!,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            Text(
+                              item['location']!,
+                              style: TextStyle(
+                                color: Colors.white.withAlpha(200),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

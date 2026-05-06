@@ -773,14 +773,25 @@ class SecuritySettings extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authProvider);
     final settings = ref.watch(settingsProvider);
+
+    String lastChangedText = 'Last changed recently';
+    if (user?.metadata['last_password_change'] != null) {
+      try {
+        final lastChanged = DateTime.parse(user!.metadata['last_password_change']);
+        lastChangedText = _formatTimeAgo(lastChanged);
+      } catch (_) {}
+    } else if (user?.updatedAt != null) {
+      lastChangedText = _formatTimeAgo(user!.updatedAt!);
+    }
 
     return Column(
       children: [
         _buildSecurityItem(
           Icons.lock_outline,
           'Change Password',
-          'Last changed 3 months ago',
+          lastChangedText,
           trailing: const Icon(Icons.arrow_forward_ios, size: 16),
           onTap: () {
             showDialog(
@@ -829,6 +840,25 @@ class SecuritySettings extends ConsumerWidget {
         ),
       ],
     );
+  }
+
+  String _formatTimeAgo(DateTime date) {
+    final diff = DateTime.now().difference(date);
+    if (diff.inDays > 365) {
+      final years = (diff.inDays / 365).floor();
+      return 'Last changed $years year${years > 1 ? 's' : ''} ago';
+    } else if (diff.inDays > 30) {
+      final months = (diff.inDays / 30).floor();
+      return 'Last changed $months month${months > 1 ? 's' : ''} ago';
+    } else if (diff.inDays > 0) {
+      return 'Last changed ${diff.inDays} day${diff.inDays > 1 ? 's' : ''} ago';
+    } else if (diff.inHours > 0) {
+      return 'Last changed ${diff.inHours} hour${diff.inHours > 1 ? 's' : ''} ago';
+    } else if (diff.inMinutes > 0) {
+      return 'Last changed ${diff.inMinutes} minute${diff.inMinutes > 1 ? 's' : ''} ago';
+    } else {
+      return 'Last changed just now';
+    }
   }
 
   Widget _buildSecurityItem(
@@ -1446,8 +1476,6 @@ class AppPreferences extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(settingsProvider);
-
     return Column(
       children: [
         _buildPreferenceItem(
@@ -1474,19 +1502,7 @@ class AppPreferences extends ConsumerWidget {
             activeThumbColor: AppColors.secondary,
           ),
         ),
-        const Divider(height: 32),
-        _buildPreferenceItem(
-          Icons.dark_mode_outlined,
-          'Dark Mode',
-          'System Default',
-          trailing: Switch(
-            value: settings.isDarkMode,
-            onChanged: (val) {
-              ref.read(settingsProvider.notifier).updateDarkMode(val);
-            },
-            activeThumbColor: AppColors.secondary,
-          ),
-        ),
+
       ],
     );
   }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -11,20 +12,42 @@ import '../../core/services/supabase_service.dart';
 class ServiceRepository extends StateNotifier<List<Service>> {
   final Ref? _ref;
   ServiceRepository([this._ref]) : super([]) {
-    _initStream();
+    _listenToAuth();
   }
 
+  void _listenToAuth() {
+    if (_ref == null) {
+      _initStream();
+      return;
+    }
+
+    _ref.listen<User?>(authProvider, (previous, next) {
+      if (next == null) {
+        _subscription?.cancel();
+        _subscription = null;
+        state = [];
+      } else if (previous?.id != next.id) {
+        _initStream();
+        fetchServices(); // Initial fetch
+      }
+    }, fireImmediately: true);
+  }
+
+  StreamSubscription? _subscription;
+
   void _initStream() {
-    SupabaseConfig.client.from('services').stream(primaryKey: ['id']).listen((
-      data,
-    ) {
-      if (!mounted) return;
-      state = data
-          .where((res) =>
-              res['id'] != null && (res['id'] as String).isNotEmpty)
-          .map((res) => Service.fromJson(res))
-          .toList();
-    });
+    _subscription?.cancel();
+    _subscription = SupabaseConfig.client
+        .from('services')
+        .stream(primaryKey: ['id'])
+        .listen((data) {
+          if (!mounted) return;
+          state = data
+              .where((res) =>
+                  res['id'] != null && (res['id'] as String).isNotEmpty)
+              .map((res) => Service.fromJson(res))
+              .toList();
+        });
   }
 
   Future<void> fetchServices() async {
@@ -80,6 +103,14 @@ class ServiceRepository extends StateNotifier<List<Service>> {
       state = [...state, optimisticService];
 
       await SupabaseConfig.client.from('services').insert(optimisticService.toJson());
+      
+      // Log Activity
+      _ref?.read(activityProvider.notifier).logServiceAddition(
+        optimisticService.title,
+        provider.name,
+        optimisticService.providerId,
+      );
+      
       // The stream will handle updating the state with the real record
     } catch (e) {
       debugPrint('Insert service error: $e');
@@ -105,10 +136,45 @@ class ServiceRepository extends StateNotifier<List<Service>> {
           if (s.id == service.id) service else s
       ];
 
+      // Security: Ensure the provider owns this service
+      final user = _ref?.read(authProvider);
+      if (user == null) throw Exception('Authentication required');
+      
+      if (user.role != UserRole.admin && service.providerId != (user.providerId ?? user.id)) {
+        throw Exception('Security Alert: Unauthorized attempt to update service owned by another provider.');
+      }
+
       await SupabaseConfig.client
           .from('services')
           .update(service.toJson())
           .eq('id', service.id);
+
+      // Log Activity
+      final oldService = previousState.firstWhere((s) => s.id == service.id);
+      if (oldService.status != service.status) {
+        _ref?.read(activityProvider.notifier).logServiceUpdate(
+          service.title,
+          'Status changed to ${service.status.name}',
+          service.providerId,
+        );
+
+        // Notify Provider if updated by Admin
+        if (user.role == UserRole.admin) {
+          _ref?.read(notificationProvider.notifier).addNotification(
+            userId: service.providerId,
+            title: 'Service Update',
+            message: 'Your service "${service.title}" status has been updated to ${service.status.name}.',
+            type: NotificationType.verification, // Reusing verification type for status updates
+            data: {'serviceId': service.id},
+          );
+        }
+      } else {
+        _ref?.read(activityProvider.notifier).logServiceUpdate(
+          service.title,
+          'Details updated',
+          service.providerId,
+        );
+      }
     } catch (e) {
       debugPrint('Update service error: $e');
       if (mounted) {
@@ -119,11 +185,26 @@ class ServiceRepository extends StateNotifier<List<Service>> {
   }
 
   Future<void> deleteService(String id) async {
+    final serviceToDelete = state.firstWhere((s) => s.id == id);
+    
+    // Security: Ensure owner or admin
+    final user = _ref?.read(authProvider);
+    if (user == null) throw Exception('Authentication required');
+    if (user.role != UserRole.admin && serviceToDelete.providerId != (user.providerId ?? user.id)) {
+      throw Exception('Security Alert: Unauthorized attempt to delete service owned by another provider.');
+    }
+
     try {
       // Optimistic Update
       state = state.where((s) => s.id != id).toList();
 
       await SupabaseConfig.client.from('services').delete().eq('id', id);
+
+      // Log Activity
+      _ref?.read(activityProvider.notifier).logServiceDeletion(
+        serviceToDelete.title,
+        serviceToDelete.providerId,
+      );
     } catch (e) {
       debugPrint('Delete service error: $e');
       rethrow;
@@ -230,14 +311,14 @@ final filteredServicesProvider = Provider<List<Service>>((ref) {
   if (user == null) {
     // If not logged in see only active
     return enrichedServices
-        .where((s) => s.status == ServiceStatus.active && s.id.isNotEmpty)
+        .where((s) => s.status == ServiceStatus.active)
         .toList();
   }
 
   switch (user.role) {
     case UserRole.traveler:
       return enrichedServices
-          .where((s) => s.status == ServiceStatus.active && s.id.isNotEmpty)
+          .where((s) => s.status == ServiceStatus.active)
           .toList();
     case UserRole.provider:
     case UserRole.providerHelper:

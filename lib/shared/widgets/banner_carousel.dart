@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/banner_repository.dart';
 import '../models/banner_model.dart';
-import '../../core/theme/app_colors.dart';
 import '../../core/services/storage_service.dart';
+import 'app_network_image.dart';
 
 class BannerCarousel extends ConsumerStatefulWidget {
   const BannerCarousel({super.key});
@@ -87,7 +87,7 @@ class _BannerCarouselState extends ConsumerState<BannerCarousel> {
 
           // Indicators
           if (banners.length > 1)
-            PositionError(
+            Positioned(
               bottom: 20,
               left: 0,
               right: 0,
@@ -126,30 +126,9 @@ class _BannerItem extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         // Image
-        Image.network(
-          StorageService.ensurePublicUrl(banner.imageUrl),
+        AppNetworkImage(
+          imageUrl: StorageService.ensurePublicUrl(banner.imageUrl),
           fit: BoxFit.cover,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return Container(
-              color: AppColors.primary.withAlpha(13),
-              child: const Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-                ),
-              ),
-            );
-          },
-          errorBuilder: (context, error, stackTrace) {
-            return Container(
-              color: Colors.grey[200],
-              child: const Icon(
-                Icons.broken_image,
-                color: Colors.grey,
-                size: 50,
-              ),
-            );
-          },
         ),
 
         // Gradient Overlay
@@ -192,22 +171,3 @@ class _BannerItem extends StatelessWidget {
 }
 
 // Fixed missing Positioned error in implementation
-class PositionError extends StatelessWidget {
-  final double? bottom;
-  final double? left;
-  final double? right;
-  final Widget child;
-
-  const PositionError({
-    super.key,
-    this.bottom,
-    this.left,
-    this.right,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(bottom: bottom, left: left, right: right, child: child);
-  }
-}

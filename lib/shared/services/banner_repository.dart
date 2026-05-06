@@ -76,8 +76,6 @@ class BannerRepository extends StateNotifier<List<BannerImage>> {
         'display_order': nextOrder,
         'active': true,
       });
-      // Stream will auto-update state. Force refresh as backup.
-      await refresh();
       return null;
     } catch (e) {
       debugPrint('Add banner error: $e');
@@ -100,7 +98,6 @@ class BannerRepository extends StateNotifier<List<BannerImage>> {
           .update(updates)
           .eq('id', id);
 
-      await refresh();
       return null;
     } catch (e) {
       debugPrint('Update banner error: $e');
@@ -133,8 +130,6 @@ class BannerRepository extends StateNotifier<List<BannerImage>> {
         debugPrint('Update banner order error: $e');
       }
     }
-    // Re-sync after all updates
-    await refresh();
   }
 
   Future<void> toggleStatus(String id) async {

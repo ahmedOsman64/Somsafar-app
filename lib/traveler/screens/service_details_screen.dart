@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +6,7 @@ import '../../core/theme/app_colors.dart';
 import '../../shared/services/service_repository.dart';
 import '../../shared/models/service_model.dart';
 import '../../shared/services/discount_repository.dart';
+import '../../shared/widgets/app_network_image.dart';
 
 class ServiceDetailsScreen extends ConsumerWidget {
   final String serviceId;
@@ -583,9 +585,41 @@ class ServiceImageCarousel extends StatefulWidget {
 class _ServiceImageCarouselState extends State<ServiceImageCarousel> {
   final PageController _pageController = PageController();
   int _currentIndex = 0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startAutoScroll();
+  }
+
+  void _startAutoScroll() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (widget.images.length <= 1) return;
+      
+      if (_pageController.hasClients) {
+        int nextIndex = _currentIndex + 1;
+        if (nextIndex >= widget.images.length) {
+          nextIndex = 0;
+          _pageController.animateToPage(
+            nextIndex,
+            duration: const Duration(milliseconds: 1000),
+            curve: Curves.easeIn,
+          );
+        } else {
+          _pageController.nextPage(
+            duration: const Duration(milliseconds: 1000),
+            curve: Curves.easeInOut,
+          );
+        }
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _timer?.cancel();
     _pageController.dispose();
     super.dispose();
   }
@@ -612,17 +646,15 @@ class _ServiceImageCarouselState extends State<ServiceImageCarousel> {
             setState(() {
               _currentIndex = index;
             });
+            // Reset timer on manual swipe
+            _startAutoScroll();
           },
           itemBuilder: (context, index) {
             return Hero(
               tag: 'service_image_${widget.images[index]}',
-              child: Image.network(
-                widget.images[index],
+              child: AppNetworkImage(
+                imageUrl: widget.images[index],
                 fit: BoxFit.cover,
-                errorBuilder: (c, o, s) => Container(
-                  color: Colors.grey[200],
-                  child: const Icon(Icons.broken_image, color: Colors.grey),
-                ),
               ),
             );
           },
