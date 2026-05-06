@@ -50,18 +50,20 @@ To become the premier digital gateway for travel and hospitality, setting new st
 - **Rich Analytics**: Visual insights into revenue trends and booking performance.
 - **Listing Excellence**: Simple step-by-step property creation with integrated image processing.
 
-### 🛡️ Platform Integrity
+### 🛡️ Platform Integrity & Monitoring
+- **Admin Dashboard**: Centralized "Platform Overview" for key metrics (Users, Services, Revenue).
+- **Monitor Activity**: Real-time "Updates" feed tracking service additions, status changes, and deletions.
 - **Granular Security**: Advanced Row-Level Security (RLS) ensures that all user data is private and protected.
-- **Role-Based Controls**: Specialized environments for different user roles (Travelers, Assistant Hosts, and Admins).
+- **Role-Based Controls**: Specialized environments for different user roles (Travelers, Providers, and Admins).
 
 ---
 
 ## 🛠️ Modern Technology & Benefits
-SomSafar is built using a industry-leading stack that prioritizes performance and scalability:
+SomSafar is built using an industry-leading stack that prioritizes performance and scalability:
 
-- **Mobile First (Flutter)**: A beautiful, responsive experience across iOS and Android.
-- **Web Portal (Vite & React)**: High-performance management tools for property owners.
-- **Scalable Backend (Supabase/PostgreSQL)**: Secure, real-time data management with enterprise-grade reliability.
+- **Mobile First (Flutter)**: A beautiful, responsive experience across iOS and Android with Material 3 design.
+- **Real-time Engine (Supabase)**: Secure, real-time data management with integrated PostgreSQL streams.
+- **Travel Highlights**: Specialized system for high-quality visual storytelling of regional landmarks.
 - **Intelligent Messaging**: Built-in real-time chat with optimistic UI updates for a zero-latency feel.
 
 ---
@@ -69,26 +71,21 @@ SomSafar is built using a industry-leading stack that prioritizes performance an
 ## 🚀 Quick Start & Setup
 
 ### 1. Mobile & Multi-platform App
-1.  **Requirements**: Flutter SDK `^3.9.2`.
-2.  **Configuration**: Place your environment settings in the `assets/` directory.
+1.  **Requirements**: Flutter SDK `^3.19.0+`.
+2.  **Configuration**: Setup `SupabaseConfig` in `lib/core/services/supabase_service.dart`.
 3.  **Command**: `flutter pub get` and `flutter run`.
-
-### 2. Management Web Portal
-1.  **Requirements**: Node.js `18+`.
-2.  **Configuration**: Place your environment settings in the `somsafar-web/` directory.
-3.  **Command**: `npm install` and `npm run dev`.
 
 ---
 
 ## 🏁 Project Summary
-- **Architecture**: Modern Layered Design.
+- **Architecture**: Modern Layered Design with Riverpod State Management.
 - **Total Ecosystem**: Unified Mobile, Tablet, and Web support.
-- **Security**: Built-in Privacy-First data governance.
+- **Security**: Built-in Privacy-First data governance with RLS.
 
-**SomSafar** - *Redefining the Digital Gateway to Travel.* 🌍✈️🏨
+**SomSafar** - *Redefining the Digital Gateway to Somalia.* 🌍✈️🏨
 
 ---
 
-*This document serves as the official project showcase for the SomSafar ecosystem. Last updated: March 2026.* 🧬
+*This document serves as the official project showcase for the SomSafar ecosystem. Last updated: May 2026.* 🧬
 
 **END OF DOCUMENTATION** 🧬
