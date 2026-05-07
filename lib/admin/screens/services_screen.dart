@@ -5,6 +5,7 @@ import '../../shared/services/service_repository.dart';
 import '../../shared/models/service_model.dart';
 import '../../core/theme/app_colors.dart';
 import '../../shared/widgets/confirmation_dialog.dart';
+import '../../shared/widgets/app_network_image.dart';
 
 class AdminServicesScreen extends ConsumerStatefulWidget {
   const AdminServicesScreen({super.key});
@@ -344,13 +345,13 @@ class _ServiceList extends StatelessWidget {
           child: ExpansionTile(
             leading: ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                service.images.isNotEmpty ? service.images.first : 'https://via.placeholder.com/150',
+              child: AppNetworkImage(
+                imageUrl: service.images.isNotEmpty ? service.images.first : 'https://via.placeholder.com/150',
                 width: 50,
                 height: 50,
                 fit: BoxFit.cover,
-                errorBuilder: (c, o, s) =>
-                    Container(width: 50, height: 50, color: Colors.grey),
+                memCacheWidth: 100, // Small list thumbnail
+                errorWidget: Container(width: 50, height: 50, color: Colors.grey),
               ),
             ),
             title: Text(
@@ -534,12 +535,13 @@ class _ServiceList extends StatelessWidget {
                     service.images.first.isNotEmpty) ...[
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      service.images.first,
+                    child: AppNetworkImage(
+                      imageUrl: service.images.first,
                       height: 180,
                       width: double.infinity,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(
+                      memCacheHeight: 360, // Optimize for modal height
+                      errorWidget: Container(
                         height: 180,
                         width: double.infinity,
                         color: Colors.grey[200],

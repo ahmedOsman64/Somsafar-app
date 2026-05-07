@@ -34,7 +34,7 @@ class MediaService {
             path,
             fileBytes,
             fileOptions: const FileOptions(
-              cacheControl: '3600',
+              cacheControl: '31536000',
               upsert: false,
               contentType: 'image/jpeg',
             ),

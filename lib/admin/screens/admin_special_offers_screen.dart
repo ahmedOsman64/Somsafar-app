@@ -9,6 +9,7 @@ import '../../shared/services/service_repository.dart';
 import '../../shared/models/service_model.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/services/storage_service.dart';
+import '../../shared/widgets/app_network_image.dart';
 
 class AdminSpecialOffersScreen extends ConsumerStatefulWidget {
   const AdminSpecialOffersScreen({super.key});
@@ -397,12 +398,14 @@ class _OfferListTile extends StatelessWidget {
             const SizedBox(width: 12),
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                StorageService.ensurePublicUrl(offer.imageUrl),
+              child: AppNetworkImage(
+                imageUrl: StorageService.ensurePublicUrl(offer.imageUrl),
                 width: 80,
                 height: 60,
                 fit: BoxFit.cover,
-                errorBuilder: (c, e, s) => Container(
+                borderRadius: 8,
+                memCacheWidth: 160, // Small preview
+                errorWidget: Container(
                   width: 80,
                   height: 60,
                   color: Colors.grey[200],

@@ -8,6 +8,7 @@ import '../../shared/models/banner_model.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/services/storage_service.dart';
 import '../../shared/widgets/confirmation_dialog.dart';
+import '../../shared/widgets/app_network_image.dart';
 
 class AdminBannerManagerScreen extends ConsumerStatefulWidget {
   const AdminBannerManagerScreen({super.key});
@@ -378,10 +379,11 @@ class _BannerFormSheetState extends State<_BannerFormSheet> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Image.network(
-              StorageService.ensurePublicUrl(existingUrl),
+            AppNetworkImage(
+              imageUrl: StorageService.ensurePublicUrl(existingUrl),
               fit: BoxFit.cover,
-              errorBuilder: (c, e, s) => _emptyPicker(),
+              borderRadius: 16,
+              errorWidget: _emptyPicker(),
             ),
             Container(
               color: Colors.black26,
@@ -448,12 +450,14 @@ class _BannerListTile extends StatelessWidget {
             const SizedBox(width: 8),
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                StorageService.ensurePublicUrl(banner.imageUrl),
+              child: AppNetworkImage(
+                imageUrl: StorageService.ensurePublicUrl(banner.imageUrl),
                 width: 100,
                 height: 70,
                 fit: BoxFit.cover,
-                errorBuilder: (c, e, s) => Container(
+                borderRadius: 12,
+                memCacheWidth: 200, // Optimize for list preview
+                errorWidget: Container(
                   width: 100,
                   height: 70,
                   color: Colors.grey[100],

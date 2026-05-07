@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../shared/services/highlight_repository.dart';
 import '../../shared/models/highlight_model.dart';
 import '../../shared/services/media_service.dart';
+import '../../shared/widgets/app_network_image.dart';
 
 class AdminHighlightsScreen extends ConsumerWidget {
   const AdminHighlightsScreen({super.key});
@@ -222,12 +223,14 @@ class _HighlightListTile extends ConsumerWidget {
         contentPadding: const EdgeInsets.all(12),
         leading: ClipRRect(
           borderRadius: BorderRadius.circular(8),
-          child: Image.network(
-            highlight.imageUrl,
+          child: AppNetworkImage(
+            imageUrl: highlight.imageUrl,
             width: 60,
             height: 60,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Container(
+            borderRadius: 8,
+            memCacheWidth: 120, // Small preview
+            errorWidget: Container(
               width: 60,
               height: 60,
               color: Colors.grey[200],

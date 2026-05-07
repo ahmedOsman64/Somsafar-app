@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/services/service_repository.dart';
+import '../../../shared/widgets/app_network_image.dart';
 import 'traveler_identity_screen.dart';
 
 class BookingSummaryScreen extends ConsumerWidget {
@@ -57,12 +58,13 @@ class BookingSummaryScreen extends ConsumerWidget {
               clipBehavior: Clip.antiAlias,
               child: Column(
                 children: [
-                  Image.network(
-                    service.images.first,
+                  AppNetworkImage(
+                    imageUrl: service.images.first,
                     height: 150,
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    errorBuilder: (c, o, s) => Container(
+                    memCacheHeight: 300, // Optimize for 150 logical pixels
+                    errorWidget: Container(
                       height: 150,
                       color: Colors.grey[300],
                       child: const Center(child: Icon(Icons.broken_image)),

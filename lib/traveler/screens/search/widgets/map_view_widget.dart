@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 
 class MapViewWidget extends StatelessWidget {
   final List<dynamic> services;
@@ -31,10 +32,10 @@ class MapViewWidget extends StatelessWidget {
         children: [
           // Placeholder for actual Map implementation (Google Maps or Mapbox)
           Positioned.fill(
-            child: Image.network(
-              'https://static.vecteezy.com/system/resources/previews/000/153/588/original/vector-route-map-concept.jpg',
+            child: AppNetworkImage(
+              imageUrl: 'https://static.vecteezy.com/system/resources/previews/000/153/588/original/vector-route-map-concept.jpg',
               fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => const Center(
+              errorWidget: const Center(
                 child: Icon(Icons.map_outlined, size: 64, color: Colors.grey),
               ),
             ),

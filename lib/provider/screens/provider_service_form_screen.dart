@@ -15,6 +15,7 @@ import '../../shared/widgets/form_widgets.dart';
 import '../../core/services/storage_service.dart';
 import '../../shared/models/booking_forms_model.dart';
 import '../../shared/services/lookup_service.dart';
+import '../../shared/widgets/app_network_image.dart';
 
 class ProviderServiceFormScreen extends ConsumerStatefulWidget {
   final String? serviceId;
@@ -2144,7 +2145,11 @@ class _ProviderServiceFormScreenState
               ClipRRect(
                 borderRadius: BorderRadius.circular(20),
                 child: item is String
-                    ? Image.network(item, fit: BoxFit.cover)
+                    ? AppNetworkImage(
+                        imageUrl: item,
+                        fit: BoxFit.cover,
+                        memCacheWidth: 300, // Reasonable size for grid preview
+                      )
                     : item is Map && item.containsKey('bytes')
                     ? Image.memory(item['bytes'] as Uint8List, fit: BoxFit.cover)
                     : !kIsWeb && item is XFile

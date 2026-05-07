@@ -57,82 +57,101 @@ class UserRepository extends StateNotifier<List<User>> {
       debugPrint('UserRepository: Received ${data.length} records');
       
       final users = data.map((res) {
-        // ... mapping logic ...
-        final roleStr = res['role'] as String? ?? 'traveler';
-        final statusStr = res['status'] as String? ?? 'active';
-        final adminRoleStr = res['admin_role'] as String?;
-        final providerTypeStr = res['provider_type'] as String?;
-        final travelerTypeStr = res['traveler_type'] as String?;
+        try {
+          final roleStr = res['role']?.toString() ?? 'traveler';
+          final statusStr = res['status']?.toString() ?? 'active';
+          final adminRoleStr = res['admin_role']?.toString();
+          final providerTypeStr = res['provider_type']?.toString();
+          final travelerTypeStr = res['traveler_type']?.toString();
 
-        UserRole role = UserRole.traveler;
-        if (roleStr == 'admin') {
-          role = UserRole.admin;
-        } else if (roleStr == 'provider') {
-          role = UserRole.provider;
-        } else if (roleStr == 'provider_helper') {
-          role = UserRole.providerHelper;
-        }
-
-        UserStatus status = UserStatus.values.firstWhere(
-          (e) => e.name == statusStr,
-          orElse: () => UserStatus.active,
-        );
-
-        AdminRole? adminRole = adminRoleStr != null
-            ? AdminRole.values.firstWhere(
-              (e) => e.name == adminRoleStr,
-              orElse: () => AdminRole.supportAdmin,
-            )
-            : null;
-
-        ProviderType? providerType = providerTypeStr != null
-            ? ProviderType.values.firstWhere(
-              (e) => e.name == providerTypeStr,
-              orElse: () => ProviderType.all,
-            )
-            : null;
-
-        TravelerType? travelerType = travelerTypeStr != null
-            ? TravelerType.values.firstWhere(
-              (e) => e.name == travelerTypeStr,
-              orElse: () => TravelerType.solo,
-            )
-            : null;
-
-        final metadata = res['metadata'] as Map<String, dynamic>? ?? {};
-        final List<PaymentAccount> paymentAccounts = [];
-        if (metadata.containsKey('payment_accounts')) {
-          final accountsData = metadata['payment_accounts'] as List<dynamic>;
-          for (var item in accountsData) {
-            paymentAccounts.add(PaymentAccount.fromJson(item));
+          UserRole role = UserRole.traveler;
+          if (roleStr == 'admin') {
+            role = UserRole.admin;
+          } else if (roleStr == 'provider') {
+            role = UserRole.provider;
+          } else if (roleStr == 'provider_helper') {
+            role = UserRole.providerHelper;
           }
-        }
 
-        return User(
-          id: res['id'],
-          name: res['name'] ?? '',
-          email: res['email'] ?? '',
-          password: '',
-          role: role,
-          status: status,
-          adminRole: adminRole,
-          providerType: providerType,
-          travelerType: travelerType,
-          providerId: res['provider_id'],
-          phone: res['phone'],
-          location: res['location'],
-          metadata: metadata,
-          paymentAccounts: paymentAccounts,
-          lastSessionId: res['last_session_id'],
-          failedAttempts: res['failed_attempts'] ?? 0,
-          createdAt: res['created_at'] != null
-              ? DateTime.parse(res['created_at'])
-              : null,
-        );
-      }).toList();
+          UserStatus status = UserStatus.active;
+          try {
+            status = UserStatus.values.firstWhere(
+              (e) => e.name == statusStr,
+              orElse: () => UserStatus.active,
+            );
+          } catch (_) {}
+
+          AdminRole? adminRole = adminRoleStr != null
+              ? AdminRole.values.firstWhere(
+                (e) => e.name == adminRoleStr,
+                orElse: () => AdminRole.supportAdmin,
+              )
+              : null;
+
+          ProviderType? providerType = providerTypeStr != null
+              ? ProviderType.values.firstWhere(
+                (e) => e.name == providerTypeStr,
+                orElse: () => ProviderType.all,
+              )
+              : null;
+
+          TravelerType? travelerType = travelerTypeStr != null
+              ? TravelerType.values.firstWhere(
+                (e) => e.name == travelerTypeStr,
+                orElse: () => TravelerType.solo,
+              )
+              : null;
+
+          final metadata = Map<String, dynamic>.from(res['metadata'] as Map? ?? {});
+          final List<PaymentAccount> paymentAccounts = [];
+          if (metadata.containsKey('payment_accounts')) {
+            final accountsData = metadata['payment_accounts'];
+            if (accountsData is List) {
+              for (var item in accountsData) {
+                if (item is Map) {
+                  try {
+                    paymentAccounts.add(PaymentAccount.fromJson(Map<String, dynamic>.from(item)));
+                  } catch (e) {
+                    debugPrint('UserRepository: Error parsing payment account: $e');
+                  }
+                }
+              }
+            }
+          }
+
+          return User(
+            id: res['id']?.toString() ?? '',
+            name: res['name']?.toString() ?? '',
+            email: res['email']?.toString() ?? '',
+            password: '',
+            role: role,
+            status: status,
+            adminRole: adminRole,
+            providerType: providerType,
+            travelerType: travelerType,
+            providerId: res['provider_id']?.toString(),
+            phone: res['phone']?.toString(),
+            location: res['location']?.toString(),
+            metadata: metadata,
+            paymentAccounts: paymentAccounts,
+            lastSessionId: res['last_session_id']?.toString(),
+            failedAttempts: (res['failed_attempts'] as num?)?.toInt() ?? 0,
+            createdAt: res['created_at'] != null
+                ? DateTime.tryParse(res['created_at'].toString())
+                : null,
+          );
+        } catch (e) {
+          debugPrint('UserRepository: Critical error mapping user record: $e');
+          return null;
+        }
+      }).whereType<User>().toList();
       
       if (mounted) {
-        state = users;
+        try {
+          state = users;
+        } catch (e) {
+          debugPrint('UserRepository: Error setting state: $e');
+        }
       }
     }, onError: (error) {
       debugPrint('UserRepository Stream error: $error');

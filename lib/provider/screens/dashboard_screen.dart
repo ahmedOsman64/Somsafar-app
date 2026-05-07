@@ -12,6 +12,7 @@ import '../../core/services/storage_service.dart';
 import '../../shared/services/booking_repository.dart';
 import '../../shared/services/service_repository.dart';
 import '../../core/widgets/responsive.dart';
+import '../../shared/widgets/app_network_image.dart';
 
 class ProviderDashboardScreen extends StatelessWidget {
   const ProviderDashboardScreen({super.key});
@@ -161,29 +162,16 @@ class _DashboardHeader extends ConsumerWidget {
               backgroundColor: AppColors.secondary.withValues(alpha: 0.1),
               child: user?.profileImage != null && user!.profileImage!.isNotEmpty
                   ? ClipOval(
-                      child: Image.network(
-                        StorageService.ensurePublicUrl(user.profileImage!),
+                      child: AppNetworkImage(
+                        imageUrl: StorageService.ensurePublicUrl(user.profileImage!),
                         width: 44,
                         height: 44,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Icon(
+                        memCacheWidth: 88, // Double for retina
+                        errorWidget: const Icon(
                             Icons.person,
                             size: 22, // Adjusted size for radius 22
                             color: AppColors.secondary),
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return const Center(
-                            child: SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                    Colors.white),
-                              ),
-                            ),
-                          );
-                        },
                       ),
                     )
                   : const Icon(Icons.person, color: Colors.white),
@@ -245,12 +233,11 @@ class _WelcomeBanner extends ConsumerWidget {
             ),
           ),
           if (!context.isMobile)
-            Image.network(
-              'https://cdn3d.iconscout.com/3d/premium/thumb/hotel-7151000-5807490.png',
+            AppNetworkImage(
+              imageUrl: 'https://cdn3d.iconscout.com/3d/premium/thumb/hotel-7151000-5807490.png',
               height: 100,
               fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) =>
-                  const Icon(Icons.hotel, color: Colors.white, size: 60),
+              errorWidget: const Icon(Icons.hotel, color: Colors.white, size: 60),
             ),
         ],
       ),

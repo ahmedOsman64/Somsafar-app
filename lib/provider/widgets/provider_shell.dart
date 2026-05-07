@@ -7,6 +7,7 @@ import '../../shared/services/auth_service.dart';
 import '../../shared/models/user_model.dart';
 import '../../core/services/storage_service.dart';
 import '../../shared/widgets/confirmation_dialog.dart';
+import '../../shared/widgets/app_network_image.dart';
 
 class ProviderShell extends ConsumerWidget {
   final Widget child;
@@ -76,23 +77,16 @@ class ProviderShell extends ConsumerWidget {
                         child: user?.profileImage != null &&
                                 user!.profileImage!.isNotEmpty
                             ? ClipOval(
-                                child: Image.network(
-                                  StorageService.ensurePublicUrl(
+                                child: AppNetworkImage(
+                                  imageUrl: StorageService.ensurePublicUrl(
                                       user.profileImage!),
                                   width: 72,
                                   height: 72,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => const Icon(
+                                  memCacheWidth: 144, // Optimize for 72 logical pixels
+                                  errorWidget: const Icon(
                                       Icons.person,
                                       color: Colors.white),
-                                  loadingBuilder:
-                                      (context, child, loadingProgress) {
-                                    if (loadingProgress == null) return child;
-                                    return const Center(
-                                      child: CircularProgressIndicator(
-                                          color: Colors.white),
-                                    );
-                                  },
                                 ),
                               )
                             : const Icon(Icons.person, color: Colors.white),

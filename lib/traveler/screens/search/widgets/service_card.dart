@@ -200,90 +200,94 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.baseline,
-                              textBaseline: TextBaseline.alphabetic,
-                              children: [
-                                Builder(
-                                  builder: (context) {
-                                    final discounts = ref.watch(
-                                      discountRepositoryProvider,
-                                    );
-                                    final activeDiscount =
-                                        DiscountRepository.getBestDiscount(
-                                          discounts,
-                                          widget.service.id,
-                                          widget.service.providerId,
-                                        );
-
-                                    if (activeDiscount == null) {
-                                      return Text(
-                                        '\$${widget.service.price}',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppColors.primary,
-                                        ),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.baseline,
+                                textBaseline: TextBaseline.alphabetic,
+                                children: [
+                                  Builder(
+                                    builder: (context) {
+                                      final discounts = ref.watch(
+                                        discountRepositoryProvider,
                                       );
-                                    }
+                                      final activeDiscount =
+                                          DiscountRepository.getBestDiscount(
+                                            discounts,
+                                            widget.service.id,
+                                            widget.service.providerId,
+                                          );
 
-                                    double finalPrice = widget.service.price;
-                                    if (activeDiscount.isPercentage) {
-                                      finalPrice -=
-                                          widget.service.price *
-                                          (activeDiscount.value / 100);
-                                    } else {
-                                      finalPrice -= activeDiscount.value;
-                                    }
-
-                                    return Row(
-                                      children: [
-                                        Text(
+                                      if (activeDiscount == null) {
+                                        return Text(
                                           '\$${widget.service.price}',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey.shade400,
-                                            decoration:
-                                                TextDecoration.lineThrough,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '\$${finalPrice.toStringAsFixed(0)}',
                                           style: TextStyle(
                                             fontSize: 16,
                                             fontWeight: FontWeight.bold,
                                             color: AppColors.primary,
                                           ),
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                ),
-                                const SizedBox(width: 2),
-                                Text(
-                                  (widget.service.category
-                                          .toString()
-                                          .toLowerCase()
-                                          .contains('apartment'))
-                                      ? '/mo'
-                                      : (widget.service.category
+                                        );
+                                      }
+
+                                      double finalPrice = widget.service.price;
+                                      if (activeDiscount.isPercentage) {
+                                        finalPrice -=
+                                            widget.service.price *
+                                            (activeDiscount.value / 100);
+                                      } else {
+                                        finalPrice -= activeDiscount.value;
+                                      }
+
+                                      return Row(
+                                        children: [
+                                          Text(
+                                            '\$${widget.service.price}',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey.shade400,
+                                              decoration:
+                                                  TextDecoration.lineThrough,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            '\$${finalPrice.toStringAsFixed(0)}',
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.primary,
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    (widget.service.category
                                             .toString()
                                             .toLowerCase()
-                                            .contains('tour'))
-                                      ? '/person'
-                                      : '/nt',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: Colors.grey.shade500,
+                                            .contains('apartment'))
+                                        ? '/mo'
+                                        : (widget.service.category
+                                              .toString()
+                                              .toLowerCase()
+                                              .contains('tour'))
+                                        ? '/person'
+                                        : '/nt',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.grey.shade500,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 4),
                       // Actions
                       Row(
                         mainAxisSize: MainAxisSize.min,
@@ -298,7 +302,7 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
                             },
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
+                                horizontal: 10,
                                 vertical: 6,
                               ),
                               decoration: BoxDecoration(

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../shared/models/booking_forms_model.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 
 // ─────────────────────────────────────────────
 //  Custom Step Indicator
@@ -762,10 +763,11 @@ class _ServiceImageGalleryState extends State<ServiceImageGallery> {
               itemBuilder: (context, index) {
                 return GestureDetector(
                   onTap: () => _showFullScreenGallery(context, index),
-                  child: Image.network(
-                    widget.images[index],
+                  child: AppNetworkImage(
+                    imageUrl: widget.images[index],
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
+                    memCacheWidth: 800, // Optimize for gallery view
+                    errorWidget: Container(
                       color: Colors.grey[200],
                       child: const Icon(Icons.broken_image, color: Colors.grey),
                     ),

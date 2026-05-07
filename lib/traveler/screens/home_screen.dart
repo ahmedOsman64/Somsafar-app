@@ -8,6 +8,7 @@ import '../../core/theme/app_colors.dart';
 import '../../shared/services/auth_service.dart';
 import '../../shared/services/service_repository.dart';
 import '../../shared/models/service_model.dart';
+import '../../shared/widgets/app_network_image.dart';
 
 import '../../shared/services/special_offer_repository.dart';
 import '../../shared/models/special_offer_model.dart';
@@ -34,17 +35,12 @@ class _TravelerHomeScreenState extends ConsumerState<TravelerHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(authProvider);
     final services = ref.watch(filteredServicesProvider);
     final specialOffers = ref.watch(activeSpecialOffersProvider);
 
     final regionsAsync = ref.watch(regionsProvider);
 
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isDesktop = screenWidth >= 1024;
-    final isTablet = screenWidth >= 600 && screenWidth < 1024;
 
-    final logoSize = isDesktop ? 42.0 : (isTablet ? 38.0 : 34.0);
 
     // Filter active services based on selection
 
@@ -125,112 +121,11 @@ class _TravelerHomeScreenState extends ConsumerState<TravelerHomeScreen> {
       body: CustomScrollView(
         controller: _scrollController,
         slivers: [
-          // 🔝 Top Navigation Bar
-          SliverAppBar(
-            pinned: true,
-            backgroundColor: Theme.of(context).cardColor,
-            elevation: 1,
-            shadowColor: Colors.black.withAlpha(10),
-            title: Row(
-              children: [
-                // Logo & Brand
-                Image.asset(
-                  'assets/images/logo.png',
-                  width: logoSize,
-                  height: logoSize,
-                  fit: BoxFit.contain,
-                ),
-
-                // Space to push remaining icons to the right
-                const Spacer(),
-
-                // Notifications
-                IconButton(
-                  onPressed: () => context.push('/traveler/notifications'),
-                  icon: Consumer(
-                    builder: (context, ref, child) {
-                      final unreadCount = ref.watch(
-                        unreadNotificationsCountProvider,
-                      );
-                      return Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Icon(
-                            unreadCount > 0
-                                ? Icons.notifications
-                                : Icons.notifications_none,
-                            color: AppColors.primary,
-                          ),
-                          if (unreadCount > 0)
-                            Positioned(
-                              right: -4,
-                              top: -4,
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: const BoxDecoration(
-                                  color: AppColors.error,
-                                  shape: BoxShape.circle,
-                                ),
-                                constraints: const BoxConstraints(
-                                  minWidth: 16,
-                                  minHeight: 16,
-                                ),
-                                child: Text(
-                                  unreadCount > 9
-                                      ? '9+'
-                                      : unreadCount.toString(),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-
-                // Profile Avatar
-                GestureDetector(
-                  onTap: () => _showProfileMenu(context),
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.primary, width: 2),
-                    ),
-                    child: CircleAvatar(
-                      backgroundImage:
-                          user?.profileImage != null &&
-                              user!.profileImage!.isNotEmpty
-                          ? NetworkImage(user.profileImage!)
-                          : null,
-                      backgroundColor: Colors.grey[300],
-                      child:
-                          user?.profileImage == null ||
-                              user!.profileImage!.isEmpty
-                          ? const Icon(
-                              Icons.person,
-                              size: 20,
-                              color: Colors.grey,
-                            )
-                          : null,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // 🖼 Hero Section (Includes Search Bar overlapping at bottom)
+          // 🖼 Hero Section (Includes Logo, Notifications, Profile and Search Bar)
           SliverToBoxAdapter(
             child: _HeroSection(
               selectedCategory: _selectedCategory,
+              onProfileTap: () => _showProfileMenu(context),
               onCategorySelected: (categoryKey) {
                 setState(() => _selectedCategory = categoryKey);
                 // Navigate to search screen with category filter
@@ -430,10 +325,12 @@ class _TravelerHomeScreenState extends ConsumerState<TravelerHomeScreen> {
 class _HeroSection extends ConsumerStatefulWidget {
   final String? selectedCategory;
   final Function(String) onCategorySelected;
+  final VoidCallback onProfileTap;
 
   const _HeroSection({
     required this.selectedCategory,
     required this.onCategorySelected,
+    required this.onProfileTap,
   });
 
   @override
@@ -442,6 +339,7 @@ class _HeroSection extends ConsumerStatefulWidget {
 
 class _HeroSectionState extends ConsumerState<_HeroSection> {
   final PageController _pageController = PageController(initialPage: 0);
+  final TextEditingController _searchController = TextEditingController();
   Timer? _timer;
   int _currentPage = 0;
 
@@ -479,19 +377,22 @@ class _HeroSectionState extends ConsumerState<_HeroSection> {
   void dispose() {
     _timer?.cancel();
     _pageController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(authProvider);
     final banners = ref.watch(activeBannersProvider);
     final userName = ref.watch(authProvider)?.name ?? 'Traveler';
     final categoriesAsync = ref.watch(categoriesProvider);
     final firstName = userName.split(' ').first;
 
+
     final heroHeight = context.isMobile
-        ? MediaQuery.of(context).size.height * 0.45
-        : MediaQuery.of(context).size.height * 0.5;
+        ? MediaQuery.of(context).size.height * 0.55
+        : MediaQuery.of(context).size.height * 0.6;
 
     return SizedBox(
       height: heroHeight + 28, // heroHeight + half of search bar height to accommodate overlap
@@ -521,28 +422,26 @@ class _HeroSectionState extends ConsumerState<_HeroSection> {
                       colors: [Color(0xFF1E3A8A), Color(0xFF3B82F6)],
                     ),
                   ),
-                  child: Image.network(
-                    banner.imageUrl,
+                  child: AppNetworkImage(
+                    imageUrl: banner.imageUrl,
                     fit: BoxFit.cover,
                     width: double.infinity,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [Colors.blue[900]!, Colors.blue[600]!],
-                          ),
+                    errorWidget: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Colors.blue[900]!, Colors.blue[600]!],
                         ),
-                        child: Center(
-                          child: Icon(
-                            Icons.location_city,
-                            size: 80,
-                            color: Colors.white.withAlpha(100),
-                          ),
+                      ),
+                      child: Center(
+                        child: Icon(
+                          Icons.location_city,
+                          size: 80,
+                          color: Colors.white.withAlpha(100),
                         ),
-                      );
-                    },
+                      ),
+                    ),
                   ),
                 );
               },
@@ -561,9 +460,11 @@ class _HeroSectionState extends ConsumerState<_HeroSection> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
+                    Colors.black.withAlpha(120), // Darker at top for visibility
                     Colors.black.withAlpha(50),
-                    Colors.black.withAlpha(120),
+                    Colors.black.withAlpha(150), // Darker at bottom
                   ],
+                  stops: const [0.0, 0.5, 1.0],
                 ),
               ),
             ),
@@ -578,12 +479,98 @@ class _HeroSectionState extends ConsumerState<_HeroSection> {
             child: SafeArea(
               bottom: false,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 12),
+                    // Top Navigation Row (Moved from SliverAppBar)
+                    Row(
+                      children: [
+                        const Spacer(),
+
+                        // Notifications
+                        IconButton(
+                          onPressed: () => context.push('/traveler/notifications'),
+                          icon: Consumer(
+                            builder: (context, ref, child) {
+                              final unreadCount = ref.watch(
+                                unreadNotificationsCountProvider,
+                              );
+                              return Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  Icon(
+                                    unreadCount > 0
+                                        ? Icons.notifications
+                                        : Icons.notifications_none,
+                                    color: Colors.white,
+                                  ),
+                                  if (unreadCount > 0)
+                                    Positioned(
+                                      right: -4,
+                                      top: -4,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: const BoxDecoration(
+                                          color: AppColors.error,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        constraints: const BoxConstraints(
+                                          minWidth: 16,
+                                          minHeight: 16,
+                                        ),
+                                        child: Text(
+                                          unreadCount > 9
+                                              ? '9+'
+                                              : unreadCount.toString(),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              );
+                            },
+                          ),
+                        ),
+
+                        // Profile Avatar
+                        GestureDetector(
+                          onTap: widget.onProfileTap,
+                          child: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
+                            child: CircleAvatar(
+                              backgroundImage:
+                                  user?.profileImage != null &&
+                                      user!.profileImage!.isNotEmpty
+                                  ? NetworkImage(user.profileImage!)
+                                  : null,
+                              backgroundColor: Colors.white.withAlpha(50),
+                              child:
+                                  user?.profileImage == null ||
+                                      user!.profileImage!.isEmpty
+                                  ? const Icon(
+                                      Icons.person,
+                                      size: 20,
+                                      color: Colors.white,
+                                    )
+                                  : null,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
                     Text(
                       'Hello! $firstName',
                       style: GoogleFonts.poppins(
@@ -693,38 +680,36 @@ class _HeroSectionState extends ConsumerState<_HeroSection> {
                   ),
                 ],
               ),
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () {
-                  debugPrint('DEBUG: Search bar tapped');
-                  context.push('/traveler/search');
-                },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 16,
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Where to go',
+                  hintStyle: GoogleFonts.poppins(
+                    fontSize: 16,
+                    color: Colors.grey[400],
+                    fontWeight: FontWeight.w500,
                   ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.search,
-                        color: AppColors.primary,
-                        size: 24,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Where to go',
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            color: Colors.grey[400],
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
+                  prefixIcon: Icon(
+                    Icons.search,
+                    color: AppColors.primary,
+                    size: 24,
                   ),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 15),
                 ),
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  color: AppColors.dark,
+                  fontWeight: FontWeight.w500,
+                ),
+                textInputAction: TextInputAction.search,
+                onSubmitted: (value) {
+                  if (value.trim().isNotEmpty) {
+                    context.push('/traveler/search?q=${value.trim()}');
+                  } else {
+                    context.push('/traveler/search');
+                  }
+                },
               ),
             ),
           ),
@@ -841,10 +826,13 @@ class _DestinationCircularCardState extends State<_DestinationCircularCard> {
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => _buildErrorState(),
                         )
-                      : Image.network(
-                          widget.image,
+                      : AppNetworkImage(
+                          imageUrl: widget.image,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _buildErrorState(),
+                          borderRadius: 35, // Half of 70 for circle
+                          memCacheWidth: 140, // 2x for retina
+                          memCacheHeight: 140,
+                          errorWidget: _buildErrorState(),
                         ),
                 ),
               ),
@@ -950,30 +938,12 @@ class _DestinationCardState extends State<_DestinationCard> {
                                 errorBuilder: (_, __, ___) =>
                                     _buildErrorState(),
                               )
-                            : Image.network(
-                                // Ensure valid URL and bust cache with timestamp
-                                '${widget.image}${widget.image.contains('?') ? '&' : '?'}t=${DateTime.now().millisecondsSinceEpoch}',
+                            : AppNetworkImage(
+                                imageUrl: widget.image,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) =>
-                                    _buildErrorState(),
-                                loadingBuilder:
-                                    (context, child, loadingProgress) {
-                                      if (loadingProgress == null) return child;
-                                      return Center(
-                                        child: CircularProgressIndicator(
-                                          value:
-                                              loadingProgress
-                                                      .expectedTotalBytes !=
-                                                  null
-                                              ? loadingProgress
-                                                        .cumulativeBytesLoaded /
-                                                    loadingProgress
-                                                        .expectedTotalBytes!
-                                              : null,
-                                          strokeWidth: 2,
-                                        ),
-                                      );
-                                    },
+                                borderRadius: 24,
+                                memCacheWidth: 400, // Optimize for 200x200 display
+                                errorWidget: _buildErrorState(),
                               ),
                         // Overlay for better text readability if we put text on it,
                         // but here we put text below.
@@ -2429,36 +2399,14 @@ class _TravelHighlightsSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final highlightsData = ref.watch(activeHighlightsProvider);
 
-    // Fallback static data if database is empty
-    final List<Map<String, String>> fallbackHighlights = [
-      {
-        'title': 'Liido Beach',
-        'location': 'Mogadishu',
-        'image': 'https://images.unsplash.com/photo-1544102807-640a23277732?auto=format&fit=crop&w=600&q=80',
-        'tag': 'Beach',
-      },
-      {
-        'title': 'Laas Geel',
-        'location': 'Hargeisa',
-        'image': 'https://images.unsplash.com/photo-1610473264667-27f99990543e?auto=format&fit=crop&w=600&q=80',
-        'tag': 'History',
-      },
-      {
-        'title': 'Daallo Mountains',
-        'location': 'Erigavo',
-        'image': 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=600&q=80',
-        'tag': 'Nature',
-      },
-    ];
+    if (highlightsData.isEmpty) return const SizedBox.shrink();
 
-    final displayItems = highlightsData.isNotEmpty
-        ? highlightsData.map((h) => {
-            'title': h.title,
-            'location': h.location,
-            'image': h.imageUrl,
-            'tag': h.tag,
-          }).toList()
-        : fallbackHighlights;
+    final displayItems = highlightsData.map((h) => {
+      'title': h.title,
+      'location': h.location,
+      'image': h.imageUrl,
+      'tag': h.tag,
+    }).toList();
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 24),

@@ -11,6 +11,10 @@ class AppNetworkImage extends StatelessWidget {
   final double borderRadius;
   final Widget? placeholder;
   final Widget? errorWidget;
+  final int? memCacheWidth;
+  final int? memCacheHeight;
+  final int? maxWidthDiskCache;
+  final int? maxHeightDiskCache;
 
   const AppNetworkImage({
     super.key,
@@ -21,6 +25,10 @@ class AppNetworkImage extends StatelessWidget {
     this.borderRadius = 0,
     this.placeholder,
     this.errorWidget,
+    this.memCacheWidth,
+    this.memCacheHeight,
+    this.maxWidthDiskCache,
+    this.maxHeightDiskCache,
   });
 
   @override
@@ -39,6 +47,8 @@ class AppNetworkImage extends StatelessWidget {
           width: width,
           height: height,
           fit: fit,
+          cacheWidth: memCacheWidth,
+          cacheHeight: memCacheHeight,
           loadingBuilder: (context, child, loadingProgress) {
             if (loadingProgress == null) return child;
             return placeholder ?? _buildPlaceholder();
@@ -56,24 +66,32 @@ class AppNetworkImage extends StatelessWidget {
         width: width,
         height: height,
         fit: fit,
-        // Use a high-quality cache manager settings if needed, 
-        // but default is usually good.
+        memCacheWidth: memCacheWidth,
+        memCacheHeight: memCacheHeight,
+        maxWidthDiskCache: maxWidthDiskCache,
+        maxHeightDiskCache: maxHeightDiskCache,
+        useOldImageOnUrlChange: true,
         placeholder: (context, url) => placeholder ?? _buildPlaceholder(),
         errorWidget: (context, url, error) => errorWidget ?? _buildErrorWidget(),
-        // Fade in effect for premium feel
-        fadeInDuration: const Duration(milliseconds: 500),
+        // Faster fade in for a snappier feel
+        fadeInDuration: const Duration(milliseconds: 300),
+        fadeOutDuration: const Duration(milliseconds: 300),
       ),
     );
   }
 
   Widget _buildPlaceholder() {
     return Shimmer.fromColors(
-      baseColor: Colors.grey[300]!,
-      highlightColor: Colors.grey[100]!,
+      baseColor: Colors.grey[200]!,
+      highlightColor: Colors.grey[50]!,
+      period: const Duration(milliseconds: 1000), // Faster shimmer
       child: Container(
         width: width ?? double.infinity,
         height: height ?? double.infinity,
-        color: Colors.white,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(borderRadius),
+        ),
       ),
     );
   }
@@ -82,12 +100,16 @@ class AppNetworkImage extends StatelessWidget {
     return Container(
       width: width,
       height: height,
-      color: Colors.grey[200],
-      child: const Icon(
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(borderRadius),
+      ),
+      child: Icon(
         Icons.image_not_supported_outlined,
-        color: Colors.grey,
+        color: Colors.grey[400],
         size: 24,
       ),
     );
   }
 }
+

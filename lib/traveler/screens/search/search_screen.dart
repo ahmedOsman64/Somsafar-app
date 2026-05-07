@@ -47,12 +47,13 @@ class _TravelerSearchScreenState extends ConsumerState<TravelerSearchScreen> {
   void initState() {
     super.initState();
     _guestsController.text = _guestsCount.toString();
-    
+
     // Auto-filter by category if provided from HomeScreen
     if (widget.category != null) {
       // Normalize to match what FiltersSidebar sends (e.g. 'hotel' -> 'Hotel')
-      final normalized = widget.category!.isNotEmpty 
-          ? widget.category![0].toUpperCase() + widget.category!.substring(1).toLowerCase()
+      final normalized = widget.category!.isNotEmpty
+          ? widget.category![0].toUpperCase() +
+                widget.category!.substring(1).toLowerCase()
           : widget.category!;
       _selectedPropertyTypes.add(normalized);
     }
@@ -62,8 +63,9 @@ class _TravelerSearchScreenState extends ConsumerState<TravelerSearchScreen> {
   void didUpdateWidget(TravelerSearchScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.category != oldWidget.category && widget.category != null) {
-      final normalized = widget.category!.isNotEmpty 
-          ? widget.category![0].toUpperCase() + widget.category!.substring(1).toLowerCase()
+      final normalized = widget.category!.isNotEmpty
+          ? widget.category![0].toUpperCase() +
+                widget.category!.substring(1).toLowerCase()
           : widget.category!;
       _selectedPropertyTypes.clear();
       _selectedPropertyTypes.add(normalized);
@@ -111,10 +113,13 @@ class _TravelerSearchScreenState extends ConsumerState<TravelerSearchScreen> {
           service.price >= _priceRange.start &&
           service.price <= _priceRange.end;
 
-
       bool matchesPropertyType =
           _selectedPropertyTypes.isEmpty ||
-          _selectedPropertyTypes.any((type) => type.trim().toLowerCase() == service.category.trim().toLowerCase());
+          _selectedPropertyTypes.any(
+            (type) =>
+                type.trim().toLowerCase() ==
+                service.category.trim().toLowerCase(),
+          );
 
       bool matchesVerified = !_verifiedOnly || (service.isVerified == true);
 
@@ -169,8 +174,8 @@ class _TravelerSearchScreenState extends ConsumerState<TravelerSearchScreen> {
           SliverPersistentHeader(
             pinned: true,
             delegate: SearchHeaderDelegate(
-              minHeight: isMobile ? 185 : 160,
-              maxHeight: isMobile ? 185 : 160,
+              minHeight: isMobile ? 245 : 160,
+              maxHeight: isMobile ? 245 : 160,
               child: _buildHeaderBar(isMobile),
             ),
           ),

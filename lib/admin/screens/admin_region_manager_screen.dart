@@ -6,6 +6,7 @@ import '../../core/theme/app_colors.dart';
 import '../../shared/services/lookup_service.dart';
 import '../../shared/services/service_repository.dart';
 import '../../core/services/storage_service.dart';
+import '../../shared/widgets/app_network_image.dart';
 
 class AdminRegionManagerScreen extends ConsumerStatefulWidget {
   const AdminRegionManagerScreen({super.key});
@@ -272,25 +273,23 @@ class _PremiumRegionCardState extends State<_PremiumRegionCard> {
                         duration: const Duration(milliseconds: 500),
                         child: widget.region.icon!.startsWith('assets/')
                             ? Image.asset(widget.region.icon!, fit: BoxFit.cover)
-                            : Image.network(
-                                // Add a timestamp as a query parameter to defeat image caching
-                                '${StorageService.ensurePublicUrl(widget.region.icon!)}${widget.region.icon!.contains('?') ? '&' : '?'}t=${DateTime.now().millisecondsSinceEpoch}',
+                            : AppNetworkImage(
+                                imageUrl: '${StorageService.ensurePublicUrl(widget.region.icon!)}${widget.region.icon!.contains('?') ? '&' : '?'}t=${DateTime.now().millisecondsSinceEpoch}',
                                 fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Container(
-                                    color: const Color(0xFFF1F5F9),
-                                    child: const Center(
-                                      child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Icon(Icons.error_outline, color: Colors.red),
-                                          SizedBox(height: 8),
-                                          Text('Image failed to load', style: TextStyle(fontSize: 10, color: Colors.red)),
-                                        ],
-                                      ),
+                                memCacheWidth: 600, // Optimize for card view
+                                errorWidget: Container(
+                                  color: const Color(0xFFF1F5F9),
+                                  child: const Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.error_outline, color: Colors.red),
+                                        SizedBox(height: 8),
+                                        Text('Image failed to load', style: TextStyle(fontSize: 10, color: Colors.red)),
+                                      ],
                                     ),
-                                  );
-                                },
+                                  ),
+                                ),
                               ),
                       )
                     else

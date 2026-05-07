@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/services/service_repository.dart';
+import '../../../shared/widgets/app_network_image.dart';
 import 'booking_summary_screen.dart';
 
 class BookingDateGuestScreen extends ConsumerStatefulWidget {
@@ -83,12 +84,13 @@ class _BookingDateGuestScreenState
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    service.images.first,
+                  child: AppNetworkImage(
+                    imageUrl: service.images.first,
                     width: 80,
                     height: 80,
                     fit: BoxFit.cover,
-                    errorBuilder: (c, o, s) => Container(
+                    memCacheWidth: 160, // Optimize for 80 logical pixels
+                    errorWidget: Container(
                       width: 80,
                       height: 80,
                       color: Colors.grey[300],

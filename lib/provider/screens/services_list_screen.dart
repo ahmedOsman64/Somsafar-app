@@ -8,6 +8,7 @@ import '../../shared/models/service_model.dart';
 import '../../shared/services/auth_service.dart';
 import '../../shared/models/user_model.dart';
 import '../../shared/widgets/confirmation_dialog.dart';
+import '../../shared/widgets/app_network_image.dart';
 
 class ProviderServicesScreen extends ConsumerStatefulWidget {
   const ProviderServicesScreen({super.key});
@@ -255,12 +256,13 @@ class _ServiceListCard extends StatelessWidget {
       child: ListTile(
         leading: ClipRRect(
           borderRadius: BorderRadius.circular(8),
-          child: Image.network(
-            service.images.first,
+          child: AppNetworkImage(
+            imageUrl: service.images.first,
             width: 60,
             height: 60,
             fit: BoxFit.cover,
-            errorBuilder: (c, o, s) => Container(
+            memCacheWidth: 120, // Small list preview
+            errorWidget: Container(
               width: 60,
               height: 60,
               color: Colors.grey,
@@ -329,10 +331,11 @@ class _ServiceGridCard extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                Image.network(
-                  service.images.first,
+                AppNetworkImage(
+                  imageUrl: service.images.first,
                   fit: BoxFit.cover,
-                  errorBuilder: (c, o, s) => Container(
+                  memCacheWidth: 300, // Optimize for grid
+                  errorWidget: Container(
                     color: Colors.grey,
                     child: const Icon(Icons.image),
                   ),

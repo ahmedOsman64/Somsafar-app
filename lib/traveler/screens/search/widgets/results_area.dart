@@ -79,8 +79,10 @@ class ResultsArea extends StatelessWidget {
                           crossAxisSpacing: 12,
                           mainAxisSpacing: 12,
                           mainAxisExtent: isMobile
-                              ? 360
-                              : (width > 1200 ? 500 : (width > 900 ? 480 : 470)),
+                              ? 420
+                              : (width > 1200
+                                    ? 500
+                                    : (width > 900 ? 480 : 470)),
                         ),
                         itemCount: filteredServices.length,
                         itemBuilder: (context, index) => ServiceCard(
