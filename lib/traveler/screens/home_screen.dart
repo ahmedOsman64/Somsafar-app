@@ -40,8 +40,6 @@ class _TravelerHomeScreenState extends ConsumerState<TravelerHomeScreen> {
 
     final regionsAsync = ref.watch(regionsProvider);
 
-
-
     // Filter active services based on selection
 
     // Calculate aggregated destinations from all active services
@@ -389,13 +387,14 @@ class _HeroSectionState extends ConsumerState<_HeroSection> {
     final categoriesAsync = ref.watch(categoriesProvider);
     final firstName = userName.split(' ').first;
 
-
     final heroHeight = context.isMobile
         ? MediaQuery.of(context).size.height * 0.55
         : MediaQuery.of(context).size.height * 0.6;
 
     return SizedBox(
-      height: heroHeight + 28, // heroHeight + half of search bar height to accommodate overlap
+      height:
+          heroHeight +
+          28, // heroHeight + half of search bar height to accommodate overlap
       child: Stack(
         clipBehavior: Clip.none,
         alignment: Alignment.topCenter,
@@ -479,7 +478,10 @@ class _HeroSectionState extends ConsumerState<_HeroSection> {
             child: SafeArea(
               bottom: false,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.start,
@@ -491,7 +493,8 @@ class _HeroSectionState extends ConsumerState<_HeroSection> {
 
                         // Notifications
                         IconButton(
-                          onPressed: () => context.push('/traveler/notifications'),
+                          onPressed: () =>
+                              context.push('/traveler/notifications'),
                           icon: Consumer(
                             builder: (context, ref, child) {
                               final unreadCount = ref.watch(
@@ -604,22 +607,31 @@ class _HeroSectionState extends ConsumerState<_HeroSection> {
                       ),
                     ),
                     const Spacer(),
-                    
+
                     // Categories
                     categoriesAsync.when(
                       data: (categoriesList) {
-                        final displayCats = categoriesList.where((c) => 
-                          ['hotel', 'apartment', 'tour'].contains(c.key.toLowerCase())
-                        ).toList();
-                        final cats = displayCats.isNotEmpty ? displayCats : categoriesList.take(3).toList();
-                        
+                        final displayCats = categoriesList
+                            .where(
+                              (c) => [
+                                'hotel',
+                                'apartment',
+                                'tour',
+                              ].contains(c.key.toLowerCase()),
+                            )
+                            .toList();
+                        final cats = displayCats.isNotEmpty
+                            ? displayCats
+                            : categoriesList.take(3).toList();
+
                         return Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Padding(
                               padding: const EdgeInsets.only(bottom: 24),
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceEvenly,
                                 children: cats.map((category) {
                                   final isSelected =
                                       category.key == widget.selectedCategory;
@@ -771,7 +783,8 @@ class _DestinationCircularCard extends StatefulWidget {
   });
 
   @override
-  State<_DestinationCircularCard> createState() => _DestinationCircularCardState();
+  State<_DestinationCircularCard> createState() =>
+      _DestinationCircularCardState();
 }
 
 class _DestinationCircularCardState extends State<_DestinationCircularCard> {
@@ -784,11 +797,7 @@ class _DestinationCircularCardState extends State<_DestinationCircularCard> {
         shape: BoxShape.circle,
       ),
       child: Center(
-        child: Icon(
-          Icons.location_city,
-          size: 24,
-          color: Colors.blue[400],
-        ),
+        child: Icon(Icons.location_city, size: 24, color: Colors.blue[400]),
       ),
     );
   }
@@ -942,7 +951,8 @@ class _DestinationCardState extends State<_DestinationCard> {
                                 imageUrl: widget.image,
                                 fit: BoxFit.cover,
                                 borderRadius: 24,
-                                memCacheWidth: 400, // Optimize for 200x200 display
+                                memCacheWidth:
+                                    400, // Optimize for 200x200 display
                                 errorWidget: _buildErrorState(),
                               ),
                         // Overlay for better text readability if we put text on it,
@@ -1387,16 +1397,21 @@ class _RecommendedServicesSection extends StatefulWidget {
   const _RecommendedServicesSection({required this.services});
 
   @override
-  State<_RecommendedServicesSection> createState() => _RecommendedServicesSectionState();
+  State<_RecommendedServicesSection> createState() =>
+      _RecommendedServicesSectionState();
 }
 
-class _RecommendedServicesSectionState extends State<_RecommendedServicesSection> {
+class _RecommendedServicesSectionState
+    extends State<_RecommendedServicesSection> {
   late PageController _pageController;
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(viewportFraction: 0.65, initialPage: widget.services.length > 1 ? 1 : 0);
+    _pageController = PageController(
+      viewportFraction: 0.65,
+      initialPage: widget.services.length > 1 ? 1 : 0,
+    );
   }
 
   @override
@@ -1455,11 +1470,7 @@ class _RecommendedServicesSectionState extends State<_RecommendedServicesSection
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      Icons.recommend,
-                      color: Colors.grey[300],
-                      size: 48,
-                    ),
+                    Icon(Icons.recommend, color: Colors.grey[300], size: 48),
                     const SizedBox(height: 12),
                     Text(
                       'No recommendations yet',
@@ -1505,7 +1516,9 @@ class _RecommendedServicesSectionState extends State<_RecommendedServicesSection
                           width: double.infinity,
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 8),
-                            child: _ServiceHorizontalCard(service: widget.services[index]),
+                            child: _ServiceHorizontalCard(
+                              service: widget.services[index],
+                            ),
                           ),
                         ),
                       );
@@ -1530,7 +1543,8 @@ class _ServiceHorizontalCard extends ConsumerStatefulWidget {
       _ServiceHorizontalCardState();
 }
 
-class _ServiceHorizontalCardState extends ConsumerState<_ServiceHorizontalCard> {
+class _ServiceHorizontalCardState
+    extends ConsumerState<_ServiceHorizontalCard> {
   bool _isHovered = false;
 
   @override
@@ -1593,7 +1607,7 @@ class _ServiceHorizontalCardState extends ConsumerState<_ServiceHorizontalCard> 
                   },
                 ),
               ),
-              
+
               // Gradient Overlay
               Positioned(
                 bottom: 0,
@@ -1626,14 +1640,18 @@ class _ServiceHorizontalCardState extends ConsumerState<_ServiceHorizontalCard> 
                   ),
                   child: IconButton(
                     icon: Icon(
-                      ref.watch(favoritesProvider).any((s) => s.id == service.id)
+                      ref
+                              .watch(favoritesProvider)
+                              .any((s) => s.id == service.id)
                           ? Icons.favorite
                           : Icons.favorite_border,
                       color: Colors.white,
                       size: 24,
                     ),
                     onPressed: () {
-                      ref.read(favoritesProvider.notifier).toggleFavorite(service);
+                      ref
+                          .read(favoritesProvider.notifier)
+                          .toggleFavorite(service);
                     },
                     constraints: const BoxConstraints(),
                     padding: const EdgeInsets.all(10),
@@ -1722,7 +1740,6 @@ class _ServiceHorizontalCardState extends ConsumerState<_ServiceHorizontalCard> 
   }
 }
 
-
 class _CategoryIconCard extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -1737,8 +1754,8 @@ class _CategoryIconCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isMobile = context.isMobile;
-    final cardWidth = isMobile ? 100.0 : 110.0;
-    final cardHeight = isMobile ? 105.0 : 120.0;
+    final cardWidth = isMobile ? 85.0 : 95.0;
+    final cardHeight = isMobile ? 90.0 : 105.0;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
@@ -1750,7 +1767,9 @@ class _CategoryIconCard extends StatelessWidget {
           height: cardHeight,
           padding: EdgeInsets.all(isMobile ? 8 : 12),
           decoration: BoxDecoration(
-            color: isSelected ? Colors.white.withAlpha(60) : Colors.white.withAlpha(20),
+            color: isSelected
+                ? Colors.white.withAlpha(60)
+                : Colors.white.withAlpha(20),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
               color: isSelected ? Colors.white : Colors.white.withAlpha(60),
@@ -1773,16 +1792,12 @@ class _CategoryIconCard extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                icon,
-                color: Colors.white,
-                size: isMobile ? 28 : 32,
-              ),
-              SizedBox(height: isMobile ? 8 : 12),
+              Icon(icon, color: Colors.white, size: isMobile ? 24 : 28),
+              SizedBox(height: isMobile ? 6 : 8),
               Text(
                 label,
                 style: GoogleFonts.poppins(
-                  fontSize: isMobile ? 12 : 14,
+                  fontSize: isMobile ? 11 : 13,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
                   color: Colors.white,
                 ),
@@ -2401,12 +2416,16 @@ class _TravelHighlightsSection extends ConsumerWidget {
 
     if (highlightsData.isEmpty) return const SizedBox.shrink();
 
-    final displayItems = highlightsData.map((h) => {
-      'title': h.title,
-      'location': h.location,
-      'image': h.imageUrl,
-      'tag': h.tag,
-    }).toList();
+    final displayItems = highlightsData
+        .map(
+          (h) => {
+            'title': h.title,
+            'location': h.location,
+            'image': h.imageUrl,
+            'tag': h.tag,
+          },
+        )
+        .toList();
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 24),
@@ -2474,7 +2493,10 @@ class _TravelHighlightsSection extends ConsumerWidget {
                         top: 12,
                         right: 12,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.primary,
                             borderRadius: BorderRadius.circular(8),
