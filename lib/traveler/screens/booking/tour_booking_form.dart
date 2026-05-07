@@ -306,7 +306,7 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
 
       setState(() {
         final settings = ref.read(systemSettingsProvider);
-        final packages = ref.read(travelPackagesProvider).value ?? [];
+        final packages = ref.read(travelPackagesProvider).valueOrNull ?? [];
         final selectedPkg = packages.firstWhere(
           (p) => p.key.toLowerCase() == _package.name.toLowerCase(),
           orElse: () => LookupItem(key: _package.name, label: _package.name),
@@ -335,17 +335,16 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
 
   // ── Step 0: Package Specific Details ────────────────────────────────────
   Widget _buildTourDetailsStep() {
-    final packages = ref.watch(travelPackagesProvider).value ?? [];
+    final packages = ref.watch(travelPackagesProvider).valueOrNull ?? [];
     final selectedPkg = packages.firstWhere(
       (p) => p.key.toLowerCase() == _package.name.toLowerCase(),
       orElse: () => LookupItem(key: _package.name, label: _package.name),
     );
-    final multiplier = selectedPkg.multiplier;
-
-
-    // Pricing info from provider
-    final adultPrice = widget.service.adultPrice ?? widget.service.price;
-    final childPrice = widget.service.childPrice ?? adultPrice * 0.5;
+    final multiplier = selectedPkg.multiplier ?? 1.0;
+    
+    // Apply multiplier to displayed prices
+    final adultPrice = (widget.service.adultPrice ?? widget.service.price) * multiplier;
+    final childPrice = (widget.service.childPrice ?? (widget.service.adultPrice ?? widget.service.price) * 0.5) * multiplier;
 
     return FadeTransition(
       opacity: _fadeAnimation,
@@ -1406,6 +1405,7 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
     ref.listen(activeTaxesProvider, (_, __) => _updateBookingSummary());
     ref.listen(systemSettingsProvider, (_, __) => _updateBookingSummary());
     ref.listen(discountRepositoryProvider, (_, __) => _updateBookingSummary());
+    ref.listen(travelPackagesProvider, (_, __) => _updateBookingSummary());
 
     return Scaffold(
       backgroundColor: AppColors.background,

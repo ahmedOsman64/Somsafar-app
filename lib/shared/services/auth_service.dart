@@ -436,7 +436,8 @@ class AuthService extends ChangeNotifier {
           errStr.contains('failed host lookup') || 
           errStr.contains('connection failed') ||
           errStr.contains('errno = 7') ||
-          errStr.contains('os error')) {
+          errStr.contains('handshakeexception') ||
+          errStr.contains('certificate_verify_failed')) {
         return 'Please check your internet connection';
       }
       return e.message;
@@ -452,7 +453,8 @@ class AuthService extends ChangeNotifier {
           err.contains('connection failed') ||
           err.contains('errno = 7') || // Common linux/android connection error
           err.contains('pending response rejected') ||
-          err.contains('os error')) {
+          err.contains('handshakeexception') ||
+          err.contains('certificate_verify_failed')) {
         return 'Please check your internet connection';
       }
       
@@ -514,7 +516,8 @@ class AuthService extends ChangeNotifier {
           errStr.contains('failed host lookup') || 
           errStr.contains('connection failed') ||
           errStr.contains('errno = 7') ||
-          errStr.contains('os error')) {
+          errStr.contains('handshakeexception') ||
+          errStr.contains('certificate_verify_failed')) {
         return 'Please check your internet connection';
       }
       return e.message;
@@ -525,7 +528,8 @@ class AuthService extends ChangeNotifier {
           err.contains('connection failed') ||
           err.contains('errno = 7') ||
           err.contains('pending response rejected') ||
-          err.contains('os error')) {
+          err.contains('handshakeexception') ||
+          err.contains('certificate_verify_failed')) {
         return 'Please check your internet connection';
       }
       return 'Signup failed. Please try again.';
