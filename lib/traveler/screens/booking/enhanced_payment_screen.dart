@@ -543,14 +543,18 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.75),
-              fontSize: 13,
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.75),
+                fontSize: 13,
+              ),
             ),
           ),
+          const SizedBox(width: 12),
           Text(
             value,
             style: const TextStyle(
