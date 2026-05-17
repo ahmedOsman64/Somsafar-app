@@ -132,15 +132,25 @@ class BookingChatRepository extends StateNotifier<List<ChatMessage>> {
 
   /// Delete a message
   Future<void> deleteMessage(String messageId) async {
+    final oldState = [...state];
+    if (mounted) state = state.where((m) => m.id != messageId).toList();
     try {
       await SupabaseConfig.client.from('chats').delete().eq('id', messageId);
     } catch (e) {
       print('Delete message error: $e');
+      if (mounted) state = oldState;
     }
   }
 
   /// Update a message
   Future<void> updateMessage(String messageId, String newText) async {
+    final oldState = [...state];
+    if (mounted) {
+      state = [
+        for (final m in state)
+          if (m.id == messageId) m.copyWith(messageText: newText) else m
+      ];
+    }
     try {
       await SupabaseConfig.client
           .from('chats')
@@ -148,6 +158,7 @@ class BookingChatRepository extends StateNotifier<List<ChatMessage>> {
           .eq('id', messageId);
     } catch (e) {
       print('Update message error: $e');
+      if (mounted) state = oldState;
     }
   }
 }

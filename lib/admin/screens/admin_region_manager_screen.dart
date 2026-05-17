@@ -99,7 +99,8 @@ class _AdminRegionManagerScreenState extends ConsumerState<AdminRegionManagerScr
   @override
   Widget build(BuildContext context) {
     final regionsAsync = ref.watch(regionsProvider);
-    final services = ref.watch(filteredServicesProvider);
+    // Use raw serviceProvider so admin sees ALL services (not role-filtered)
+    final services = ref.watch(serviceProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),

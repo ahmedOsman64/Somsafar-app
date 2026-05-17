@@ -43,15 +43,30 @@ class SpecialOfferRepository extends StateNotifier<List<SpecialOffer>> {
       return 'Maximum 10 offers allowed.';
     }
 
+    final id = const Uuid().v4();
+    final newOffer = SpecialOffer(
+      id: id,
+      title: title,
+      discount: discount,
+      description: description,
+      imageUrl: imageUrl,
+      order: state.length,
+      isActive: true,
+      linkedServiceId: linkedServiceId,
+      discountPercent: discountPercent,
+    );
+    
+    final oldState = [...state];
+    if (mounted) state = [...state, newOffer];
+
     try {
-      final id = const Uuid().v4();
       await SupabaseConfig.client.from('special_offers').insert({
         'id': id,
         'title': title,
         'discount': discount,
         'description': description,
         'image_url': imageUrl,
-        'display_order': state.length,
+        'display_order': state.length - 1,
         'active': true,
         'linked_service_id': linkedServiceId,
         'discount_percent': discountPercent,
@@ -59,19 +74,25 @@ class SpecialOfferRepository extends StateNotifier<List<SpecialOffer>> {
       return null;
     } catch (e) {
       debugPrint('Add special offer error: $e');
+      if (mounted) state = oldState;
       return 'Failed to add offer in database.';
     }
   }
 
   Future<void> removeOffer(String id) async {
+    final oldState = [...state];
+    if (mounted) state = state.where((o) => o.id != id).toList();
     try {
       await SupabaseConfig.client.from('special_offers').delete().eq('id', id);
     } catch (e) {
       debugPrint('Remove special offer error: $e');
+      if (mounted) state = oldState;
     }
   }
 
   Future<void> updateOrder(List<SpecialOffer> newOrder) async {
+    final oldState = [...state];
+    if (mounted) state = newOrder;
     for (int i = 0; i < newOrder.length; i++) {
       try {
         await SupabaseConfig.client
@@ -80,19 +101,30 @@ class SpecialOfferRepository extends StateNotifier<List<SpecialOffer>> {
             .eq('id', newOrder[i].id);
       } catch (e) {
           debugPrint('Update special offer order error: $e');
+          if (mounted) state = oldState;
       }
     }
   }
 
-  Future<void> toggleStatus(String id) async {
+  Future<String?> toggleStatus(String id) async {
+    final oldState = [...state];
     final offer = state.firstWhere((o) => o.id == id);
+    if (mounted) {
+      state = [
+        for (final o in state)
+          if (o.id == id) o.copyWith(isActive: !o.isActive) else o
+      ];
+    }
     try {
       await SupabaseConfig.client
           .from('special_offers')
           .update({'active': !offer.isActive})
           .eq('id', id);
+      return null;
     } catch (e) {
       debugPrint('Toggle special offer status error: $e');
+      if (mounted) state = oldState;
+      return e.toString();
     }
   }
 }

@@ -68,6 +68,17 @@ class BannerRepository extends StateNotifier<List<BannerImage>> {
     final id = const Uuid().v4();
     final nextOrder = state.isEmpty ? 0 : state.length;
 
+    final newBanner = BannerImage(
+      id: id,
+      imageUrl: imageUrl,
+      caption: caption?.isEmpty == true ? null : caption,
+      order: nextOrder,
+      isActive: true,
+    );
+
+    final oldState = [...state];
+    if (mounted) state = [...state, newBanner];
+
     try {
       await SupabaseConfig.client.from('banners').insert({
         'id': id,
@@ -79,6 +90,7 @@ class BannerRepository extends StateNotifier<List<BannerImage>> {
       return null;
     } catch (e) {
       debugPrint('Add banner error: $e');
+      if (mounted) state = oldState;
       return 'Failed to add banner: $e';
     }
   }
@@ -88,6 +100,19 @@ class BannerRepository extends StateNotifier<List<BannerImage>> {
     String? imageUrl,
     String? caption,
   }) async {
+    final oldState = [...state];
+    if (mounted) {
+      state = [
+        for (final b in state)
+          if (b.id == id)
+            b.copyWith(
+              imageUrl: imageUrl ?? b.imageUrl,
+              caption: caption?.isEmpty == true ? null : caption,
+            )
+          else
+            b
+      ];
+    }
     try {
       final updates = <String, dynamic>{};
       if (imageUrl != null) updates['image_url'] = imageUrl;
@@ -101,6 +126,7 @@ class BannerRepository extends StateNotifier<List<BannerImage>> {
       return null;
     } catch (e) {
       debugPrint('Update banner error: $e');
+      if (mounted) state = oldState;
       return 'Failed to update banner: $e';
     }
   }

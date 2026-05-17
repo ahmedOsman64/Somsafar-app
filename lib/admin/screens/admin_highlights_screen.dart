@@ -40,8 +40,11 @@ class AdminHighlightsScreen extends ConsumerWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.image_not_supported_outlined,
-                            size: 80, color: Colors.grey[400]),
+                        Icon(
+                          Icons.image_not_supported_outlined,
+                          size: 80,
+                          color: Colors.grey[400],
+                        ),
                         const SizedBox(height: 16),
                         Text(
                           'No highlights found',
@@ -89,18 +92,23 @@ class AdminHighlightsScreen extends ConsumerWidget {
       barrierDismissible: !isUploading,
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => AlertDialog(
-          title: Text('Add Highlight', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+          title: Text(
+            'Add Highlight',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+          ),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 GestureDetector(
-                  onTap: isUploading ? null : () async {
-                    final image = await mediaService.pickImage();
-                    if (image != null) {
-                      setModalState(() => pickedImage = image);
-                    }
-                  },
+                  onTap: isUploading
+                      ? null
+                      : () async {
+                          final image = await mediaService.pickImage();
+                          if (image != null) {
+                            setModalState(() => pickedImage = image);
+                          }
+                        },
                   child: Container(
                     height: 150,
                     width: double.infinity,
@@ -111,14 +119,27 @@ class AdminHighlightsScreen extends ConsumerWidget {
                     ),
                     child: pickedImage != null
                         ? kIsWeb
-                            ? Image.network(pickedImage!.path, fit: BoxFit.cover)
-                            : Image.file(File(pickedImage!.path), fit: BoxFit.cover)
+                              ? Image.network(
+                                  pickedImage!.path,
+                                  fit: BoxFit.cover,
+                                )
+                              : Image.file(
+                                  File(pickedImage!.path),
+                                  fit: BoxFit.cover,
+                                )
                         : Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.add_photo_alternate_outlined, size: 40, color: Colors.grey[400]),
+                              Icon(
+                                Icons.add_photo_alternate_outlined,
+                                size: 40,
+                                color: Colors.grey[400],
+                              ),
                               const SizedBox(height: 8),
-                              Text('Tap to upload image', style: TextStyle(color: Colors.grey[600])),
+                              Text(
+                                'Tap to upload image',
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
                             ],
                           ),
                   ),
@@ -167,29 +188,37 @@ class AdminHighlightsScreen extends ConsumerWidget {
                       setModalState(() => isUploading = true);
 
                       // Upload image first
-                      final imageUrl = await mediaService.uploadImage(pickedImage!);
+                      final imageUrl = await mediaService.uploadImage(
+                        pickedImage!,
+                      );
 
                       if (imageUrl == null) {
                         setModalState(() => isUploading = false);
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Failed to upload image')),
+                            const SnackBar(
+                              content: Text('Failed to upload image'),
+                            ),
                           );
                         }
                         return;
                       }
 
-                      final error = await ref.read(highlightProvider.notifier).addHighlight(
-                        title: titleController.text,
-                        location: locationController.text,
-                        imageUrl: imageUrl,
-                        tag: tagController.text,
-                      );
+                      final error = await ref
+                          .read(highlightProvider.notifier)
+                          .addHighlight(
+                            title: titleController.text,
+                            location: locationController.text,
+                            imageUrl: imageUrl,
+                            tag: tagController.text,
+                          );
 
                       if (context.mounted) {
                         if (error != null) {
                           setModalState(() => isUploading = false);
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text(error)));
                         } else {
                           Navigator.pop(context);
                         }
@@ -199,7 +228,10 @@ class AdminHighlightsScreen extends ConsumerWidget {
                   ? const SizedBox(
                       width: 20,
                       height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : const Text('Add'),
             ),
@@ -238,14 +270,19 @@ class _HighlightListTile extends ConsumerWidget {
             ),
           ),
         ),
-        title: Text(highlight.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(
+          highlight.title,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         subtitle: Text('${highlight.location} • ${highlight.tag}'),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Switch(
               value: highlight.isActive,
-              onChanged: (_) => ref.read(highlightProvider.notifier).toggleStatus(highlight.id),
+              onChanged: (_) => ref
+                  .read(highlightProvider.notifier)
+                  .toggleStatus(highlight.id),
             ),
             IconButton(
               icon: const Icon(Icons.delete_outline, color: Colors.red),
@@ -264,10 +301,15 @@ class _HighlightListTile extends ConsumerWidget {
         title: const Text('Delete Highlight?'),
         content: const Text('Are you sure you want to remove this highlight?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () {
-              ref.read(highlightProvider.notifier).removeHighlight(highlight.id);
+              ref
+                  .read(highlightProvider.notifier)
+                  .removeHighlight(highlight.id);
               Navigator.pop(context);
             },
             child: const Text('Delete', style: TextStyle(color: Colors.red)),

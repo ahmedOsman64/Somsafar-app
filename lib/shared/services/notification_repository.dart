@@ -107,6 +107,21 @@ class NotificationRepository extends StateNotifier<List<AppNotification>> {
     required NotificationType type,
     Map<String, dynamic>? data,
   }) async {
+    final now = DateTime.now();
+    final newNotif = AppNotification(
+      id: DateTime.now().microsecondsSinceEpoch.toString(), // Temporary ID
+      userId: userId,
+      title: title,
+      message: message,
+      type: type,
+      isRead: false,
+      createdAt: now,
+      data: data,
+    );
+
+    final oldState = [...state];
+    if (mounted) state = [newNotif, ...state];
+
     try {
       await SupabaseConfig.client.from('notifications').insert({
         'user_id': userId,
@@ -114,21 +129,25 @@ class NotificationRepository extends StateNotifier<List<AppNotification>> {
         'message': message,
         'type': type.name,
         'is_read': false,
-        'created_at': DateTime.now().toIso8601String(),
+        'created_at': now.toIso8601String(),
         'data': data,
       });
     } catch (e) {
       debugPrint('Error adding notification: $e');
+      if (mounted) state = oldState;
     }
   }
 
   Future<void> deleteNotification(String id) async {
+    final oldState = [...state];
     try {
       if (mounted) {
         state = state.where((n) => n.id != id).toList();
       }
+      await SupabaseConfig.client.from('notifications').delete().eq('id', id);
     } catch (e) {
       debugPrint('Error deleting notification: $e');
+      if (mounted) state = oldState;
     }
   }
 

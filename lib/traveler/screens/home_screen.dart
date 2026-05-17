@@ -31,6 +31,7 @@ class TravelerHomeScreen extends ConsumerStatefulWidget {
 class _TravelerHomeScreenState extends ConsumerState<TravelerHomeScreen> {
   String _selectedCategory = 'hotel';
   String? _selectedDestination; // null means no destination selected
+  String? _selectedDestinationKey;
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -42,28 +43,31 @@ class _TravelerHomeScreenState extends ConsumerState<TravelerHomeScreen> {
 
     // Filter active services based on selection
 
+    String getNormalizedDest(Service service) {
+      final userRegion = (service.metadata['region'] as String?)?.toLowerCase();
+      String dest = (userRegion != null && userRegion.isNotEmpty)
+          ? userRegion
+          : service.location.split(',').first.trim().toLowerCase();
+
+      // 🌍 Normalize Region Names & Spelling
+      if (dest == 'banadir') dest = 'banaadir';
+      if (dest == 'hiran') dest = 'hiiraan';
+      if (dest == 'bakol') dest = 'bakool';
+      // Map common city names/spellings to the Banaadir region
+      if (dest == 'mogadishu' ||
+          dest == 'muqdisho' ||
+          dest == 'xamar' ||
+          dest == 'hamar') {
+        dest = 'banaadir';
+      }
+      return dest;
+    }
+
     // Calculate aggregated destinations from all active services
     final destinationCounts = <String, int>{};
     for (final service in services) {
       if (service.status == ServiceStatus.active) {
-        final userRegion = (service.metadata['region'] as String?)
-            ?.toLowerCase();
-        String dest = (userRegion != null && userRegion.isNotEmpty)
-            ? userRegion
-            : service.location.split(',').first.trim().toLowerCase();
-
-        // 🌍 Normalize Region Names & Spelling
-        if (dest == 'banadir') dest = 'banaadir';
-        if (dest == 'hiran') dest = 'hiiraan';
-        if (dest == 'bakol') dest = 'bakool';
-        // Map common city names/spellings to the Banaadir region
-        if (dest == 'mogadishu' ||
-            dest == 'muqdisho' ||
-            dest == 'xamar' ||
-            dest == 'hamar') {
-          dest = 'banaadir';
-        }
-
+        String dest = getNormalizedDest(service);
         destinationCounts[dest] = (destinationCounts[dest] ?? 0) + 1;
       }
     }
@@ -80,6 +84,22 @@ class _TravelerHomeScreenState extends ConsumerState<TravelerHomeScreen> {
           if (count > 0) {
             final lookup = regionMap[slug];
 
+            // Build image URL — add cache-buster so freshly-uploaded images
+            // appear immediately without waiting for the Flutter image cache to expire.
+            String imgUrl;
+            if (lookup?.icon != null &&
+                (lookup!.icon!.startsWith('http') ||
+                    lookup.icon!.startsWith('assets/'))) {
+              final base = lookup.icon!;
+              // Append a timestamp query param to force network refetch when the
+              // icon field changes (Supabase stream keeps `lookup` up to date).
+              imgUrl = base.startsWith('assets/')
+                  ? base
+                  : '${base.contains('?') ? '$base&' : '$base?'}t=${DateTime.now().millisecondsSinceEpoch ~/ 60000}';
+            } else {
+              imgUrl = 'https://picsum.photos/seed/${slug.replaceAll(' ', '')}/400/300';
+            }
+
             uniqueDestinations[slug] = {
               'city':
                   lookup?.label ??
@@ -92,12 +112,7 @@ class _TravelerHomeScreenState extends ConsumerState<TravelerHomeScreen> {
                       )
                       .join(' '),
               'hotels': count,
-              'image':
-                  (lookup?.icon != null &&
-                      (lookup!.icon!.startsWith('http') ||
-                          lookup.icon!.startsWith('assets/')))
-                  ? lookup.icon!
-                  : 'https://picsum.photos/seed/${slug.replaceAll(' ', '')}/400/300',
+              'image': imgUrl,
               'key': slug,
             };
           }
@@ -139,8 +154,11 @@ class _TravelerHomeScreenState extends ConsumerState<TravelerHomeScreen> {
                 padding: const EdgeInsets.only(top: 16),
                 child: _FeaturedDestinationsSection(
                   destinations: dynamicDestinations,
-                  onExplore: (city) {
-                    setState(() => _selectedDestination = city);
+                  onExplore: (city, key) {
+                    setState(() {
+                      _selectedDestination = city;
+                      _selectedDestinationKey = key;
+                    });
                     Future.delayed(const Duration(milliseconds: 100), () {
                       _scrollController.animateTo(
                         _scrollController.position.pixels + 100,
@@ -162,13 +180,13 @@ class _TravelerHomeScreenState extends ConsumerState<TravelerHomeScreen> {
                     .where(
                       (s) =>
                           s.status == ServiceStatus.active &&
-                          ((s.metadata['region'] as String?) ==
-                                  _selectedDestination ||
-                              s.location.split(',').first.trim() ==
-                                  _selectedDestination),
+                          getNormalizedDest(s) == _selectedDestinationKey,
                     )
                     .toList(),
-                onCancel: () => setState(() => _selectedDestination = null),
+                onCancel: () => setState(() {
+                  _selectedDestination = null;
+                  _selectedDestinationKey = null;
+                }),
               ),
             ),
 
@@ -734,7 +752,7 @@ class _HeroSectionState extends ConsumerState<_HeroSection> {
 // ⭐ Featured Destinations Section
 class _FeaturedDestinationsSection extends StatelessWidget {
   final List<Map<String, dynamic>> destinations;
-  final void Function(String city) onExplore;
+  final void Function(String city, String key) onExplore;
 
   const _FeaturedDestinationsSection({
     required this.destinations,
@@ -760,6 +778,7 @@ class _FeaturedDestinationsSection extends StatelessWidget {
                 return _DestinationCircularCard(
                   city: destination['city'],
                   image: destination['image'],
+                  destKey: destination['key'],
                   onExplore: onExplore,
                 );
               },
@@ -774,11 +793,13 @@ class _FeaturedDestinationsSection extends StatelessWidget {
 class _DestinationCircularCard extends StatefulWidget {
   final String city;
   final String image;
-  final void Function(String city) onExplore;
+  final String destKey;
+  final void Function(String city, String key) onExplore;
 
   const _DestinationCircularCard({
     required this.city,
     required this.image,
+    required this.destKey,
     required this.onExplore,
   });
 
@@ -808,7 +829,7 @@ class _DestinationCircularCardState extends State<_DestinationCircularCard> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
-        onTap: () => widget.onExplore(widget.city),
+        onTap: () => widget.onExplore(widget.city, widget.destKey),
         child: Column(
           children: [
             AnimatedScale(

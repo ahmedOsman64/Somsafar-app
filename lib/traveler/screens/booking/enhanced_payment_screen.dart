@@ -401,7 +401,7 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
                           ),
                         ),
                         Text(
-                          widget.serviceType == ServiceType.tour ? 'Person' : 'Total',
+                          'Total',
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.7),
                             fontSize: 12,

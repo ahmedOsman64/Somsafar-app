@@ -61,18 +61,24 @@ class ReviewRepository extends StateNotifier<List<Review>> {
   }
 
   Future<void> addReview(Review review) async {
+    final oldState = [...state];
+    if (mounted) state = [...state, review];
     try {
       await SupabaseConfig.client.from('reviews').insert(review.toMap());
     } catch (e) {
       debugPrint('Add review error: $e');
+      if (mounted) state = oldState;
     }
   }
 
   Future<void> deleteReview(String id) async {
+    final oldState = [...state];
+    if (mounted) state = state.where((r) => r.id != id).toList();
     try {
       await SupabaseConfig.client.from('reviews').delete().eq('id', id);
     } catch (e) {
       debugPrint('Delete review error: $e');
+      if (mounted) state = oldState;
     }
   }
 }

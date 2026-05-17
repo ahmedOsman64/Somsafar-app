@@ -355,9 +355,19 @@ class _AdminSpecialOffersScreenState
                   onDelete: () => ref
                       .read(specialOfferProvider.notifier)
                       .removeOffer(offer.id),
-                  onToggle: () => ref
-                      .read(specialOfferProvider.notifier)
-                      .toggleStatus(offer.id),
+                  onToggle: () async {
+                    final error = await ref
+                        .read(specialOfferProvider.notifier)
+                        .toggleStatus(offer.id);
+                    if (error != null && mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Failed: $error'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  },
                 );
               },
             ),

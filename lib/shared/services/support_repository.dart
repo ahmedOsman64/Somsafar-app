@@ -205,6 +205,21 @@ class SupportRepository extends StateNotifier<List<SupportTicket>> {
       timestamp: DateTime.now(),
     );
 
+    final newTicket = SupportTicket(
+      id: ticketId,
+      userId: userId,
+      userName: userName,
+      userEmail: userEmail,
+      type: type,
+      status: TicketStatus.open,
+      priority: priority,
+      createdAt: DateTime.now(),
+      messages: [firstMsg],
+    );
+
+    final oldState = [...state];
+    if (mounted) state = [newTicket, ...state];
+
     try {
       await SupabaseConfig.client.from('support_tickets').insert({
         'id': ticketId,
@@ -219,11 +234,15 @@ class SupportRepository extends StateNotifier<List<SupportTicket>> {
       });
     } catch (e) {
       debugPrint('Create ticket error: $e');
+      if (mounted) state = oldState;
     }
   }
 
   Future<void> adminReply(String ticketId, String replyText) async {
-    final ticket = state.firstWhere((t) => t.id == ticketId);
+    final ticketIndex = state.indexWhere((t) => t.id == ticketId);
+    if (ticketIndex == -1) return;
+    
+    final ticket = state[ticketIndex];
     final newMsg = SupportMessage(
       id: const Uuid().v4(),
       text: replyText,
@@ -234,22 +253,64 @@ class SupportRepository extends StateNotifier<List<SupportTicket>> {
     final updatedMessages = [
       ...ticket.messages,
       newMsg,
-    ].map((m) => m.toJson()).toList();
+    ];
+    
+    final oldState = [...state];
+    if (mounted) {
+      state = [
+        for (final t in state)
+          if (t.id == ticketId)
+            SupportTicket(
+              id: t.id,
+              userId: t.userId,
+              userName: t.userName,
+              userEmail: t.userEmail,
+              type: t.type,
+              status: TicketStatus.inProgress,
+              priority: t.priority,
+              createdAt: t.createdAt,
+              messages: updatedMessages,
+            )
+          else
+            t
+      ];
+    }
 
     try {
       await SupabaseConfig.client
           .from('support_tickets')
           .update({
             'status': TicketStatus.inProgress.name,
-            'messages': updatedMessages,
+            'messages': updatedMessages.map((m) => m.toJson()).toList(),
           })
           .eq('id', ticketId);
     } catch (e) {
       debugPrint('Admin reply error: $e');
+      if (mounted) state = oldState;
     }
   }
 
   Future<void> updateStatus(String ticketId, TicketStatus newStatus) async {
+    final oldState = [...state];
+    if (mounted) {
+      state = [
+        for (final t in state)
+          if (t.id == ticketId)
+            SupportTicket(
+              id: t.id,
+              userId: t.userId,
+              userName: t.userName,
+              userEmail: t.userEmail,
+              type: t.type,
+              status: newStatus,
+              priority: t.priority,
+              createdAt: t.createdAt,
+              messages: t.messages,
+            )
+          else
+            t
+      ];
+    }
     try {
       await SupabaseConfig.client
           .from('support_tickets')
@@ -257,6 +318,7 @@ class SupportRepository extends StateNotifier<List<SupportTicket>> {
           .eq('id', ticketId);
     } catch (e) {
       debugPrint('Update ticket status error: $e');
+      if (mounted) state = oldState;
     }
   }
 

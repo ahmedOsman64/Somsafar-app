@@ -20,14 +20,14 @@ class HighlightRepository extends StateNotifier<List<TravelHighlight>> {
         .stream(primaryKey: ['id'])
         .order('display_order', ascending: true)
         .listen(
-      (data) {
-        if (!mounted) return;
-        state = data.map((res) => TravelHighlight.fromMap(res)).toList();
-      },
-      onError: (e) {
-        debugPrint('Highlight stream error: $e');
-      },
-    );
+          (data) {
+            if (!mounted) return;
+            state = data.map((res) => TravelHighlight.fromMap(res)).toList();
+          },
+          onError: (e) {
+            debugPrint('Highlight stream error: $e');
+          },
+        );
   }
 
   Future<void> refresh() async {
@@ -38,7 +38,9 @@ class HighlightRepository extends StateNotifier<List<TravelHighlight>> {
           .order('display_order', ascending: true);
 
       if (!mounted) return;
-      final highlights = (data as List).map((res) => TravelHighlight.fromMap(res)).toList();
+      final highlights = (data as List)
+          .map((res) => TravelHighlight.fromMap(res))
+          .toList();
       debugPrint('DEBUG: Fetched ${highlights.length} highlights from DB');
       state = highlights;
     } catch (e) {
@@ -56,6 +58,16 @@ class HighlightRepository extends StateNotifier<List<TravelHighlight>> {
     final nextOrder = state.isEmpty ? 0 : state.length;
 
     try {
+      final newHighlight = TravelHighlight(
+        id: id,
+        title: title,
+        location: location,
+        imageUrl: imageUrl,
+        tag: tag,
+        displayOrder: nextOrder,
+        isActive: true,
+      );
+
       await SupabaseConfig.client.from('travel_highlights').insert({
         'id': id,
         'title': title,
@@ -65,6 +77,8 @@ class HighlightRepository extends StateNotifier<List<TravelHighlight>> {
         'display_order': nextOrder,
         'active': true,
       });
+
+      state = [...state, newHighlight];
       return null;
     } catch (e) {
       debugPrint('Add highlight error: $e');
@@ -91,6 +105,19 @@ class HighlightRepository extends StateNotifier<List<TravelHighlight>> {
           .update(updates)
           .eq('id', id);
 
+      state = [
+        for (final h in state)
+          if (h.id == id)
+            h.copyWith(
+              title: title,
+              location: location,
+              imageUrl: imageUrl,
+              tag: tag,
+            )
+          else
+            h,
+      ];
+
       return null;
     } catch (e) {
       debugPrint('Update highlight error: $e');
@@ -102,7 +129,10 @@ class HighlightRepository extends StateNotifier<List<TravelHighlight>> {
     final oldState = [...state];
     try {
       state = state.where((h) => h.id != id).toList();
-      await SupabaseConfig.client.from('travel_highlights').delete().eq('id', id);
+      await SupabaseConfig.client
+          .from('travel_highlights')
+          .delete()
+          .eq('id', id);
     } catch (e) {
       debugPrint('Remove highlight error: $e');
       state = oldState;
@@ -125,7 +155,8 @@ class HighlightRepository extends StateNotifier<List<TravelHighlight>> {
     try {
       await SupabaseConfig.client
           .from('travel_highlights')
-          .update({'active': newStatus}).eq('id', id);
+          .update({'active': newStatus})
+          .eq('id', id);
     } catch (e) {
       debugPrint('Toggle highlight status error: $e');
       state = oldState;
@@ -141,8 +172,8 @@ class HighlightRepository extends StateNotifier<List<TravelHighlight>> {
 
 final highlightProvider =
     StateNotifierProvider<HighlightRepository, List<TravelHighlight>>((ref) {
-  return HighlightRepository();
-});
+      return HighlightRepository();
+    });
 
 final activeHighlightsProvider = Provider<List<TravelHighlight>>((ref) {
   final highlights = ref.watch(highlightProvider);

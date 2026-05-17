@@ -67,7 +67,7 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
   // Eid Specific
   String _eidType = 'Eid al-Fitr';
   final _destinationController = TextEditingController();
-  int _numberOfDays = 3;
+  int _numberOfDays = 1;
   String _eidTransport = 'Bus';
   int _hotelRating = 4;
   final List<String> _selectedActivities = [];
@@ -145,7 +145,7 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
       } else if (metadata['package'] == 'eid') {
         _eidType = metadata['eidType'] ?? _eidType;
         _destinationController.text = metadata['destination'] ?? 'Eid Destination'; // Added
-        _numberOfDays = metadata['numberOfDays'] ?? _numberOfDays;
+        _numberOfDays = metadata['numberOfDays'] ?? 3;
         _eidTransport = metadata['eidTransport'] ?? _eidTransport;
         _hotelRating = metadata['hotelRating'] ?? _hotelRating;
         _foodPackage = metadata['foodPackage'] ?? _foodPackage;
@@ -285,7 +285,7 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
       } else {
         bookingData = TourBookingData(
           checkIn: _tourDate!,
-          checkOut: _tourDate!,
+          checkOut: _tourDate!.add(Duration(days: _numberOfDays - 1)),
           guests: _adultsCount + _childrenCount + _infantsCount,
           fullName: _fullNameController.text,
           email: _emailController.text,
@@ -300,6 +300,7 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
           languageGuide: _languageGuide,
           mealPreference: _mealPreference,
           pickupLocation: _pickupLocationController.text,
+          numberOfDays: _numberOfDays,
           specialInformation: _specialInformationController.text.isNotEmpty ? _specialInformationController.text : null,
         );
       }
@@ -1374,7 +1375,7 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
             providerId: widget.service.providerId,
             serviceTitle: widget.service.title,
             serviceType: ServiceType.tour,
-            basePrice: widget.service.price,
+            basePrice: _bookingSummary!.basePrice,
             checkIn: _tourDate!,
             checkOut: _tourDate!.add(Duration(days: _numberOfDays - 1)),
             guests: travelersList.length,

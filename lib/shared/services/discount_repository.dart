@@ -34,7 +34,10 @@ class DiscountRepository extends StateNotifier<List<Discount>> {
     bool hasChanges = false;
     
     final updatedList = state.map((d) {
-      if (d.status == DiscountStatus.active && now.isAfter(d.endDate)) {
+      final endOfDay = DateTime(d.endDate.year, d.endDate.month, d.endDate.day, 23, 59, 59);
+      final startOfDay = DateTime(d.startDate.year, d.startDate.month, d.startDate.day);
+
+      if (d.status == DiscountStatus.active && now.isAfter(endOfDay)) {
         hasChanges = true;
         return Discount(
           id: d.id,
@@ -48,9 +51,9 @@ class DiscountRepository extends StateNotifier<List<Discount>> {
           code: d.code,
           createdAt: d.createdAt,
         );
-      } else if (d.status == DiscountStatus.scheduled && (now.isAfter(d.startDate) || now.isAtSameMomentAs(d.startDate))) {
+      } else if (d.status == DiscountStatus.scheduled && (now.isAfter(startOfDay) || now.isAtSameMomentAs(startOfDay))) {
         hasChanges = true;
-        if (now.isAfter(d.endDate)) {
+        if (now.isAfter(endOfDay)) {
            return Discount(
              id: d.id,
              providerId: d.providerId,
@@ -96,6 +99,7 @@ class DiscountRepository extends StateNotifier<List<Discount>> {
   Future<void> addDiscount(Discount discount) async {
     state = [...state, discount];
     await _saveToPrefs();
+    await checkExpirations();
   }
 
   Future<void> updateDiscount(Discount updatedDiscount) async {
@@ -104,6 +108,7 @@ class DiscountRepository extends StateNotifier<List<Discount>> {
         if (d.id == updatedDiscount.id) updatedDiscount else d,
     ];
     await _saveToPrefs();
+    await checkExpirations();
   }
 
   Future<void> deleteDiscount(String id) async {
@@ -118,10 +123,13 @@ class DiscountRepository extends StateNotifier<List<Discount>> {
   ) {
     final now = DateTime.now();
     final activeDiscounts = discounts.where((d) {
+      final startOfDay = DateTime(d.startDate.year, d.startDate.month, d.startDate.day);
+      final endOfDay = DateTime(d.endDate.year, d.endDate.month, d.endDate.day, 23, 59, 59);
+
       final isDateValid =
-          (d.startDate.isBefore(now) ||
-              d.startDate.isAtSameMomentAs(now)) &&
-          (d.endDate.isAfter(now) || d.endDate.isAtSameMomentAs(now));
+          (startOfDay.isBefore(now) ||
+              startOfDay.isAtSameMomentAs(now)) &&
+          (endOfDay.isAfter(now) || endOfDay.isAtSameMomentAs(now));
       final isProviderMatch = d.providerId == providerId;
       final isServiceMatch =
           d.applicableServiceIds.isEmpty ||
