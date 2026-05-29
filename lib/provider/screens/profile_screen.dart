@@ -35,7 +35,11 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
     super.initState();
     final user = ref.read(authProvider);
     _nameController = TextEditingController(text: user?.name ?? '');
-    _phoneController = TextEditingController(text: user?.phone ?? '');
+    
+    // Gracefully handle 'ENCRYPTED' placeholder from database
+    final displayPhone = (user?.phone == 'ENCRYPTED') ? '' : (user?.phone ?? '');
+    _phoneController = TextEditingController(text: displayPhone);
+    
     _locationController = TextEditingController(text: user?.location ?? '');
     _emailController = TextEditingController(text: user?.email ?? '');
     _providerIdController = TextEditingController(

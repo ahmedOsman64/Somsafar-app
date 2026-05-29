@@ -199,6 +199,7 @@ class UserRepository extends StateNotifier<List<User>> {
 
       final updateData = {
         'name': updatedUser.name.replaceFirst('Verified ', ''),
+        'email': updatedUser.email,
         'role': updatedUser.role.name,
         'status': updatedUser.status.name,
         'admin_role': updatedUser.adminRole?.name,
@@ -370,6 +371,20 @@ class UserRepository extends StateNotifier<List<User>> {
       (u) =>
           u.email.toLowerCase() == email.toLowerCase() && u.id != currentUserId,
     );
+  }
+
+  Future<bool> isEmailRegistered(String email) async {
+    try {
+      final res = await SupabaseConfig.client
+          .from('users')
+          .select('id')
+          .eq('email', email.toLowerCase())
+          .maybeSingle();
+      return res != null;
+    } catch (e) {
+      debugPrint('Error checking email registration: $e');
+      return false;
+    }
   }
 
   bool isPhoneUnique(String phone, [String? currentUserId]) {

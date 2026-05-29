@@ -230,10 +230,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-DROP TRIGGER IF EXISTS tr_encrypt_phone ON public.users;
-CREATE TRIGGER tr_encrypt_phone
-BEFORE INSERT OR UPDATE ON public.users
-FOR EACH ROW EXECUTE FUNCTION public.encrypt_user_phone();
+/* -- Disabling automatic phone encryption as requested by user
+33: DROP TRIGGER IF EXISTS tr_encrypt_phone ON public.users;
+34: CREATE TRIGGER tr_encrypt_phone
+35: BEFORE INSERT OR UPDATE ON public.users
+36: FOR EACH ROW EXECUTE FUNCTION public.encrypt_user_phone();
+*/
 
 -- API Rate Limiting (Simple Table-based)
 CREATE TABLE IF NOT EXISTS public.request_logs (

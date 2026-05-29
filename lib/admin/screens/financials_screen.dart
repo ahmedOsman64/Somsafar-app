@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
 import '../../shared/models/financial_model.dart';
 import '../../shared/services/financial_repository.dart';
+import '../../shared/services/system_settings_repository.dart';
 
 class AdminFinancialsScreen extends ConsumerWidget {
   const AdminFinancialsScreen({super.key});
@@ -40,7 +41,7 @@ class AdminFinancialsScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildSummaryCards(financialData.metrics),
+                  _buildSummaryCards(financialData.metrics, ref),
                   const SizedBox(height: 32),
                   _buildRevenueChart(financialData.metrics.weeklyRevenue),
                   const SizedBox(height: 32),
@@ -54,7 +55,7 @@ class AdminFinancialsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildSummaryCards(FinancialMetrics metrics) {
+  Widget _buildSummaryCards(FinancialMetrics metrics, WidgetRef ref) {
     final currencyFormat = NumberFormat.simpleCurrency(decimalDigits: 0);
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -76,7 +77,7 @@ class AdminFinancialsScreen extends ConsumerWidget {
               const Color(0xFF27AE60),
             ),
             _buildMetricCard(
-              'Platform Fees (10%)',
+              'Platform Fees (${ref.watch(systemSettingsProvider).platformFee.toStringAsFixed(0)}%)',
               currencyFormat.format(metrics.platformFees),
               Icons.account_balance_outlined,
               const Color(0xFF2F80ED),

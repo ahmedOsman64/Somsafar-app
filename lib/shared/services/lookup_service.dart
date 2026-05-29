@@ -9,27 +9,38 @@ class LookupItem {
   final String? icon;
   final double? multiplier;
 
-  LookupItem({required this.key, required this.label, this.icon, this.multiplier});
+  LookupItem({
+    required this.key,
+    required this.label,
+    this.icon,
+    this.multiplier,
+  });
 
   factory LookupItem.fromJson(Map<String, dynamic> json) {
     return LookupItem(
       key: json['key'] ?? json['slug'] ?? '',
       label: json['label'] ?? json['name'] ?? '',
       icon: json['icon'],
-      multiplier: json['multiplier'] != null ? (json['multiplier'] as num).toDouble() : null,
+      multiplier: json['multiplier'] != null
+          ? (json['multiplier'] as num).toDouble()
+          : null,
     );
   }
 }
 
 class LookupService {
-  static Future<List<LookupItem>> getByType(String category, {String tableName = 'lookups'}) async {
+  static Future<List<LookupItem>> getByType(
+    String category, {
+    String tableName = 'lookups',
+  }) async {
     try {
-      final query = SupabaseConfig.client
-          .from(tableName)
-          .select();
-      
+      final query = SupabaseConfig.client.from(tableName).select();
+
       final response = (tableName == 'lookups')
-          ? await query.eq('category', category).eq('is_active', true).order('label')
+          ? await query
+                .eq('category', category)
+                .eq('is_active', true)
+                .order('label')
           : await query.eq('is_active', true).order('name');
 
       return response.map((e) => LookupItem.fromJson(e)).toList();
@@ -67,7 +78,12 @@ class LookupService {
       {'category': 'region', 'key': 'gedo', 'label': 'Gedo', 'icon': 'map'},
       {'category': 'region', 'key': 'mudug', 'label': 'Mudug', 'icon': 'map'},
       {'category': 'region', 'key': 'nugaal', 'label': 'Nugaal', 'icon': 'map'},
-      {'category': 'region', 'key': 'hiiraan', 'label': 'Hiiraan', 'icon': 'map'},
+      {
+        'category': 'region',
+        'key': 'hiiraan',
+        'label': 'Hiiraan',
+        'icon': 'map',
+      },
       {'category': 'region', 'key': 'bay', 'label': 'Bay', 'icon': 'map'},
       {'category': 'region', 'key': 'bakool', 'label': 'Bakool', 'icon': 'map'},
       {
@@ -147,7 +163,12 @@ class LookupService {
         'label': 'Gym',
         'icon': 'fitness_center',
       },
-      {'category': 'amenity_hotel', 'key': 'spa', 'label': 'Spa', 'icon': 'spa'},
+      {
+        'category': 'amenity_hotel',
+        'key': 'spa',
+        'label': 'Spa',
+        'icon': 'spa',
+      },
       {
         'category': 'amenity_hotel',
         'key': 'ac',
@@ -183,8 +204,18 @@ class LookupService {
         'label': 'English',
         'icon': 'language',
       },
-      {'category': 'language', 'key': 'so', 'label': 'Somali', 'icon': 'language'},
-      {'category': 'language', 'key': 'ar', 'label': 'Arabic', 'icon': 'language'},
+      {
+        'category': 'language',
+        'key': 'so',
+        'label': 'Somali',
+        'icon': 'language',
+      },
+      {
+        'category': 'language',
+        'key': 'ar',
+        'label': 'Arabic',
+        'icon': 'language',
+      },
       {
         'category': 'language',
         'key': 'it',
@@ -193,7 +224,12 @@ class LookupService {
       },
 
       // Preferred Services (Custom Tour)
-      {'category': 'service', 'key': 'guide', 'label': 'Guide', 'icon': 'person'},
+      {
+        'category': 'service',
+        'key': 'guide',
+        'label': 'Guide',
+        'icon': 'person',
+      },
       {
         'category': 'service',
         'key': 'transport',
@@ -206,7 +242,12 @@ class LookupService {
         'label': 'Photographer',
         'icon': 'camera_alt',
       },
-      {'category': 'service', 'key': 'vip', 'label': 'VIP Access', 'icon': 'star'},
+      {
+        'category': 'service',
+        'key': 'vip',
+        'label': 'VIP Access',
+        'icon': 'star',
+      },
       {
         'category': 'service',
         'key': 'translator',
@@ -220,17 +261,16 @@ class LookupService {
       final List<dynamic> existing = await SupabaseConfig.client
           .from('lookups')
           .select('category, key');
-      
-      final existingKeys = existing.map((e) => '${e['category']}:${e['key']}').toSet();
+
+      final existingKeys = existing
+          .map((e) => '${e['category']}:${e['key']}')
+          .toSet();
 
       final List<Map<String, dynamic>> missingData = [];
       for (final item in essentialLookups) {
         final keyString = '${item['category']}:${item['key']}';
         if (!existingKeys.contains(keyString)) {
-          missingData.add({
-            ...item,
-            'is_active': true,
-          });
+          missingData.add({...item, 'is_active': true});
         }
       }
 
@@ -244,7 +284,9 @@ class LookupService {
       }
     } on PostgrestException catch (e) {
       if (e.code == '42501') {
-        debugPrint('Seeding skipped: Permission denied (Row-Level Security). Please run seeding via SQL if needed.');
+        debugPrint(
+          'Seeding skipped: Permission denied (Row-Level Security). Please run seeding via SQL if needed.',
+        );
       } else {
         debugPrint('Postgrest error seeding lookups: ${e.message}');
       }
@@ -255,10 +297,10 @@ class LookupService {
 
   static Future<void> ensureRegionExists(String regionLabel) async {
     if (regionLabel.isEmpty) return;
-    
+
     // Normalize key: lowercase, no spaces, for slug
     final String key = regionLabel.toLowerCase().replaceAll(' ', '_').trim();
-    
+
     try {
       // Check if it already exists
       final existing = await SupabaseConfig.client
@@ -284,24 +326,30 @@ class LookupService {
     }
   }
 
-  static Future<void> updateLookup(String category, String key, Map<String, dynamic> updates) async {
+  static Future<void> updateLookup(
+    String category,
+    String key,
+    Map<String, dynamic> updates,
+  ) async {
     try {
       // Security: Only Admins can modify lookups
       final user = SupabaseConfig.client.auth.currentUser;
       if (user == null) throw Exception('Authentication required');
-      
+
       // In a real app, we would verify the role from the JWT or a separate check.
       // For now, we rely on RLS, but we can add a basic check if we have the profile.
-      
+
       final response = await SupabaseConfig.client
           .from('lookups')
           .update(updates)
           .eq('category', category)
           .eq('key', key)
           .select();
-      
+
       if (response.isEmpty) {
-        debugPrint('No row found to update for $category:$key. Row may be inactive or missing.');
+        debugPrint(
+          'No row found to update for $category:$key. Row may be inactive or missing.',
+        );
       } else {
         debugPrint('Successfully updated lookup $category:$key to $updates');
       }
@@ -319,10 +367,12 @@ final categoriesProvider = StreamProvider<List<LookupItem>>((ref) {
       .stream(primaryKey: ['id'])
       .eq('category', 'category')
       .order('label')
-      .map((data) => data
-          .where((json) => json['is_active'] == true)
-          .map((json) => LookupItem.fromJson(json))
-          .toList());
+      .map(
+        (data) => data
+            .where((json) => json['is_active'] == true)
+            .map((json) => LookupItem.fromJson(json))
+            .toList(),
+      );
 });
 
 final regionsProvider = StreamProvider<List<LookupItem>>((ref) {
@@ -335,33 +385,40 @@ final regionsProvider = StreamProvider<List<LookupItem>>((ref) {
             .where((json) => json['is_active'] == true)
             .map((json) => LookupItem.fromJson(json))
             .toList();
-        
+
         // We want to ensure unique labels and keys, prioritizing the ones with icons
         final Map<String, LookupItem> uniqueRegions = {};
-        
+
         for (final item in items) {
           String normalizedKey = item.key.toLowerCase().trim();
           // Normalize synonyms to canonical keys
           if (normalizedKey == 'banadir') normalizedKey = 'banaadir';
           if (normalizedKey == 'hiran') normalizedKey = 'hiiraan';
           if (normalizedKey == 'bakol') normalizedKey = 'bakool';
-          
+
           final existing = uniqueRegions[normalizedKey];
           bool shouldReplace = existing == null;
           if (existing != null) {
-            bool currentHasIcon = item.icon != null && item.icon != 'map' && item.icon!.isNotEmpty;
-            bool existingHasIcon = existing.icon != null && existing.icon != 'map' && existing.icon!.isNotEmpty;
+            bool currentHasIcon =
+                item.icon != null &&
+                item.icon != 'map' &&
+                item.icon!.isNotEmpty;
+            bool existingHasIcon =
+                existing.icon != null &&
+                existing.icon != 'map' &&
+                existing.icon!.isNotEmpty;
             if (currentHasIcon && !existingHasIcon) {
               shouldReplace = true;
             }
           }
-          
+
           if (shouldReplace) {
             uniqueRegions[normalizedKey] = item;
           }
         }
-        
-        return uniqueRegions.values.toList()..sort((a, b) => a.label.compareTo(b.label));
+
+        return uniqueRegions.values.toList()
+          ..sort((a, b) => a.label.compareTo(b.label));
       });
 });
 
@@ -371,10 +428,12 @@ final amenitiesHotelProvider = StreamProvider<List<LookupItem>>((ref) {
       .stream(primaryKey: ['id'])
       .eq('category', 'amenity_hotel')
       .order('label')
-      .map((data) => data
-          .where((json) => json['is_active'] == true)
-          .map((json) => LookupItem.fromJson(json))
-          .toList());
+      .map(
+        (data) => data
+            .where((json) => json['is_active'] == true)
+            .map((json) => LookupItem.fromJson(json))
+            .toList(),
+      );
 });
 
 final amenitiesApartmentProvider = StreamProvider<List<LookupItem>>((ref) {
@@ -383,10 +442,12 @@ final amenitiesApartmentProvider = StreamProvider<List<LookupItem>>((ref) {
       .stream(primaryKey: ['id'])
       .eq('category', 'amenity_apt')
       .order('label')
-      .map((data) => data
-          .where((json) => json['is_active'] == true)
-          .map((json) => LookupItem.fromJson(json))
-          .toList());
+      .map(
+        (data) => data
+            .where((json) => json['is_active'] == true)
+            .map((json) => LookupItem.fromJson(json))
+            .toList(),
+      );
 });
 
 final languagesProvider = StreamProvider<List<LookupItem>>((ref) {
@@ -395,10 +456,12 @@ final languagesProvider = StreamProvider<List<LookupItem>>((ref) {
       .stream(primaryKey: ['id'])
       .eq('category', 'language')
       .order('label')
-      .map((data) => data
-          .where((json) => json['is_active'] == true)
-          .map((json) => LookupItem.fromJson(json))
-          .toList());
+      .map(
+        (data) => data
+            .where((json) => json['is_active'] == true)
+            .map((json) => LookupItem.fromJson(json))
+            .toList(),
+      );
 });
 
 final lookupServicesProvider = StreamProvider<List<LookupItem>>((ref) {
@@ -407,10 +470,12 @@ final lookupServicesProvider = StreamProvider<List<LookupItem>>((ref) {
       .stream(primaryKey: ['id'])
       .eq('category', 'service')
       .order('label')
-      .map((data) => data
-          .where((json) => json['is_active'] == true)
-          .map((json) => LookupItem.fromJson(json))
-          .toList());
+      .map(
+        (data) => data
+            .where((json) => json['is_active'] == true)
+            .map((json) => LookupItem.fromJson(json))
+            .toList(),
+      );
 });
 
 final travelPackagesProvider = StreamProvider<List<LookupItem>>((ref) {
@@ -418,8 +483,10 @@ final travelPackagesProvider = StreamProvider<List<LookupItem>>((ref) {
       .from('travel_packages')
       .stream(primaryKey: ['id'])
       .order('name')
-      .map((data) => data
-          .where((json) => json['is_active'] == true)
-          .map((json) => LookupItem.fromJson(json))
-          .toList());
+      .map(
+        (data) => data
+            .where((json) => json['is_active'] == true)
+            .map((json) => LookupItem.fromJson(json))
+            .toList(),
+      );
 });

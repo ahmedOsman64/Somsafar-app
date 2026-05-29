@@ -5,6 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../shared/services/auth_service.dart';
 import '../../core/services/storage_service.dart';
 import '../../shared/models/user_model.dart';
+import '../../shared/widgets/support_widgets.dart';
 
 class AdminProfileScreen extends ConsumerStatefulWidget {
   const AdminProfileScreen({super.key});
@@ -28,7 +29,13 @@ class _AdminProfileScreenState extends ConsumerState<AdminProfileScreen> {
     super.initState();
     final user = ref.read(authProvider);
     _nameController = TextEditingController(text: user?.name ?? '');
-    _phoneController = TextEditingController(text: user?.phone ?? '');
+
+    // Gracefully handle 'ENCRYPTED' placeholder from database
+    final displayPhone = (user?.phone == 'ENCRYPTED')
+        ? ''
+        : (user?.phone ?? '');
+    _phoneController = TextEditingController(text: displayPhone);
+
     _locationController = TextEditingController(text: user?.location ?? '');
     _emailController = TextEditingController(text: user?.email ?? '');
     _selectedGender = user?.gender;
@@ -46,7 +53,9 @@ class _AdminProfileScreenState extends ConsumerState<AdminProfileScreen> {
   Future<void> _saveProfile() async {
     setState(() => _isSaving = true);
     try {
-      final error = await ref.read(authServiceProvider).updateProfile(
+      final error = await ref
+          .read(authServiceProvider)
+          .updateProfile(
             name: _nameController.text,
             phone: _phoneController.text,
             location: _locationController.text,
@@ -82,9 +91,9 @@ class _AdminProfileScreenState extends ConsumerState<AdminProfileScreen> {
       );
 
       if (imageUrl != null) {
-        final error = await ref.read(authServiceProvider).updateProfile(
-              profileImage: imageUrl,
-            );
+        final error = await ref
+            .read(authServiceProvider)
+            .updateProfile(profileImage: imageUrl);
 
         if (!mounted) return;
 
@@ -137,7 +146,8 @@ class _AdminProfileScreenState extends ConsumerState<AdminProfileScreen> {
                     border: OutlineInputBorder(),
                   ),
                   obscureText: true,
-                  validator: (v) => v!.isEmpty ? 'Current password is required' : null,
+                  validator: (v) =>
+                      v!.isEmpty ? 'Current password is required' : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -157,8 +167,9 @@ class _AdminProfileScreenState extends ConsumerState<AdminProfileScreen> {
                     border: OutlineInputBorder(),
                   ),
                   obscureText: true,
-                  validator: (v) =>
-                      v != newPasswordController.text ? 'Passwords do not match' : null,
+                  validator: (v) => v != newPasswordController.text
+                      ? 'Passwords do not match'
+                      : null,
                 ),
               ],
             ),
@@ -175,7 +186,9 @@ class _AdminProfileScreenState extends ConsumerState<AdminProfileScreen> {
                       if (formKey.currentState!.validate()) {
                         setState(() => isLoading = true);
                         try {
-                          final error = await ref.read(authServiceProvider).changePassword(
+                          final error = await ref
+                              .read(authServiceProvider)
+                              .changePassword(
                                 currentPassword: currentPasswordController.text,
                                 newPassword: newPasswordController.text,
                               );
@@ -254,14 +267,23 @@ class _AdminProfileScreenState extends ConsumerState<AdminProfileScreen> {
                       CircleAvatar(
                         radius: 50,
                         backgroundColor: AppColors.primary.withAlpha(26),
-                        backgroundImage: user.profileImage != null &&
+                        backgroundImage:
+                            user.profileImage != null &&
                                 user.profileImage!.isNotEmpty
                             ? NetworkImage(
-                                StorageService.ensurePublicUrl(user.profileImage!))
+                                StorageService.ensurePublicUrl(
+                                  user.profileImage!,
+                                ),
+                              )
                             : null,
-                        child: user.profileImage == null ||
+                        child:
+                            user.profileImage == null ||
                                 user.profileImage!.isEmpty
-                            ? const Icon(Icons.person, size: 50, color: AppColors.primary)
+                            ? const Icon(
+                                Icons.person,
+                                size: 50,
+                                color: AppColors.primary,
+                              )
                             : null,
                       ),
                       if (_isUploading)
@@ -276,7 +298,11 @@ class _AdminProfileScreenState extends ConsumerState<AdminProfileScreen> {
                             color: AppColors.primary,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.camera_alt, color: Colors.white, size: 16),
+                          child: const Icon(
+                            Icons.camera_alt,
+                            color: Colors.white,
+                            size: 16,
+                          ),
                         ),
                       ),
                     ],
@@ -296,7 +322,11 @@ class _AdminProfileScreenState extends ConsumerState<AdminProfileScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          user.adminRole?.name.toUpperCase().replaceAll('ADMIN', ' ADMIN') ?? 'ADMIN',
+                          user.adminRole?.name.toUpperCase().replaceAll(
+                                'ADMIN',
+                                ' ADMIN',
+                              ) ??
+                              'ADMIN',
                           style: const TextStyle(
                             color: AppColors.primary,
                             fontWeight: FontWeight.w600,
@@ -372,11 +402,37 @@ class _AdminProfileScreenState extends ConsumerState<AdminProfileScreen> {
               subtitle: const Text('Update your account password'),
               trailing: const Icon(Icons.chevron_right),
               tileColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
 
             const SizedBox(height: 40),
-
+            const Text(
+              'Support & Help',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.dark,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withAlpha(13),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const SupportSection(),
+            ),
+            const SizedBox(height: 40),
             SizedBox(
               width: double.infinity,
               height: 50,
@@ -385,13 +441,18 @@ class _AdminProfileScreenState extends ConsumerState<AdminProfileScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 child: _isSaving
                     ? const CircularProgressIndicator(color: Colors.white)
                     : const Text(
                         'Save Profile Updates',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
               ),
             ),
@@ -433,7 +494,10 @@ class _AdminProfileScreenState extends ConsumerState<AdminProfileScreen> {
         ),
         decoration: InputDecoration(
           labelText: label,
-          prefixIcon: Icon(icon, color: isDisabled ? Colors.grey : AppColors.primary),
+          prefixIcon: Icon(
+            icon,
+            color: isDisabled ? Colors.grey : AppColors.primary,
+          ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide.none,

@@ -140,7 +140,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                   controller: _otpController,
                   label: 'OTP Code',
                   hint: 'Enter 8-digit OTP code',
-                  keyboardType: TextInputType.number,
+                  keyboardType: TextInputType.text,
                   prefixIcon: const Icon(Icons.pin_outlined),
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) {
@@ -167,6 +167,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                   label: 'New Password',
                   hint: 'Enter new password',
                   obscureText: true,
+                  keyboardType: TextInputType.visiblePassword,
                   prefixIcon: const Icon(Icons.lock_outline),
                   validator: (v) {
                     if (v == null || v.isEmpty) {
@@ -184,6 +185,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                   label: 'Confirm Password',
                   hint: 'Re-enter new password',
                   obscureText: true,
+                  keyboardType: TextInputType.visiblePassword,
                   prefixIcon: const Icon(Icons.lock),
                   validator: (v) {
                     if (v == null || v.isEmpty) {

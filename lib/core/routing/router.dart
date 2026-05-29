@@ -50,6 +50,7 @@ import '../../admin/screens/edit_user_screen.dart';
 import '../../admin/screens/admin_helpers_screen.dart';
 import '../../admin/screens/admin_region_manager_screen.dart';
 import '../../admin/screens/admin_highlights_screen.dart';
+import '../../admin/screens/admin_discounts_screen.dart';
 
 import '../../provider/screens/provider_service_form_screen.dart';
 
@@ -470,6 +471,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/admin/highlights',
             builder: (context, state) => const AdminHighlightsScreen(),
+          ),
+          GoRoute(
+            path: '/admin/discounts',
+            builder: (context, state) => const AdminDiscountsScreen(),
           ),
         ],
       ),

@@ -14,21 +14,21 @@ class SpecialOfferRepository extends StateNotifier<List<SpecialOffer>> {
         .from('special_offers')
         .stream(primaryKey: ['id'])
         .listen((data) {
-      if (!mounted) return;
-      state = data.map((res) {
-        return SpecialOffer(
-          id: res['id'] as String,
-          title: res['title'] ?? '',
-          discount: res['discount'] ?? '',
-          description: res['description'] ?? '',
-          imageUrl: res['image_url'] ?? '',
-          order: res['display_order'] ?? 0,
-          isActive: res['active'] ?? true,
-          linkedServiceId: res['linked_service_id'] as String?,
-          discountPercent: (res['discount_percent'] as num?)?.toDouble(),
-        );
-      }).toList();
-    });
+          if (!mounted) return;
+          state = data.map((res) {
+            return SpecialOffer(
+              id: res['id'] as String,
+              title: res['title'] ?? '',
+              discount: res['discount'] ?? '',
+              description: res['description'] ?? '',
+              imageUrl: res['image_url'] ?? '',
+              order: res['display_order'] ?? 0,
+              isActive: res['active'] ?? true,
+              linkedServiceId: res['linked_service_id'] as String?,
+              discountPercent: (res['discount_percent'] as num?)?.toDouble(),
+            );
+          }).toList();
+        });
   }
 
   Future<String?> addOffer({
@@ -55,7 +55,7 @@ class SpecialOfferRepository extends StateNotifier<List<SpecialOffer>> {
       linkedServiceId: linkedServiceId,
       discountPercent: discountPercent,
     );
-    
+
     final oldState = [...state];
     if (mounted) state = [...state, newOffer];
 
@@ -100,8 +100,8 @@ class SpecialOfferRepository extends StateNotifier<List<SpecialOffer>> {
             .update({'display_order': i})
             .eq('id', newOrder[i].id);
       } catch (e) {
-          debugPrint('Update special offer order error: $e');
-          if (mounted) state = oldState;
+        debugPrint('Update special offer order error: $e');
+        if (mounted) state = oldState;
       }
     }
   }
@@ -112,7 +112,7 @@ class SpecialOfferRepository extends StateNotifier<List<SpecialOffer>> {
     if (mounted) {
       state = [
         for (final o in state)
-          if (o.id == id) o.copyWith(isActive: !o.isActive) else o
+          if (o.id == id) o.copyWith(isActive: !o.isActive) else o,
       ];
     }
     try {
@@ -131,8 +131,8 @@ class SpecialOfferRepository extends StateNotifier<List<SpecialOffer>> {
 
 final specialOfferProvider =
     StateNotifierProvider<SpecialOfferRepository, List<SpecialOffer>>((ref) {
-  return SpecialOfferRepository();
-});
+      return SpecialOfferRepository();
+    });
 
 final activeSpecialOffersProvider = Provider<List<SpecialOffer>>((ref) {
   final offers = ref.watch(specialOfferProvider);
@@ -140,4 +140,3 @@ final activeSpecialOffersProvider = Provider<List<SpecialOffer>>((ref) {
     ..sort((a, b) => a.order.compareTo(b.order));
   return active;
 });
-

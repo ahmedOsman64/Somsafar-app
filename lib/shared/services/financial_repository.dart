@@ -41,6 +41,24 @@ class FinancialRepository extends StateNotifier<FinancialState> {
         ),
       ) {
     _listenToAuth();
+    _listenToSettings();
+  }
+
+  void _listenToSettings() {
+    _ref.listen(systemSettingsProvider, (previous, next) {
+      if (previous?.platformFee != next.platformFee) {
+        // Recalculate with new fee
+        _recalculateMetrics();
+      }
+    });
+  }
+
+  List<Map<String, dynamic>> _lastData = [];
+
+  void _recalculateMetrics() {
+    if (_lastData.isNotEmpty) {
+      _processData(_lastData);
+    }
   }
 
   void _listenToAuth() {
@@ -66,29 +84,36 @@ class FinancialRepository extends StateNotifier<FinancialState> {
   void _initStream(User user) {
     _subscription?.cancel();
 
-    debugPrint('FinancialRepository: Initializing stream for role ${user.role}...');
+    debugPrint(
+      'FinancialRepository: Initializing stream for role ${user.role}...',
+    );
 
     dynamic query = SupabaseConfig.client
         .from('payments')
         .stream(primaryKey: ['id']);
 
     // Security: Role-based filtering
-    if (user.role == UserRole.provider || user.role == UserRole.providerHelper) {
+    if (user.role == UserRole.provider ||
+        user.role == UserRole.providerHelper) {
       final providerKey = user.providerId ?? user.id;
-      debugPrint('FinancialRepository: Filtering for provider_id: $providerKey');
+      debugPrint(
+        'FinancialRepository: Filtering for provider_id: $providerKey',
+      );
       query = query.eq('provider_id', providerKey);
-    } 
+    }
     // Travelers see their own via RLS, so no explicit filter needed if traveler_id isn't in payments table
     // Admins see everything (no filter)
 
     _subscription = query.listen(
       (data) => _processData(data),
-      onError: (error) => debugPrint('FinancialRepository: Stream error: $error'),
+      onError: (error) =>
+          debugPrint('FinancialRepository: Stream error: $error'),
     );
   }
 
   void _processData(List<Map<String, dynamic>> data) {
     if (!mounted) return;
+    _lastData = data;
 
     try {
       final txs = data.map((res) {
@@ -175,5 +200,5 @@ class FinancialRepository extends StateNotifier<FinancialState> {
 
 final financialProvider =
     StateNotifierProvider<FinancialRepository, FinancialState>((ref) {
-  return FinancialRepository(ref);
-});
+      return FinancialRepository(ref);
+    });

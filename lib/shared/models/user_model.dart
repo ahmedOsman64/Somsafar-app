@@ -122,8 +122,20 @@ class User {
 
   bool get isProviderHelper => role == UserRole.providerHelper;
 
+  bool get isProfileComplete =>
+      name.isNotEmpty &&
+      phone != null &&
+      phone!.isNotEmpty &&
+      location != null &&
+      location!.isNotEmpty &&
+      profileImage != null &&
+      profileImage!.isNotEmpty &&
+      gender != null &&
+      dateOfBirth != null;
+
   bool get isVerified =>
-      (metadata['is_verified'] == true) || name.startsWith('Verified');
+      ((metadata['is_verified'] == true) || name.startsWith('Verified')) &&
+      isProfileComplete;
   bool get isSuperAdmin => adminRole == AdminRole.superAdmin;
   bool get isOpsAdmin => adminRole == AdminRole.opsAdmin;
   bool get isFinanceAdmin => adminRole == AdminRole.financeAdmin;

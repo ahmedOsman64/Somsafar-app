@@ -49,12 +49,11 @@ class _TravelerSearchScreenState extends ConsumerState<TravelerSearchScreen> {
     _guestsController.text = _guestsCount.toString();
 
     // Auto-filter by category if provided from HomeScreen
-    if (widget.category != null) {
+    if (widget.category != null && widget.category!.isNotEmpty) {
       // Normalize to match what FiltersSidebar sends (e.g. 'hotel' -> 'Hotel')
-      final normalized = widget.category!.isNotEmpty
-          ? widget.category![0].toUpperCase() +
-                widget.category!.substring(1).toLowerCase()
-          : widget.category!;
+      final normalized =
+          widget.category![0].toUpperCase() +
+          widget.category!.substring(1).toLowerCase();
       _selectedPropertyTypes.add(normalized);
     }
   }
@@ -62,11 +61,12 @@ class _TravelerSearchScreenState extends ConsumerState<TravelerSearchScreen> {
   @override
   void didUpdateWidget(TravelerSearchScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.category != oldWidget.category && widget.category != null) {
-      final normalized = widget.category!.isNotEmpty
-          ? widget.category![0].toUpperCase() +
-                widget.category!.substring(1).toLowerCase()
-          : widget.category!;
+    if (widget.category != oldWidget.category &&
+        widget.category != null &&
+        widget.category!.isNotEmpty) {
+      final normalized =
+          widget.category![0].toUpperCase() +
+          widget.category!.substring(1).toLowerCase();
       _selectedPropertyTypes.clear();
       _selectedPropertyTypes.add(normalized);
     }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../shared/services/auth_service.dart';
+import '../../shared/services/user_repository.dart';
 import '../../shared/models/user_model.dart';
 import '../core/theme/app_colors.dart';
 import '../../shared/widgets/form_widgets.dart';
@@ -24,6 +25,21 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   void _signup() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
+
+      // Check if email already exists
+      final isRegistered = await ref.read(userProvider.notifier).isEmailRegistered(_emailController.text.trim());
+      if (isRegistered) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('This email has already been registered. Please use a different one.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        setState(() => _isLoading = false);
+        return;
+      }
 
       final error = await ref
           .read(authServiceProvider)

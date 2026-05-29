@@ -23,6 +23,7 @@ class _AdminEditUserScreenState extends ConsumerState<AdminEditUserScreen> {
   late final TextEditingController _cleaningPriceController;
   late final TextEditingController _earlyCheckInPriceController;
   late final TextEditingController _lateCheckoutPriceController;
+  late final TextEditingController _emailController;
 
   late UserRole _selectedRole;
   late UserStatus _selectedStatus;
@@ -40,11 +41,15 @@ class _AdminEditUserScreenState extends ConsumerState<AdminEditUserScreen> {
     _phoneController = TextEditingController(text: u.phone ?? '');
     _locationController = TextEditingController(text: u.location ?? '');
     _cleaningPriceController = TextEditingController(
-        text: u.metadata['cleaning_price']?.toString() ?? '0.0');
+      text: u.metadata['cleaning_price']?.toString() ?? '0.0',
+    );
     _earlyCheckInPriceController = TextEditingController(
-        text: u.metadata['early_checkin_price']?.toString() ?? '0.0');
+      text: u.metadata['early_checkin_price']?.toString() ?? '0.0',
+    );
     _lateCheckoutPriceController = TextEditingController(
-        text: u.metadata['late_checkout_price']?.toString() ?? '0.0');
+      text: u.metadata['late_checkout_price']?.toString() ?? '0.0',
+    );
+    _emailController = TextEditingController(text: u.email);
     _selectedRole = u.role;
     _selectedStatus = u.status;
     _selectedAdminRole = u.adminRole;
@@ -60,6 +65,7 @@ class _AdminEditUserScreenState extends ConsumerState<AdminEditUserScreen> {
     _cleaningPriceController.dispose();
     _earlyCheckInPriceController.dispose();
     _lateCheckoutPriceController.dispose();
+    _emailController.dispose();
     super.dispose();
   }
 
@@ -67,9 +73,27 @@ class _AdminEditUserScreenState extends ConsumerState<AdminEditUserScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isSaving = true);
 
+    final newEmail = _emailController.text.trim();
+    if (newEmail != widget.user.email) {
+      final isRegistered = await ref.read(userProvider.notifier).isEmailRegistered(newEmail);
+      if (isRegistered) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('This email has already been registered. Please use a different one.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        setState(() => _isSaving = false);
+        return;
+      }
+    }
+
     try {
       final updated = widget.user.copyWith(
         name: _nameController.text.trim(),
+        email: newEmail,
         phone: _phoneController.text.trim().isEmpty
             ? null
             : _phoneController.text.trim(),
@@ -84,12 +108,14 @@ class _AdminEditUserScreenState extends ConsumerState<AdminEditUserScreen> {
         adminRole: _selectedRole == UserRole.admin ? _selectedAdminRole : null,
         clearAdminRole: _selectedRole != UserRole.admin,
         // Provider type: clear if not provider, set if provider
-        providerType:
-            _selectedRole == UserRole.provider ? _selectedProviderType : null,
+        providerType: _selectedRole == UserRole.provider
+            ? _selectedProviderType
+            : null,
         clearProviderType: _selectedRole != UserRole.provider,
         // Traveler type: clear if switching away
-        travelerType:
-            _selectedRole == UserRole.traveler ? _selectedTravelerType : null,
+        travelerType: _selectedRole == UserRole.traveler
+            ? _selectedTravelerType
+            : null,
         clearTravelerType: _selectedRole != UserRole.traveler,
         metadata: _selectedRole == UserRole.provider
             ? {
@@ -113,7 +139,7 @@ class _AdminEditUserScreenState extends ConsumerState<AdminEditUserScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        context.pop();
+        context.go('/admin/users');
       }
     } catch (e) {
       if (mounted) {
@@ -141,7 +167,7 @@ class _AdminEditUserScreenState extends ConsumerState<AdminEditUserScreen> {
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.close),
-          onPressed: () => context.pop(),
+          onPressed: () => context.go('/admin/users'),
         ),
       ),
       body: SingleChildScrollView(
@@ -150,8 +176,7 @@ class _AdminEditUserScreenState extends ConsumerState<AdminEditUserScreen> {
             // Header banner
             Container(
               width: double.infinity,
-              padding:
-                  const EdgeInsets.symmetric(vertical: 24, horizontal: 24),
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 24),
               decoration: const BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.vertical(
@@ -165,14 +190,14 @@ class _AdminEditUserScreenState extends ConsumerState<AdminEditUserScreen> {
                     backgroundColor: _selectedRole == UserRole.provider
                         ? Colors.teal
                         : _selectedRole == UserRole.admin
-                            ? AppColors.primary
-                            : Colors.blue,
+                        ? AppColors.primary
+                        : Colors.blue,
                     child: Icon(
                       _selectedRole == UserRole.provider
                           ? Icons.store
                           : _selectedRole == UserRole.admin
-                              ? Icons.admin_panel_settings
-                              : Icons.person_outline,
+                          ? Icons.admin_panel_settings
+                          : Icons.person_outline,
                       color: Colors.white,
                       size: 28,
                     ),
@@ -184,9 +209,7 @@ class _AdminEditUserScreenState extends ConsumerState<AdminEditUserScreen> {
                       children: [
                         Text(
                           widget.user.name,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleLarge
+                          style: Theme.of(context).textTheme.titleLarge
                               ?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: AppColors.primary,
@@ -195,7 +218,9 @@ class _AdminEditUserScreenState extends ConsumerState<AdminEditUserScreen> {
                         Text(
                           widget.user.email,
                           style: const TextStyle(
-                              color: Colors.grey, fontSize: 13),
+                            color: Colors.grey,
+                            fontSize: 13,
+                          ),
                         ),
                       ],
                     ),
@@ -221,6 +246,13 @@ class _AdminEditUserScreenState extends ConsumerState<AdminEditUserScreen> {
                       ),
                       const SizedBox(height: 16),
                       _buildTextField(
+                        controller: _emailController,
+                        label: 'Email Address *',
+                        icon: Icons.email_outlined,
+                        inputType: TextInputType.emailAddress,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildTextField(
                         controller: _phoneController,
                         label: 'Phone Number',
                         icon: Icons.phone_outlined,
@@ -238,7 +270,9 @@ class _AdminEditUserScreenState extends ConsumerState<AdminEditUserScreen> {
 
                     const SizedBox(height: 28),
                     _sectionHeader(
-                        'Role & Permissions', Icons.security_outlined),
+                      'Role & Permissions',
+                      Icons.security_outlined,
+                    ),
 
                     _card([
                       // Role selector
@@ -364,8 +398,10 @@ class _AdminEditUserScreenState extends ConsumerState<AdminEditUserScreen> {
                                   controller: _cleaningPriceController,
                                   label: 'Cleaning Fee',
                                   icon: Icons.cleaning_services_outlined,
-                                  inputType: const TextInputType.numberWithOptions(
-                                      decimal: true),
+                                  inputType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
                                   required: false,
                                 ),
                               ),
@@ -379,8 +415,10 @@ class _AdminEditUserScreenState extends ConsumerState<AdminEditUserScreen> {
                                   controller: _earlyCheckInPriceController,
                                   label: 'Early Check-in',
                                   icon: Icons.login_outlined,
-                                  inputType: const TextInputType.numberWithOptions(
-                                      decimal: true),
+                                  inputType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
                                   required: false,
                                 ),
                               ),
@@ -390,8 +428,10 @@ class _AdminEditUserScreenState extends ConsumerState<AdminEditUserScreen> {
                                   controller: _lateCheckoutPriceController,
                                   label: 'Late Checkout',
                                   icon: Icons.logout_outlined,
-                                  inputType: const TextInputType.numberWithOptions(
-                                      decimal: true),
+                                  inputType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
                                   required: false,
                                 ),
                               ),
@@ -463,7 +503,9 @@ class _AdminEditUserScreenState extends ConsumerState<AdminEditUserScreen> {
                           onSelectionChanged: (s) =>
                               setState(() => _selectedStatus = s.first),
                           style: SegmentedButton.styleFrom(
-                            selectedBackgroundColor: _statusColor(_selectedStatus),
+                            selectedBackgroundColor: _statusColor(
+                              _selectedStatus,
+                            ),
                             selectedForegroundColor: Colors.white,
                             side: BorderSide(color: Colors.grey[300]!),
                             shape: RoundedRectangleBorder(
@@ -476,37 +518,64 @@ class _AdminEditUserScreenState extends ConsumerState<AdminEditUserScreen> {
 
                     const SizedBox(height: 40),
 
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => context.go('/admin/users'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              side: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            child: const Text(
+                              'Cancel',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey,
+                              ),
+                            ),
                           ),
-                          elevation: 2,
                         ),
-                        onPressed: _isSaving ? null : _save,
-                        icon: _isSaving
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 2,
+                          child: SizedBox(
+                            height: 56,
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
                                 ),
-                              )
-                            : const Icon(Icons.save_outlined),
-                        label: Text(
-                          _isSaving ? 'Saving...' : 'Save Changes',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                                elevation: 2,
+                              ),
+                              onPressed: _isSaving ? null : _save,
+                              icon: _isSaving
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.save_outlined),
+                              label: Text(
+                                _isSaving ? 'Saving...' : 'Save Changes',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
                     const SizedBox(height: 40),
                   ],
@@ -575,8 +644,10 @@ class _AdminEditUserScreenState extends ConsumerState<AdminEditUserScreen> {
         labelText: label,
         prefixIcon: Icon(icon, color: AppColors.primary),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
       ),
       validator: required
           ? (v) => (v == null || v.trim().isEmpty) ? 'Required' : null
@@ -598,10 +669,7 @@ class _AdminEditUserScreenState extends ConsumerState<AdminEditUserScreen> {
   /// Converts camelCase enum name to 'Title Case'
   String _formatEnum(String name) {
     return name
-        .replaceAllMapped(
-          RegExp(r'([A-Z])'),
-          (m) => ' ${m.group(0)}',
-        )
+        .replaceAllMapped(RegExp(r'([A-Z])'), (m) => ' ${m.group(0)}')
         .trim()
         .split(' ')
         .map((w) => w[0].toUpperCase() + w.substring(1))

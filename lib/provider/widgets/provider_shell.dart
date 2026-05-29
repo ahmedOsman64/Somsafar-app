@@ -8,6 +8,8 @@ import '../../shared/models/user_model.dart';
 import '../../core/services/storage_service.dart';
 import '../../shared/widgets/confirmation_dialog.dart';
 import '../../shared/widgets/app_network_image.dart';
+import '../providers/dashboard_provider.dart';
+import '../../shared/services/notification_repository.dart';
 
 class ProviderShell extends ConsumerWidget {
   final Widget child;
@@ -58,7 +60,42 @@ class ProviderShell extends ConsumerWidget {
         appBar: AppBar(
           title: Text(servicesLabel),
           backgroundColor: AppColors.primary,
-          actions: const [],
+          actions: [
+            IconButton(
+              icon: Stack(
+                children: [
+                  const Icon(Icons.notifications_outlined, color: Colors.white),
+                  if (ref.watch(unreadNotificationsCountProvider) > 0)
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 14,
+                          minHeight: 14,
+                        ),
+                        child: Text(
+                          '${ref.watch(unreadNotificationsCountProvider)}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              onPressed: () => context.push('/provider/notifications'),
+            ),
+            const SizedBox(width: 8),
+          ],
         ),
         drawer: Drawer(
           child: Column(
@@ -114,6 +151,23 @@ class ProviderShell extends ConsumerWidget {
                       leading: Icon(bookingsIcon),
                       title: Text(bookingsLabel),
                       selected: _calculateSelectedIndex(context) == 2,
+                      trailing: ref.watch(dashboardStatsProvider).pendingBookings > 0
+                          ? Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppColors.error.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                '${ref.watch(dashboardStatsProvider).pendingBookings} New',
+                                style: const TextStyle(
+                                  color: AppColors.error,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            )
+                          : null,
                       onTap: () {
                         _onItemTapped(2, context);
                         Navigator.pop(context);
@@ -156,25 +210,35 @@ class ProviderShell extends ConsumerWidget {
                 ),
               ),
               const Divider(),
-              ListTile(
-                leading: const Icon(Icons.logout),
-                title: const Text('Logout'),
-                onTap: () async {
-                  final confirmed = await ConfirmationDialog.show(
-                    context: context,
-                    title: 'Logout?',
-                    message: 'Are you sure you want to log out of your account?',
-                    confirmLabel: 'Yes, Logout',
-                    type: ConfirmationDialogType.info,
-                    icon: Icons.logout,
-                  );
-                  if (confirmed == true) {
-                    ref.read(authServiceProvider).logout();
-                    if (context.mounted) context.go('/login');
-                  }
-                },
+              SafeArea(
+                top: false,
+                child: ListTile(
+                  leading: const Icon(Icons.logout, color: AppColors.error),
+                  title: const Text(
+                    'Logout',
+                    style: TextStyle(
+                      color: AppColors.error,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  onTap: () async {
+                    final confirmed = await ConfirmationDialog.show(
+                      context: context,
+                      title: 'Logout?',
+                      message:
+                          'Are you sure you want to log out of your account?',
+                      confirmLabel: 'Yes, Logout',
+                      type: ConfirmationDialogType.info,
+                      icon: Icons.logout,
+                    );
+                    if (confirmed == true) {
+                      ref.read(authServiceProvider).logout();
+                      if (context.mounted) context.go('/login');
+                    }
+                  },
+                ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
             ],
           ),
         ),
@@ -218,7 +282,27 @@ class ProviderShell extends ConsumerWidget {
                           label: Text(servicesLabel),
                         ),
                         NavigationRailDestination(
-                          icon: Icon(bookingsIcon),
+                          icon: Stack(
+                            children: [
+                              Icon(bookingsIcon),
+                              if (ref.watch(dashboardStatsProvider).pendingBookings > 0)
+                                Positioned(
+                                  right: -2,
+                                  top: -2,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.red,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    constraints: const BoxConstraints(
+                                      minWidth: 10,
+                                      minHeight: 10,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
                           selectedIcon: Icon(bookingsIcon),
                           label: Text(bookingsLabel),
                         ),
@@ -257,7 +341,10 @@ class ProviderShell extends ConsumerWidget {
                           child: Padding(
                             padding: const EdgeInsets.only(bottom: 20),
                             child: IconButton(
-                              icon: const Icon(Icons.logout),
+                              icon: const Icon(
+                                Icons.logout,
+                                color: AppColors.error,
+                              ),
                               onPressed: () async {
                                 final confirmed = await ConfirmationDialog.show(
                                   context: context,

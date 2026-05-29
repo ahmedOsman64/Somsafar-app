@@ -82,6 +82,7 @@ class AdminHighlightsScreen extends ConsumerWidget {
   void _showAddHighlightDialog(BuildContext context, WidgetRef ref) {
     final titleController = TextEditingController();
     final locationController = TextEditingController();
+    final descriptionController = TextEditingController();
     final tagController = TextEditingController();
     final mediaService = MediaService();
     XFile? pickedImage;
@@ -164,6 +165,16 @@ class AdminHighlightsScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 12),
                 TextField(
+                  controller: descriptionController,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Description',
+                    hintText: 'Enter detailed information about this highlight...',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
                   controller: tagController,
                   decoration: const InputDecoration(
                     labelText: 'Tag',
@@ -209,6 +220,7 @@ class AdminHighlightsScreen extends ConsumerWidget {
                           .addHighlight(
                             title: titleController.text,
                             location: locationController.text,
+                            description: descriptionController.text,
                             imageUrl: imageUrl,
                             tag: tagController.text,
                           );
@@ -275,18 +287,190 @@ class _HighlightListTile extends ConsumerWidget {
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         subtitle: Text('${highlight.location} • ${highlight.tag}'),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
+        trailing: Wrap(
+          spacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Switch(
-              value: highlight.isActive,
-              onChanged: (_) => ref
-                  .read(highlightProvider.notifier)
-                  .toggleStatus(highlight.id),
+            Transform.scale(
+              scale: 0.8,
+              child: Switch(
+                value: highlight.isActive,
+                onChanged: (val) => ref
+                    .read(highlightProvider.notifier)
+                    .toggleStatus(highlight.id, val),
+              ),
             ),
             IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              icon: const Icon(Icons.edit_outlined, color: Colors.blue, size: 22),
+              onPressed: () => _showEditHighlightDialog(context, ref),
+              constraints: const BoxConstraints(),
+              padding: const EdgeInsets.all(8),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.red, size: 22),
               onPressed: () => _confirmDelete(context, ref),
+              constraints: const BoxConstraints(),
+              padding: const EdgeInsets.all(8),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEditHighlightDialog(BuildContext context, WidgetRef ref) {
+    final titleController = TextEditingController(text: highlight.title);
+    final locationController = TextEditingController(text: highlight.location);
+    final descriptionController =
+        TextEditingController(text: highlight.description);
+    final tagController = TextEditingController(text: highlight.tag);
+    final mediaService = MediaService();
+    XFile? pickedImage;
+    bool isUploading = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: !isUploading,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => AlertDialog(
+          title: Text(
+            'Edit Highlight',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
+                  onTap: isUploading
+                      ? null
+                      : () async {
+                          final image = await mediaService.pickImage();
+                          if (image != null) {
+                            setModalState(() => pickedImage = image);
+                          }
+                        },
+                  child: Container(
+                    height: 150,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey[300]!),
+                    ),
+                    child: pickedImage != null
+                        ? kIsWeb
+                            ? Image.network(pickedImage!.path, fit: BoxFit.cover)
+                            : Image.file(File(pickedImage!.path), fit: BoxFit.cover)
+                        : (highlight.imageUrl.isNotEmpty
+                            ? AppNetworkImage(
+                                imageUrl: highlight.imageUrl,
+                                fit: BoxFit.cover,
+                                borderRadius: 12,
+                              )
+                            : Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.add_photo_alternate_outlined,
+                                    size: 40,
+                                    color: Colors.grey[400],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Tap to change image',
+                                    style: TextStyle(color: Colors.grey[600]),
+                                  ),
+                                ],
+                              )),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Title',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: locationController,
+                  decoration: const InputDecoration(
+                    labelText: 'Location',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: descriptionController,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Description',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: tagController,
+                  decoration: const InputDecoration(
+                    labelText: 'Tag',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isUploading ? null : () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: isUploading
+                  ? null
+                  : () async {
+                      if (titleController.text.isEmpty) return;
+
+                      setModalState(() => isUploading = true);
+
+                      String? finalImageUrl;
+                      if (pickedImage != null) {
+                        finalImageUrl =
+                            await mediaService.uploadImage(pickedImage!);
+                      }
+
+                      final error = await ref
+                          .read(highlightProvider.notifier)
+                          .updateHighlight(
+                            highlight.id,
+                            title: titleController.text,
+                            location: locationController.text,
+                            description: descriptionController.text,
+                            imageUrl: finalImageUrl,
+                            tag: tagController.text,
+                          );
+
+                      if (context.mounted) {
+                        if (error != null) {
+                          setModalState(() => isUploading = false);
+                          ScaffoldMessenger.of(context)
+                              .showSnackBar(SnackBar(content: Text(error)));
+                        } else {
+                          Navigator.pop(context);
+                        }
+                      }
+                    },
+              child: isUploading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Save'),
             ),
           ],
         ),

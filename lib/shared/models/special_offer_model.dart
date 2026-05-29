@@ -7,7 +7,7 @@ class SpecialOffer {
   final int order;
   final bool isActive;
   final String? linkedServiceId; // ID of service this offer applies to
-  final double? discountPercent;  // Numeric discount e.g. 20.0 = 20%
+  final double? discountPercent; // Numeric discount e.g. 20.0 = 20%
 
   const SpecialOffer({
     required this.id,

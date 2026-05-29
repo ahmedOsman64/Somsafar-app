@@ -667,6 +667,9 @@ class _ProviderServiceFormScreenState
             lateCheckoutPrice: double.tryParse(_lateCheckoutPriceController.text),
             adultPrice: double.tryParse(_adultPriceController.text),
             childPrice: double.tryParse(_childPriceController.text),
+            availableSlots: category.toLowerCase().contains('hotel')
+                ? (int.tryParse(_hotelRoomsController.text) ?? 1) - (existingService.metadata['bookedRooms'] as num? ?? 0).toInt()
+                : (category.toLowerCase().contains('apartment') ? 1 : (int.tryParse(_maxTravelersController.text) ?? 10)),
           );
 
           await ref
@@ -727,6 +730,9 @@ class _ProviderServiceFormScreenState
             lateCheckoutPrice: double.tryParse(_lateCheckoutPriceController.text),
             adultPrice: double.tryParse(_adultPriceController.text),
             childPrice: double.tryParse(_childPriceController.text),
+            availableSlots: category.toLowerCase().contains('hotel')
+                ? (int.tryParse(_hotelRoomsController.text) ?? 1)
+                : (category.toLowerCase().contains('apartment') ? 1 : (int.tryParse(_maxTravelersController.text) ?? 10)),
           );
 
           await ref.read(serviceProvider.notifier).addService(newService);

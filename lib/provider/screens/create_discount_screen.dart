@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
-import '../../core/theme/app_colors.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+
 import '../../shared/models/discount_model.dart';
 import '../../shared/services/discount_repository.dart';
 import '../../shared/services/auth_service.dart';
+
+import '../../core/theme/app_colors.dart';
 
 class CreateDiscountScreen extends ConsumerStatefulWidget {
   final Discount? discountToEdit;
@@ -19,11 +24,17 @@ class CreateDiscountScreen extends ConsumerStatefulWidget {
 class _CreateDiscountScreenState extends ConsumerState<CreateDiscountScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _valueController;
+  late TextEditingController _titleController;
+  late TextEditingController _descriptionController;
 
   bool _isPercentage = true;
   DateTime _startDate = DateTime.now();
   DateTime _endDate = DateTime.now().add(const Duration(days: 7));
-  DiscountStatus _status = DiscountStatus.active;
+  DiscountStatus _status = DiscountStatus.pending;
+  String? _selectedImagePath;
+  final ImagePicker _picker = ImagePicker();
+
+  bool get isEdit => widget.discountToEdit != null;
 
   @override
   void initState() {
@@ -31,17 +42,43 @@ class _CreateDiscountScreenState extends ConsumerState<CreateDiscountScreen> {
     _valueController = TextEditingController(
       text: widget.discountToEdit?.value.toString() ?? '',
     );
+    _titleController = TextEditingController(
+      text: widget.discountToEdit?.title ?? '',
+    );
+    _descriptionController = TextEditingController(
+      text: widget.discountToEdit?.description ?? '',
+    );
     if (widget.discountToEdit != null) {
       _isPercentage = widget.discountToEdit!.isPercentage;
       _startDate = widget.discountToEdit!.startDate;
       _endDate = widget.discountToEdit!.endDate;
       _status = widget.discountToEdit!.status;
+      _selectedImagePath = widget.discountToEdit!.imageUrl;
+    }
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1200,
+        imageQuality: 85,
+      );
+      if (image != null) {
+        setState(() {
+          _selectedImagePath = image.path;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error picking image: $e');
     }
   }
 
   @override
   void dispose() {
     _valueController.dispose();
+    _titleController.dispose();
+    _descriptionController.dispose();
     super.dispose();
   }
 
@@ -51,6 +88,18 @@ class _CreateDiscountScreenState extends ConsumerState<CreateDiscountScreen> {
       initialDate: isStart ? _startDate : _endDate,
       firstDate: DateTime.now().subtract(const Duration(days: 365)),
       lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppColors.primary,
+              onPrimary: Colors.white,
+              onSurface: AppColors.primary,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     if (picked != null) {
       setState(() {
@@ -80,6 +129,9 @@ class _CreateDiscountScreenState extends ConsumerState<CreateDiscountScreen> {
         endDate: _endDate,
         applicableServiceIds: widget.discountToEdit?.applicableServiceIds ?? [],
         status: _status,
+        title: _titleController.text,
+        description: _descriptionController.text,
+        imageUrl: _selectedImagePath,
         createdAt: widget.discountToEdit?.createdAt ?? DateTime.now(),
       );
 
@@ -106,87 +158,219 @@ class _CreateDiscountScreenState extends ConsumerState<CreateDiscountScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text(
-          widget.discountToEdit != null ? 'Edit Discount' : 'Create Discount',
-        ),
         backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF0D3B66),
         elevation: 0,
+        centerTitle: true,
+        title: Text(
+          isEdit ? 'Edit Special Offer' : 'Add New Special Offer',
+          style: const TextStyle(
+            color: AppColors.primary,
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: AppColors.primary),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
-      backgroundColor: const Color(0xFFF8FAFC),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildSectionTitle('Discount Details'),
-              _buildCard([
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ─── Banner Image Picker ──────────────────────────────────
+                GestureDetector(
+                  onTap: _pickImage,
+                  child: Container(
+                    width: double.infinity,
+                    height: 200,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.03),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        width: 2,
+                      ),
+                    ),
+                    child: _selectedImagePath != null
+                        ? Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(22),
+                                child: _selectedImagePath!.startsWith('http')
+                                    ? Image.network(
+                                        _selectedImagePath!,
+                                        fit: BoxFit.cover,
+                                      )
+                                    : (kIsWeb
+                                          ? Image.network(
+                                              _selectedImagePath!,
+                                              fit: BoxFit.cover,
+                                            )
+                                          : Image.file(
+                                              File(_selectedImagePath!),
+                                              fit: BoxFit.cover,
+                                            )),
+                              ),
+                              Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(22),
+                                  gradient: LinearGradient(
+                                    begin: Alignment.bottomCenter,
+                                    end: Alignment.topCenter,
+                                    colors: [
+                                      Colors.black.withValues(alpha: 0.4),
+                                      Colors.transparent,
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                right: 12,
+                                bottom: 12,
+                                child: CircleAvatar(
+                                  backgroundColor: Colors.white,
+                                  radius: 18,
+                                  child: Icon(Icons.edit, size: 18, color: AppColors.primary),
+                                ),
+                              ),
+                            ],
+                          )
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.05),
+                                      blurRadius: 10,
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  Icons.add_photo_alternate_outlined,
+                                  size: 32,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Tap to upload banner image',
+                                style: TextStyle(
+                                  color: AppColors.primary.withValues(alpha: 0.6),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Recommended size: 1200 x 600',
+                                style: TextStyle(
+                                  color: Colors.grey[400],
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 32),
+
+                // ─── Input Fields ───────────────────────────────────────
+                _buildModernTextField(
+                  controller: _titleController,
+                  hint: 'Offer Title',
+                  icon: Icons.title_rounded,
+                  validator: (v) => v!.isEmpty ? 'Please enter a title' : null,
+                ),
+                const SizedBox(height: 16),
+
+                // Discount Row: Value & Type
                 Row(
                   children: [
                     Expanded(
-                      flex: 2,
-                      child: _buildTextField(
+                      flex: 3,
+                      child: _buildModernTextField(
                         controller: _valueController,
-                        label: 'Value',
-                        hint: '0.00',
+                        hint: 'Amount/Percent',
+                        icon: Icons.local_offer_outlined,
                         keyboardType: TextInputType.number,
                         validator: (v) => v!.isEmpty ? 'Required' : null,
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12),
                     Expanded(
-                      flex: 3,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Type',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          ToggleButtons(
-                            borderRadius: BorderRadius.circular(12),
-                            selectedColor: Colors.white,
-                            fillColor: AppColors.secondary,
-                            constraints: const BoxConstraints(
-                              minHeight: 45,
-                              minWidth: 80,
-                            ),
-                            isSelected: [_isPercentage, !_isPercentage],
-                            onPressed: (index) {
-                              setState(() {
-                                _isPercentage = index == 0;
-                              });
-                            },
-                            children: const [Text('%'), Text(r'$')],
-                          ),
-                        ],
+                      flex: 2,
+                      child: Container(
+                        height: 60,
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.grey[200]!),
+                        ),
+                        child: Row(
+                          children: [
+                            _buildTypeOption('%', _isPercentage, () {
+                              setState(() => _isPercentage = true);
+                            }),
+                            _buildTypeOption(r'$', !_isPercentage, () {
+                              setState(() => _isPercentage = false);
+                            }),
+                          ],
+                        ),
                       ),
                     ),
                   ],
                 ),
-              ]),
-              const SizedBox(height: 24),
-              _buildSectionTitle('Duration & Status'),
-              _buildCard([
+                const SizedBox(height: 16),
+
+                _buildModernTextField(
+                  controller: _descriptionController,
+                  hint: 'Promotion Details',
+                  icon: Icons.description_outlined,
+                  maxLines: 4,
+                ),
+                const SizedBox(height: 32),
+
+                // ─── Duration ──────────────────────────────────────────
+                const Row(
+                  children: [
+                    Icon(Icons.event_available, size: 20, color: AppColors.primary),
+                    SizedBox(width: 8),
+                    Text(
+                      'Validity Period',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
                 Row(
                   children: [
                     Expanded(
-                      child: _buildDatePicker(
+                      child: _buildModernDatePicker(
                         label: 'Start Date',
                         date: _startDate,
                         onTap: () => _selectDate(context, true),
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12),
                     Expanded(
-                      child: _buildDatePicker(
+                      child: _buildModernDatePicker(
                         label: 'End Date',
                         date: _endDate,
                         onTap: () => _selectDate(context, false),
@@ -194,165 +378,161 @@ class _CreateDiscountScreenState extends ConsumerState<CreateDiscountScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Initial Status',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<DiscountStatus>(
-                  initialValue: _status,
-                  decoration: InputDecoration(
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+
+                const SizedBox(height: 48),
+
+                // ─── Action Button ────────────────────────────────────
+                Container(
+                  width: double.infinity,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.2),
+                        blurRadius: 15,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
                   ),
-                  items: DiscountStatus.values.map((s) {
-                    return DropdownMenuItem(
-                      value: s,
-                      child: Text(s.name.toUpperCase()),
-                    );
-                  }).toList(),
-                  onChanged: (v) => setState(() => _status = v!),
-                ),
-              ]),
-              const SizedBox(height: 40),
-              SizedBox(
-                width: double.infinity,
-                height: 55,
-                child: ElevatedButton(
-                  onPressed: _saveDiscount,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.secondary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                  child: ElevatedButton(
+                    onPressed: _saveDiscount,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      elevation: 0,
                     ),
-                  ),
-                  child: Text(
-                    widget.discountToEdit != null
-                        ? 'Update Discount'
-                        : 'Create Discount',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                    child: Text(
+                      isEdit ? 'Update Special Offer' : 'Add Special Offer',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 50),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0, left: 4),
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-          color: Color(0xFF0D3B66),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCard(List<Widget> children) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: children,
-      ),
-    );
-  }
-
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    String? hint,
-    int maxLines = 1,
-    TextInputType? keyboardType,
-    String? Function(String?)? validator,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          maxLines: maxLines,
-          keyboardType: keyboardType,
-          validator: validator,
-          decoration: InputDecoration(
-            hintText: hint,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[300]!),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[300]!),
-            ),
-            contentPadding: const EdgeInsets.all(16),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDatePicker({
-    required String label,
-    required DateTime date,
-    required VoidCallback onTap,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-        ),
-        const SizedBox(height: 8),
-        InkWell(
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey[300]!),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.calendar_today, size: 18, color: Colors.grey),
-                const SizedBox(width: 10),
-                Text('${date.day}/${date.month}/${date.year}'),
+                const SizedBox(height: 40),
               ],
             ),
           ),
         ),
-      ],
+      ),
+    );
+  }
+
+  Widget _buildModernTextField({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    int maxLines = 1,
+    TextInputType? keyboardType,
+    String? Function(String?)? validator,
+    bool enabled = true,
+  }) {
+    return TextFormField(
+      controller: controller,
+      maxLines: maxLines,
+      keyboardType: keyboardType,
+      validator: validator,
+      enabled: enabled,
+      style: const TextStyle(fontWeight: FontWeight.w500),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16, fontWeight: FontWeight.normal),
+        prefixIcon: Icon(icon, color: AppColors.primary.withValues(alpha: 0.6), size: 22),
+        filled: true,
+        fillColor: enabled ? Colors.grey[50] : Colors.grey[100],
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.grey[200]!),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.grey[200]!),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 18,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTypeOption(String label, bool isSelected, VoidCallback onTap) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : [],
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: isSelected ? const Color(0xFF0D3B66) : Colors.grey,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModernDatePicker({
+    required String label,
+    required DateTime date,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.grey[50],
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey[200]!),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
+                const SizedBox(width: 8),
+                Text(
+                  '${date.day}/${date.month}/${date.year}',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

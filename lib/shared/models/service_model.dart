@@ -21,16 +21,17 @@ class Service {
   double? discount;
   List<String>? amenities;
   int? maxGuests;
-   double? breakfastPrice;
-   double? airportPickupPrice;
-   double? extraBedPrice;
-   double? cleaningPrice;
-   double? earlyCheckInPrice;
-   double? lateCheckoutPrice;
-   double? adultPrice;
-   double? childPrice;
- 
-   Service({
+  int? availableSlots;
+  double? breakfastPrice;
+  double? airportPickupPrice;
+  double? extraBedPrice;
+  double? cleaningPrice;
+  double? earlyCheckInPrice;
+  double? lateCheckoutPrice;
+  double? adultPrice;
+  double? childPrice;
+
+  Service({
     required this.id,
     required this.providerId,
     required this.title,
@@ -47,15 +48,16 @@ class Service {
     this.discount,
     this.amenities,
     this.maxGuests,
-     this.breakfastPrice,
-     this.airportPickupPrice,
-     this.extraBedPrice,
-     this.cleaningPrice,
-     this.earlyCheckInPrice,
-     this.lateCheckoutPrice,
-     this.adultPrice,
-     this.childPrice,
-   });
+    this.availableSlots,
+    this.breakfastPrice,
+    this.airportPickupPrice,
+    this.extraBedPrice,
+    this.cleaningPrice,
+    this.earlyCheckInPrice,
+    this.lateCheckoutPrice,
+    this.adultPrice,
+    this.childPrice,
+  });
 
   Color get statusColor {
     switch (status) {
@@ -103,15 +105,16 @@ class Service {
     double? discount,
     List<String>? amenities,
     int? maxGuests,
-     double? breakfastPrice,
-     double? airportPickupPrice,
-     double? extraBedPrice,
-     double? cleaningPrice,
-     double? earlyCheckInPrice,
-     double? lateCheckoutPrice,
-     double? adultPrice,
-     double? childPrice,
-   }) {
+    int? availableSlots,
+    double? breakfastPrice,
+    double? airportPickupPrice,
+    double? extraBedPrice,
+    double? cleaningPrice,
+    double? earlyCheckInPrice,
+    double? lateCheckoutPrice,
+    double? adultPrice,
+    double? childPrice,
+  }) {
     return Service(
       id: id ?? this.id,
       providerId: providerId ?? this.providerId,
@@ -129,16 +132,17 @@ class Service {
       discount: discount ?? this.discount,
       amenities: amenities ?? this.amenities,
       maxGuests: maxGuests ?? this.maxGuests,
-       breakfastPrice: breakfastPrice ?? this.breakfastPrice,
-       airportPickupPrice: airportPickupPrice ?? this.airportPickupPrice,
-       extraBedPrice: extraBedPrice ?? this.extraBedPrice,
-       cleaningPrice: cleaningPrice ?? this.cleaningPrice,
-       earlyCheckInPrice: earlyCheckInPrice ?? this.earlyCheckInPrice,
-       lateCheckoutPrice: lateCheckoutPrice ?? this.lateCheckoutPrice,
-       adultPrice: adultPrice ?? this.adultPrice,
-       childPrice: childPrice ?? this.childPrice,
-     );
-   }
+      availableSlots: availableSlots ?? this.availableSlots,
+      breakfastPrice: breakfastPrice ?? this.breakfastPrice,
+      airportPickupPrice: airportPickupPrice ?? this.airportPickupPrice,
+      extraBedPrice: extraBedPrice ?? this.extraBedPrice,
+      cleaningPrice: cleaningPrice ?? this.cleaningPrice,
+      earlyCheckInPrice: earlyCheckInPrice ?? this.earlyCheckInPrice,
+      lateCheckoutPrice: lateCheckoutPrice ?? this.lateCheckoutPrice,
+      adultPrice: adultPrice ?? this.adultPrice,
+      childPrice: childPrice ?? this.childPrice,
+    );
+  }
 
   Map<String, dynamic> toJson() {
     return {
@@ -164,6 +168,7 @@ class Service {
       'reviews': reviews,
       'is_verified': isVerified,
       'discount': discount,
+      'available_slots': availableSlots,
       'amenities': amenities,
       'breakfast_price': breakfastPrice,
       'airport_pickup_price': airportPickupPrice,
@@ -211,6 +216,7 @@ class Service {
       reviews: (json['reviews'] as num?)?.toInt(),
       isVerified: json['is_verified'] as bool?,
       discount: (json['discount'] as num?)?.toDouble(),
+      availableSlots: (json['available_slots'] as num?)?.toInt(),
       amenities: parsedAmenities,
       maxGuests: (json['max_guests'] as num?)?.toInt() ?? 
                   (metadata['max_guests'] as num?)?.toInt(),

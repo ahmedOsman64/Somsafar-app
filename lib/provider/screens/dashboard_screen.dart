@@ -34,6 +34,8 @@ class _DashboardScreenContent extends ConsumerWidget {
         onRefresh: () async {
           await ref.read(bookingProvider.notifier).fetchBookings();
           await ref.read(serviceProvider.notifier).fetchServices();
+          // Auto-heal potential availability sync issues
+          await ref.read(bookingProvider.notifier).syncAllServicesAvailability();
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),

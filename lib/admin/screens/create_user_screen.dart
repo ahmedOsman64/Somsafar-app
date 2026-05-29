@@ -45,7 +45,7 @@ class _AdminCreateProviderScreenState
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   String? _statusLabel = 'Verified';
-  
+
   @override
   void dispose() {
     _ownerNameController.dispose();
@@ -94,6 +94,19 @@ class _AdminCreateProviderScreenState
         final emailToUse = _loginEmailController.text.trim().isNotEmpty
             ? _loginEmailController.text.trim()
             : _emailController.text.trim();
+
+        // Check if email already exists
+        final isRegistered = await ref.read(userProvider.notifier).isEmailRegistered(emailToUse);
+        if (isRegistered) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('This email has already been registered. Please use a different one.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          setState(() => _isCreating = false);
+          return;
+        }
 
         UserStatus status = UserStatus.active;
         if (_statusLabel == 'Suspended') {
@@ -201,6 +214,10 @@ class _AdminCreateProviderScreenState
         backgroundColor: Colors.white,
         foregroundColor: AppColors.primary,
         centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => context.go('/admin/users'),
+        ),
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -297,7 +314,8 @@ class _AdminCreateProviderScreenState
                               DropdownButtonFormField<ProviderType>(
                                 initialValue: _selectedProviderType,
                                 decoration: InputDecoration(
-                                  labelText: 'Business Category / Provider Type *',
+                                  labelText:
+                                      'Business Category / Provider Type *',
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -372,7 +390,8 @@ class _AdminCreateProviderScreenState
                           children: [
                             _buildTextField(
                               controller: _loginEmailController,
-                              label: 'Username / Portal ID (will be @somsafarbooking.com) *',
+                              label:
+                                  'Username / Portal ID (will be @somsafarbooking.com) *',
                               prefixIcon: Icons.alternate_email,
                             ),
                             const SizedBox(height: 16),
@@ -531,31 +550,58 @@ class _AdminCreateProviderScreenState
                       ),
                     ],
                     const SizedBox(height: 48),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          elevation: 2,
-                        ),
-                        onPressed: _isCreating ? null : _submit,
-                        child: _isCreating
-                            ? const CircularProgressIndicator(
-                                color: Colors.white,
-                              )
-                            : Text(
-                                'Create $_selectedRole & Activate',
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => context.go('/admin/users'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
                               ),
-                      ),
+                              side: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            child: const Text(
+                              'Cancel',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 2,
+                          child: SizedBox(
+                            height: 56,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                elevation: 2,
+                              ),
+                              onPressed: _isCreating ? null : _submit,
+                              child: _isCreating
+                                  ? const CircularProgressIndicator(
+                                      color: Colors.white,
+                                    )
+                                  : Text(
+                                      'Create & Activate',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 60),
                   ],

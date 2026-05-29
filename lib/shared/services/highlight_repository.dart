@@ -51,6 +51,7 @@ class HighlightRepository extends StateNotifier<List<TravelHighlight>> {
   Future<String?> addHighlight({
     required String title,
     required String location,
+    required String description,
     required String imageUrl,
     required String tag,
   }) async {
@@ -62,6 +63,7 @@ class HighlightRepository extends StateNotifier<List<TravelHighlight>> {
         id: id,
         title: title,
         location: location,
+        description: description,
         imageUrl: imageUrl,
         tag: tag,
         displayOrder: nextOrder,
@@ -72,6 +74,7 @@ class HighlightRepository extends StateNotifier<List<TravelHighlight>> {
         'id': id,
         'title': title,
         'location': location,
+        'description': description,
         'image_url': imageUrl,
         'tag': tag,
         'display_order': nextOrder,
@@ -90,6 +93,7 @@ class HighlightRepository extends StateNotifier<List<TravelHighlight>> {
     String id, {
     String? title,
     String? location,
+    String? description,
     String? imageUrl,
     String? tag,
   }) async {
@@ -97,6 +101,7 @@ class HighlightRepository extends StateNotifier<List<TravelHighlight>> {
       final updates = <String, dynamic>{};
       if (title != null) updates['title'] = title;
       if (location != null) updates['location'] = location;
+      if (description != null) updates['description'] = description;
       if (imageUrl != null) updates['image_url'] = imageUrl;
       if (tag != null) updates['tag'] = tag;
 
@@ -111,6 +116,7 @@ class HighlightRepository extends StateNotifier<List<TravelHighlight>> {
             h.copyWith(
               title: title,
               location: location,
+              description: description,
               imageUrl: imageUrl,
               tag: tag,
             )
@@ -139,13 +145,13 @@ class HighlightRepository extends StateNotifier<List<TravelHighlight>> {
     }
   }
 
-  Future<void> toggleStatus(String id) async {
+  Future<void> toggleStatus(String id, [bool? manualValue]) async {
     final oldState = [...state];
     final highlightIndex = state.indexWhere((h) => h.id == id);
     if (highlightIndex == -1) return;
 
     final highlight = state[highlightIndex];
-    final newStatus = !highlight.isActive;
+    final newStatus = manualValue ?? !highlight.isActive;
 
     state = [
       for (final h in state)

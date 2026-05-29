@@ -97,7 +97,8 @@ class _TravelerHomeScreenState extends ConsumerState<TravelerHomeScreen> {
                   ? base
                   : '${base.contains('?') ? '$base&' : '$base?'}t=${DateTime.now().millisecondsSinceEpoch ~/ 60000}';
             } else {
-              imgUrl = 'https://picsum.photos/seed/${slug.replaceAll(' ', '')}/400/300';
+              imgUrl =
+                  'https://picsum.photos/seed/${slug.replaceAll(' ', '')}/400/300';
             }
 
             uniqueDestinations[slug] = {
@@ -310,14 +311,14 @@ class _TravelerHomeScreenState extends ConsumerState<TravelerHomeScreen> {
               ListTile(
                 leading: const Icon(
                   Icons.logout_rounded,
-                  color: Colors.black87,
+                  color: AppColors.error,
                 ),
                 title: const Text(
                   'Logout',
                   style: TextStyle(
                     fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black87,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.error,
                   ),
                 ),
                 contentPadding: EdgeInsets.zero,
@@ -638,10 +639,8 @@ class _HeroSectionState extends ConsumerState<_HeroSection> {
                               ].contains(c.key.toLowerCase()),
                             )
                             .toList();
-                        final cats = displayCats.isNotEmpty
-                            ? displayCats
-                            : categoriesList.take(3).toList();
 
+                        // Create a list of category widgets including 'All'
                         return Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -650,19 +649,34 @@ class _HeroSectionState extends ConsumerState<_HeroSection> {
                               child: Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceEvenly,
-                                children: cats.map((category) {
-                                  final isSelected =
-                                      category.key == widget.selectedCategory;
-                                  return GestureDetector(
-                                    onTap: () =>
-                                        widget.onCategorySelected(category.key),
+                                children: [
+                                  // 'All' Category
+                                  GestureDetector(
+                                    onTap: () => widget.onCategorySelected(''),
                                     child: _CategoryIconCard(
-                                      icon: getLookupIcon(category.icon),
-                                      label: category.label,
-                                      isSelected: isSelected,
+                                      icon: Icons.grid_view_rounded,
+                                      label: 'All',
+                                      isSelected:
+                                          widget.selectedCategory == null ||
+                                          widget.selectedCategory!.isEmpty,
                                     ),
-                                  );
-                                }).toList(),
+                                  ),
+                                  // Other Categories
+                                  ...displayCats.map((category) {
+                                    final isSelected =
+                                        category.key == widget.selectedCategory;
+                                    return GestureDetector(
+                                      onTap: () => widget.onCategorySelected(
+                                        category.key,
+                                      ),
+                                      child: _CategoryIconCard(
+                                        icon: getLookupIcon(category.icon),
+                                        label: category.label,
+                                        isSelected: isSelected,
+                                      ),
+                                    );
+                                  }),
+                                ],
                               ),
                             ),
                             const SizedBox(height: 20),
@@ -680,57 +694,78 @@ class _HeroSectionState extends ConsumerState<_HeroSection> {
 
           // 🌙 Curved white background at the bottom of the hero image
           Positioned(
-            bottom: 28, // Adjusted to sit at the bottom of heroHeight
+            bottom: 28,
             left: 0,
             right: 0,
-            height: 40,
+            height: 50,
             child: Container(
               decoration: const BoxDecoration(
-                color: Color(0xFFF3F4F6), // Matches typical scaffold background
-                borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+                color: Color(0xFFF3F4F6),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(36)),
               ),
             ),
           ),
 
-          // 🔍 Search Bar (Overlapping) - Now at the absolute bottom of the taller Stack
+          // 🔍 Full-width Search Bar
           Positioned(
             bottom: 0,
-            left: 24,
-            right: 24,
+            left: 20,
+            right: 20,
             child: Container(
               height: 56,
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(30),
+                borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withAlpha(20),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
+                    color: Colors.black.withAlpha(30),
+                    blurRadius: 30,
+                    offset: const Offset(0, 12),
+                    spreadRadius: -4,
                   ),
                 ],
               ),
               child: TextField(
                 controller: _searchController,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: const Color(0xFF1A1A2E),
+                  fontWeight: FontWeight.w500,
+                ),
                 decoration: InputDecoration(
-                  hintText: 'Where to go',
+                  hintText: 'Hotels, Tours, Apartments…',
                   hintStyle: GoogleFonts.poppins(
-                    fontSize: 16,
+                    fontSize: 14,
                     color: Colors.grey[400],
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w400,
                   ),
-                  prefixIcon: Icon(
-                    Icons.search,
-                    color: AppColors.primary,
-                    size: 24,
+                  prefixIcon: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 14),
+                    child: Icon(
+                      Icons.search_rounded,
+                      color: Color(0xFF1565C0),
+                      size: 22,
+                    ),
+                  ),
+                  prefixIconConstraints: const BoxConstraints(minWidth: 50),
+                  suffixIcon: GestureDetector(
+                    onTap: () => context.push('/traveler/search'),
+                    child: Container(
+                      margin: const EdgeInsets.all(10),
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0F4FF),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.tune_rounded,
+                        color: Color(0xFF1565C0),
+                        size: 18,
+                      ),
+                    ),
                   ),
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 15),
-                ),
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  color: AppColors.dark,
-                  fontWeight: FontWeight.w500,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 17),
                 ),
                 textInputAction: TextInputAction.search,
                 onSubmitted: (value) {
@@ -2442,6 +2477,7 @@ class _TravelHighlightsSection extends ConsumerWidget {
           (h) => {
             'title': h.title,
             'location': h.location,
+            'description': h.description,
             'image': h.imageUrl,
             'tag': h.tag,
           },
@@ -2487,9 +2523,13 @@ class _TravelHighlightsSection extends ConsumerWidget {
                     ],
                   ),
                   clipBehavior: Clip.antiAlias,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => _showHighlightDetail(context, item),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
                       Image.network(
                         item['image']!,
                         fit: BoxFit.cover,
@@ -2559,11 +2599,172 @@ class _TravelHighlightsSection extends ConsumerWidget {
                       ),
                     ],
                   ),
-                );
-              },
-            ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    ],
+  ),
+);
+}
+
+  void _showHighlightDetail(BuildContext context, Map<String, dynamic> item) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        clipBehavior: Clip.antiAlias,
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.9,
+          constraints: const BoxConstraints(maxWidth: 500),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Cover Image with Close Button
+              Stack(
+                children: [
+                  AspectRatio(
+                    aspectRatio: 16 / 10,
+                    child: Image.network(
+                      item['image']!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: Colors.grey[200],
+                        child: const Icon(Icons.error_outline),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 16,
+                    right: 16,
+                    child: CircleAvatar(
+                      backgroundColor: Colors.black.withAlpha(100),
+                      child: IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white, size: 20),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              // Content Area
+              Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item['title']!,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.dark,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.location_on_rounded,
+                                    size: 14,
+                                    color: AppColors.primary,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    item['location']!,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 13,
+                                      color: Colors.grey[600],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            item['tag']!,
+                            style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    const Divider(height: 1),
+                    const SizedBox(height: 20),
+                    Text(
+                      'About this place',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.dark,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      item['description'] == null || item['description'].isEmpty
+                          ? 'Visit this beautiful location in ${item['location']}. Explore the local culture and scenery.'
+                          : item['description'],
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        height: 1.6,
+                        color: Colors.grey[800],
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: Text(
+                          'Cool, thanks!',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

@@ -96,29 +96,35 @@ class AdminShell extends ConsumerWidget {
                 ),
               ),
               const Divider(color: Colors.white24),
-              ListTile(
-                leading: const Icon(Icons.logout, color: Colors.white70),
-                title: const Text(
-                  'Logout',
-                  style: TextStyle(color: Colors.white),
+              SafeArea(
+                top: false,
+                child: ListTile(
+                  leading: const Icon(Icons.logout, color: AppColors.error),
+                  title: const Text(
+                    'Logout',
+                    style: TextStyle(
+                      color: AppColors.error,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  onTap: () async {
+                    final confirmed = await ConfirmationDialog.show(
+                      context: context,
+                      title: 'Logout?',
+                      message:
+                          'Are you sure you want to log out of the Admin Portal?',
+                      confirmLabel: 'Yes, Logout',
+                      type: ConfirmationDialogType.info,
+                      icon: Icons.logout,
+                    );
+                    if (confirmed == true) {
+                      ref.read(authServiceProvider).logout();
+                      if (context.mounted) context.go('/login');
+                    }
+                  },
                 ),
-                onTap: () async {
-                  final confirmed = await ConfirmationDialog.show(
-                    context: context,
-                    title: 'Logout?',
-                    message:
-                        'Are you sure you want to log out of the Admin Portal?',
-                    confirmLabel: 'Yes, Logout',
-                    type: ConfirmationDialogType.info,
-                    icon: Icons.logout,
-                  );
-                  if (confirmed == true) {
-                    ref.read(authServiceProvider).logout();
-                    if (context.mounted) context.go('/login');
-                  }
-                },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
             ],
           ),
         ),
@@ -209,7 +215,7 @@ class AdminShell extends ConsumerWidget {
                             child: IconButton(
                               icon: const Icon(
                                 Icons.logout,
-                                color: Colors.white70,
+                                color: AppColors.error,
                               ),
                               onPressed: () async {
                                 final confirmed = await ConfirmationDialog.show(

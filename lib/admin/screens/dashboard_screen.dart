@@ -12,6 +12,8 @@ import '../../shared/models/service_model.dart';
 import '../../shared/models/booking_model.dart';
 import '../../shared/services/banner_repository.dart';
 import '../../shared/services/special_offer_repository.dart';
+import '../../shared/models/discount_model.dart';
+import '../../shared/services/discount_repository.dart';
 import '../../shared/services/system_activity_repository.dart';
 import '../../core/theme/app_colors.dart';
 import 'package:intl/intl.dart';
@@ -51,6 +53,7 @@ class AdminDashboardScreen extends ConsumerWidget {
         .fold(0.0, (sum, b) => sum + b.totalPrice);
 
     final totalBanners = ref.watch(bannerProvider).length;
+    final pendingDiscounts = ref.watch(discountRepositoryProvider).where((d) => d.status == DiscountStatus.pending).length;
 
     // Chart Data Preparation
     final interval = ref.watch(chartIntervalProvider);
@@ -149,6 +152,15 @@ class AdminDashboardScreen extends ConsumerWidget {
                         icon: Icons.hotel,
                         color: Colors.orange,
                         onTap: () => context.go('/admin/services'),
+                      ),
+                    if (adminRole == AdminRole.superAdmin ||
+                        adminRole == AdminRole.supportAdmin)
+                      _AdminKpiCard(
+                        title: 'Pending Discounts',
+                        value: pendingDiscounts.toString(),
+                        icon: Icons.percent,
+                        color: pendingDiscounts > 0 ? Colors.orange : Colors.green,
+                        onTap: () => context.go('/admin/discounts'),
                       ),
                     if (adminRole == AdminRole.superAdmin ||
                         adminRole == AdminRole.supportAdmin)
@@ -458,6 +470,11 @@ class _AdminQuickActions extends StatelessWidget {
                   icon: Icons.person_add_rounded,
                   label: 'Register Provider',
                   onTap: () => context.go('/admin/users/create?role=provider'),
+                ),
+                _QuickActionTile(
+                  icon: Icons.percent_rounded,
+                  label: 'Manage Discounts',
+                  onTap: () => context.go('/admin/discounts'),
                 ),
                 _QuickActionTile(
                   icon: Icons.security_rounded,

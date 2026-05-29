@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum DiscountStatus { active, scheduled, ended }
+enum DiscountStatus { active, scheduled, ended, pending }
 
 class Discount {
   final String id;
@@ -11,6 +11,9 @@ class Discount {
   final DateTime endDate;
   final List<String> applicableServiceIds;
   final DiscountStatus status;
+  final String title;
+  final String description;
+  final String? imageUrl;
   final String code;
   final DateTime createdAt;
 
@@ -23,9 +26,44 @@ class Discount {
     required this.endDate,
     required this.applicableServiceIds,
     required this.status,
+    required this.title,
+    required this.description,
+    this.imageUrl,
     this.code = '',
     required this.createdAt,
   });
+
+  Discount copyWith({
+    String? id,
+    String? providerId,
+    double? value,
+    bool? isPercentage,
+    DateTime? startDate,
+    DateTime? endDate,
+    List<String>? applicableServiceIds,
+    DiscountStatus? status,
+    String? title,
+    String? description,
+    String? imageUrl,
+    String? code,
+    DateTime? createdAt,
+  }) {
+    return Discount(
+      id: id ?? this.id,
+      providerId: providerId ?? this.providerId,
+      value: value ?? this.value,
+      isPercentage: isPercentage ?? this.isPercentage,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
+      applicableServiceIds: applicableServiceIds ?? this.applicableServiceIds,
+      status: status ?? this.status,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      imageUrl: imageUrl ?? this.imageUrl,
+      code: code ?? this.code,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
 
   factory Discount.fromJson(Map<String, dynamic> json) {
     return Discount(
@@ -42,6 +80,9 @@ class Discount {
         (e) => e.name == (json['status'] as String),
         orElse: () => DiscountStatus.active,
       ),
+      title: json['title'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      imageUrl: json['image_url'] as String?,
       code: json['code'] as String? ?? '',
       createdAt: DateTime.parse(json['created_at'] as String),
     );
@@ -57,6 +98,9 @@ class Discount {
       'end_date': endDate.toIso8601String(),
       'applicable_service_ids': applicableServiceIds,
       'status': status.name,
+      'title': title,
+      'description': description,
+      'image_url': imageUrl,
       'code': code,
       'created_at': createdAt.toIso8601String(),
     };
@@ -70,6 +114,8 @@ class Discount {
         return Colors.blue;
       case DiscountStatus.ended:
         return Colors.grey;
+      case DiscountStatus.pending:
+        return Colors.orange;
     }
   }
 
@@ -86,6 +132,7 @@ class Discount {
   }
 
   String get expiryText {
+    if (status == DiscountStatus.pending) return 'Pending approval';
     final now = DateTime.now();
     if (status == DiscountStatus.ended) {
       final diff = now.difference(endDate).inDays;
