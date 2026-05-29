@@ -8,6 +8,7 @@ import '../models/user_model.dart';
 import 'auth_service.dart';
 import 'service_repository.dart';
 import 'notification_repository.dart';
+import 'email_service.dart';
 import '../../core/services/supabase_service.dart';
 
 class BookingRepository extends StateNotifier<List<Booking>> {
@@ -227,10 +228,15 @@ class BookingRepository extends StateNotifier<List<Booking>> {
       if (status == BookingStatus.confirmed &&
           prevStatus != BookingStatus.confirmed) {
         await _handleServiceAvailability(booking, isReducing: true);
+
+        // --- AUTO EMAIL: Send PDF receipt to traveler ---
+        final confirmedBooking = booking.copyWith(status: BookingStatus.confirmed);
+        EmailService.sendBookingConfirmationEmail(confirmedBooking);
+        // Fire-and-forget: runs in background, does not block UI
       }
-      // If cancelling a previously confirmed booking
+      // If cancelling a booking (Rejecting from pending or cancelling from confirmed)
       else if (status == BookingStatus.cancelled &&
-          prevStatus == BookingStatus.confirmed) {
+          (prevStatus == BookingStatus.confirmed || prevStatus == BookingStatus.pending)) {
         await _handleServiceAvailability(booking, isReducing: false);
       }
       // If marking as completed, we might want to free up the apartment/rooms
@@ -266,6 +272,27 @@ class BookingRepository extends StateNotifier<List<Booking>> {
     }
   }
 
+  /// Manually resend the confirmation email with PDF receipt
+  Future<void> resendConfirmationEmail(String id) async {
+    try {
+      final bookingIndex = state.indexWhere((b) => b.id == id);
+      if (bookingIndex == -1) return;
+
+      final booking = state[bookingIndex];
+      
+      // Ensure it's confirmed or completed
+      if (booking.status != BookingStatus.confirmed && booking.status != BookingStatus.completed) {
+        debugPrint('BookingRepository: Cannot send receipt for non-confirmed booking.');
+        return;
+      }
+
+      debugPrint('BookingRepository: Manually resending email for ${booking.id}...');
+      await EmailService.sendBookingConfirmationEmail(booking);
+    } catch (e) {
+      debugPrint('BookingRepository: Resend email error: $e');
+    }
+  }
+
   Future<void> _handleServiceAvailability(
     Booking booking, {
     required bool isReducing,
@@ -285,6 +312,7 @@ class BookingRepository extends StateNotifier<List<Booking>> {
         // Apartment Logic: Block/Unblock the entire unit
         final updatedService = service.copyWith(
           status: isReducing ? ServiceStatus.inactive : ServiceStatus.active,
+          availableSlots: isReducing ? 0 : 1,
           metadata: {
             ...service.metadata,
             'booked_until': isReducing
@@ -323,6 +351,7 @@ class BookingRepository extends StateNotifier<List<Booking>> {
         final updatedService = service.copyWith(
           status: newStatus,
           metadata: metadata,
+          availableSlots: totalRooms - newBookedCount,
         );
 
         await _ref
@@ -336,6 +365,51 @@ class BookingRepository extends StateNotifier<List<Booking>> {
     } catch (e) {
       debugPrint('Error handling service auto-update: $e');
     }
+  }
+
+  /// Recalculates availability for all services owned by the current provider
+  /// This fixes the "Not enough rooms" error when database counters get out of sync
+  Future<void> syncAllServicesAvailability() async {
+    final user = _ref?.read(authProvider);
+    if (user == null) return;
+
+    final services = _ref?.read(serviceProvider) ?? [];
+    final providerServices = services.where((s) => s.providerId == (user.providerId ?? user.id));
+    final bookings = _ref?.read(bookingProvider) ?? [];
+
+    for (final service in providerServices) {
+      final category = service.category.toLowerCase();
+      int currentBooked = 0;
+
+      if (category.contains('hotel')) {
+        // Count rooms from ALL confirmed bookings that are NOT completed/cancelled
+        currentBooked = bookings.where((b) {
+          return b.serviceId == service.id && 
+                 b.status == BookingStatus.confirmed;
+        }).fold<int>(0, (sum, b) => sum + b.rooms);
+
+        final totalRooms = (service.metadata['rooms'] as num?)?.toInt() ?? 1;
+        
+        final updatedService = service.copyWith(
+          availableSlots: totalRooms - currentBooked,
+          metadata: {
+            ...service.metadata,
+            'bookedRooms': currentBooked,
+            'availableRooms': totalRooms - currentBooked,
+          }
+        );
+        await _ref?.read(serviceProvider.notifier).updateService(updatedService);
+      } else if (category.contains('apartment') || category.contains('home')) {
+        final isBooked = bookings.any((b) => b.serviceId == service.id && b.status == BookingStatus.confirmed);
+        
+        final updatedService = service.copyWith(
+          status: isBooked ? ServiceStatus.inactive : ServiceStatus.active,
+          availableSlots: isBooked ? 0 : 1,
+        );
+        await _ref?.read(serviceProvider.notifier).updateService(updatedService);
+      }
+    }
+    debugPrint('All services synchronized successfully');
   }
 
   Future<void> createBooking(Booking booking) async {

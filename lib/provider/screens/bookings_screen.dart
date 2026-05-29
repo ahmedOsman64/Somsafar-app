@@ -9,7 +9,7 @@ import '../../shared/services/auth_service.dart';
 import '../../shared/widgets/confirmation_dialog.dart';
 import '../../shared/services/service_repository.dart';
 import '../../shared/models/user_model.dart';
-import '../../shared/models/service_model.dart';
+
 
 class ProviderBookingsScreen extends ConsumerWidget {
   const ProviderBookingsScreen({super.key});
@@ -79,17 +79,49 @@ class ProviderBookingsScreen extends ConsumerWidget {
     if (type == ProviderType.tour) return const SizedBox.shrink();
 
     final services = ref.watch(filteredServicesProvider);
+    final bookings = ref.watch(filteredBookingsProvider);
+    
+    // Get today at midnight for comparison
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
     int totalUnits = 0;
     int bookedUnits = 0;
 
     for (final s in services) {
       final category = s.category.toLowerCase();
+      
       if (category.contains('hotel')) {
         totalUnits += (s.metadata['rooms'] as num?)?.toInt() ?? 1;
-        bookedUnits += (s.metadata['bookedRooms'] as num?)?.toInt() ?? 0;
+        
+        // Dynamic Calculation: Count rooms from confirmed stays covering today
+        final activeStaysRooms = bookings.where((b) {
+          if (b.serviceId != s.id) return false;
+          if (b.status != BookingStatus.confirmed) return false;
+          
+          // Check if stay overlaps with today (stay starts on/before today AND ends after today)
+          final startsOnOrBeforeToday = !b.checkIn.isAfter(today);
+          final endsAfterToday = b.checkOut.isAfter(today);
+          
+          return startsOnOrBeforeToday && endsAfterToday;
+        }).fold<int>(0, (sum, b) => sum + b.rooms);
+        
+        bookedUnits += activeStaysRooms;
       } else if (category.contains('apartment') || category.contains('home')) {
         totalUnits += 1;
-        if (s.status == ServiceStatus.inactive) {
+        
+        // Dynamic Calculation: Check if there's a confirmed stay covering today
+        final isOccupied = bookings.any((b) {
+          if (b.serviceId != s.id) return false;
+          if (b.status != BookingStatus.confirmed) return false;
+          
+          final startsOnOrBeforeToday = !b.checkIn.isAfter(today);
+          final endsAfterToday = b.checkOut.isAfter(today);
+          
+          return startsOnOrBeforeToday && endsAfterToday;
+        });
+
+        if (isOccupied) {
           bookedUnits += 1;
         }
       }
@@ -98,97 +130,125 @@ class ProviderBookingsScreen extends ConsumerWidget {
     if (totalUnits == 0) return const SizedBox.shrink();
 
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppColors.primary, AppColors.primary.withAlpha(200)],
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0D3B66), Color(0xFF1B62A4)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withAlpha(76),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: const Color(0xFF0D3B66).withValues(alpha: 0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
       child: Column(
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(
+                  type == ProviderType.hotel ? Icons.bedtime_outlined : Icons.apartment_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      type == ProviderType.hotel
-                          ? 'Room Capacity'
-                          : 'Availability',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                      type == ProviderType.hotel ? 'Room Occupancy' : 'Property Availability',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.7),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Text(
                       '$bookedUnits units booked / $totalUnits total',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
                       ),
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Stack(
+            children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                height: 10,
+                width: double.infinity,
                 decoration: BoxDecoration(
-                  color: Colors.white.withAlpha(50),
-                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(
-                  type == ProviderType.hotel ? Icons.hotel : Icons.apartment,
-                  color: Colors.white,
+              ),
+              FractionallySizedBox(
+                widthFactor: totalUnits > 0 ? (bookedUnits / totalUnits).clamp(0.0, 1.0) : 0,
+                child: Container(
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.white.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: totalUnits > 0 ? bookedUnits / totalUnits : 0,
-              backgroundColor: Colors.white.withAlpha(50),
-              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-              minHeight: 8,
-            ),
-          ),
-          const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                '${totalUnits - bookedUnits} units left',
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
                 ),
-              ),
-              if (bookedUnits > 0)
-                const Text(
-                  'Updated automatically',
-                  style: TextStyle(
-                    color: Colors.white54,
-                    fontSize: 10,
-                    fontStyle: FontStyle.italic,
+                child: Text(
+                  '${totalUnits - bookedUnits} active units left',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
+              ),
+              Text(
+                'Live Data',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
             ],
           ),
         ],
@@ -456,6 +516,19 @@ class _BookingCard extends StatelessWidget {
             child: const Text('Accept'),
           ),
         ] else if (booking.status == BookingStatus.confirmed) ...[
+          OutlinedButton.icon(
+            onPressed: () {
+              ref.read(bookingProvider.notifier).resendConfirmationEmail(booking.id);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Receipt email sending...'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            },
+            icon: const Icon(Icons.email_outlined, size: 18),
+            label: const Text('Resend Receipt'),
+          ),
           OutlinedButton.icon(
             onPressed: () {
               Navigator.push(
