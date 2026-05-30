@@ -65,6 +65,7 @@ CREATE OR REPLACE FUNCTION public.create_booking_safe(
   p_guests integer,
   p_rooms integer,
   p_total_price numeric,
+  p_taxes numeric DEFAULT 0,
   p_contact_phone text,
   p_contact_email text,
   p_payment_method text,
@@ -112,11 +113,11 @@ BEGIN
   -- 2. Insert the booking
   INSERT INTO public.bookings (
     id, traveler_id, provider_id, service_id, service_title, traveler_name,
-    status, check_in, check_out, guests, rooms, total_price,
+    status, check_in, check_out, guests, rooms, total_price, taxes,
     contact_phone, contact_email, payment_method, metadata
   ) VALUES (
     p_booking_id, p_traveler_id, p_provider_id, p_service_id, p_service_title, p_traveler_name,
-    'pending', p_check_in, p_check_out, p_guests, p_rooms, p_total_price,
+    'pending', p_check_in, p_check_out, p_guests, p_rooms, p_total_price, p_taxes,
     p_contact_phone, p_contact_email, p_payment_method, p_metadata
   ) RETURNING id INTO v_booking_id;
 
@@ -274,14 +275,22 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Audit Triggers
 CREATE OR REPLACE FUNCTION public.audit_log_deletions()
 RETURNS trigger AS $$
+DECLARE
+  v_user_name text;
+  v_exists boolean;
 BEGIN
+  -- Check if user still exists in public.users
+  -- This avoids FK violations if the user is being deleted (cascade)
+  SELECT name, true INTO v_user_name, v_exists 
+  FROM public.users WHERE id = auth.uid();
+  
   INSERT INTO public.system_activities (title, subtitle, type, user_id, user_name, metadata)
   VALUES (
     'Record Deleted from ' || TG_TABLE_NAME,
     'A record with ID ' || OLD.id || ' was removed.',
     'deletion',
-    auth.uid(),
-    (SELECT name FROM public.users WHERE id = auth.uid()),
+    CASE WHEN v_exists THEN auth.uid() ELSE NULL END,
+    COALESCE(v_user_name, 'System/Deleted User'),
     jsonb_build_object('table', TG_TABLE_NAME, 'old_data', to_jsonb(OLD))
   );
   RETURN OLD;

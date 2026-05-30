@@ -367,8 +367,9 @@ class BookingRepository extends StateNotifier<List<Booking>> {
     }
   }
 
-  /// Recalculates availability for all services owned by the current provider
-  /// This fixes the "Not enough rooms" error when database counters get out of sync
+  /// Recalculates availability for all services owned by the current provider.
+  /// Only counts confirmed bookings that are currently active (checkOut in the future).
+  /// Past bookings (checkOut <= now) do NOT block availability.
   Future<void> syncAllServicesAvailability() async {
     final user = _ref?.read(authProvider);
     if (user == null) return;
@@ -376,41 +377,109 @@ class BookingRepository extends StateNotifier<List<Booking>> {
     final services = _ref?.read(serviceProvider) ?? [];
     final providerServices = services.where((s) => s.providerId == (user.providerId ?? user.id));
     final bookings = _ref?.read(bookingProvider) ?? [];
+    final now = DateTime.now();
 
     for (final service in providerServices) {
       final category = service.category.toLowerCase();
-      int currentBooked = 0;
 
       if (category.contains('hotel')) {
-        // Count rooms from ALL confirmed bookings that are NOT completed/cancelled
-        currentBooked = bookings.where((b) {
-          return b.serviceId == service.id && 
-                 b.status == BookingStatus.confirmed;
+        final totalRooms = (service.metadata['rooms'] as num?)?.toInt() ?? 1;
+
+        // Only count rooms from confirmed bookings that haven't checked out yet
+        final currentBooked = bookings.where((b) {
+          return b.serviceId == service.id &&
+                 b.status == BookingStatus.confirmed &&
+                 b.checkOut.isAfter(now); // ignore past bookings
         }).fold<int>(0, (sum, b) => sum + b.rooms);
 
-        final totalRooms = (service.metadata['rooms'] as num?)?.toInt() ?? 1;
-        
         final updatedService = service.copyWith(
           availableSlots: totalRooms - currentBooked,
+          status: (totalRooms - currentBooked) <= 0
+              ? ServiceStatus.inactive
+              : ServiceStatus.active,
           metadata: {
             ...service.metadata,
             'bookedRooms': currentBooked,
             'availableRooms': totalRooms - currentBooked,
-          }
+          },
         );
         await _ref?.read(serviceProvider.notifier).updateService(updatedService);
       } else if (category.contains('apartment') || category.contains('home')) {
-        final isBooked = bookings.any((b) => b.serviceId == service.id && b.status == BookingStatus.confirmed);
-        
+        // An apartment is occupied only if a confirmed booking hasn't checked out yet
+        final isCurrentlyBooked = bookings.any(
+          (b) => b.serviceId == service.id &&
+                 b.status == BookingStatus.confirmed &&
+                 b.checkOut.isAfter(now),
+        );
         final updatedService = service.copyWith(
-          status: isBooked ? ServiceStatus.inactive : ServiceStatus.active,
-          availableSlots: isBooked ? 0 : 1,
+          status: isCurrentlyBooked ? ServiceStatus.inactive : ServiceStatus.active,
+          availableSlots: isCurrentlyBooked ? 0 : 1,
         );
         await _ref?.read(serviceProvider.notifier).updateService(updatedService);
       }
     }
-    debugPrint('All services synchronized successfully');
+    debugPrint('All services synchronized successfully (date-aware).');
   }
+
+  /// Returns how many rooms/units are available for [serviceId] during [checkIn]–[checkOut].
+  ///
+  /// Logic:
+  ///   Two date ranges overlap when: bookingCheckIn < requestedCheckOut
+  ///                              AND bookingCheckOut > requestedCheckIn
+  /// If they do NOT overlap, that booking does not consume capacity for the
+  /// requested period — so Customer 2 can book after Customer 1 checks out.
+  int getAvailableRoomsForDates({
+    required String serviceId,
+    required DateTime checkIn,
+    required DateTime checkOut,
+    String? bedType,
+    String? excludeBookingId,
+  }) {
+    final services = _ref?.read(serviceProvider);
+    if (services == null) { return 0; }
+ 
+    final serviceIndex = services.indexWhere((s) => s.id == serviceId);
+    if (serviceIndex == -1) { return 0; }
+ 
+    final service = services[serviceIndex];
+    final category = service.category.toLowerCase();
+ 
+    final int totalCapacity;
+    if (category.contains('hotel')) {
+      if (bedType != null && service.metadata['bed_types_dynamic'] != null) {
+        final bedData = (service.metadata['bed_types_dynamic'] as Map<String, dynamic>)[bedType.toLowerCase()];
+        totalCapacity = (bedData?['count'] as num?)?.toInt() ?? 0;
+      } else {
+        totalCapacity = (service.metadata['rooms'] as num?)?.toInt() ?? 1;
+      }
+    } else {
+      totalCapacity = 1; // Apartment / Home: single unit
+    }
+ 
+    // Rooms occupied during the requested window
+    final occupied = state.where((b) {
+      if (b.serviceId != serviceId) { return false; }
+      if (excludeBookingId != null && b.id == excludeBookingId) { return false; }
+      
+      // If checking for specific bed type, only count bookings with that bed type in metadata
+      if (bedType != null) {
+        final bookingBedType = b.metadata['bedType']?.toString().toLowerCase();
+        if (bookingBedType != bedType.toLowerCase()) return false;
+      }
+
+      // Ignore cancelled / completed bookings
+      if (b.status == BookingStatus.cancelled ||
+          b.status == BookingStatus.completed) { return false; }
+      // Date overlap: existing booking overlaps with requested window
+      //   b.checkIn  < requested checkOut
+      //   b.checkOut > requested checkIn
+      return b.checkIn.isBefore(checkOut) && b.checkOut.isAfter(checkIn);
+    }).fold<int>(0, (sum, b) => sum + b.rooms);
+ 
+    final available = totalCapacity - occupied;
+    return available < 0 ? 0 : available;
+  }
+
 
   Future<void> createBooking(Booking booking) async {
     try {
@@ -429,6 +498,7 @@ class BookingRepository extends StateNotifier<List<Booking>> {
           'p_guests': booking.guests,
           'p_rooms': booking.rooms,
           'p_total_price': booking.totalPrice,
+          'p_taxes': booking.taxes,
           'p_contact_phone': booking.contactPhone,
           'p_contact_email': booking.contactEmail,
           'p_payment_method': booking.paymentMethod ?? 'Direct',

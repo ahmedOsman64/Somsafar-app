@@ -14,6 +14,7 @@ import '../../../shared/services/system_settings_repository.dart';
 import '../../../shared/services/user_repository.dart';
 import '../../../shared/models/user_model.dart';
 import '../../../shared/services/discount_repository.dart';
+import '../../../shared/services/booking_repository.dart';
 
 class HotelBookingForm extends ConsumerStatefulWidget {
   final Service service;
@@ -41,6 +42,10 @@ class _HotelBookingFormState extends ConsumerState<HotelBookingForm>
   int _guests = 2;
   int _rooms = 1;
 
+  // Availability (date-based)
+  // null = not checked yet, -1 = fully booked for those dates, >=0 = rooms available
+  int? _availableRoomsForDates;
+
   // Guest Info
   final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -56,6 +61,7 @@ class _HotelBookingFormState extends ConsumerState<HotelBookingForm>
   bool _breakfastIncluded = false;
   bool _airportPickup = false;
   bool _extraBed = false;
+  final List<String> _selectedCustomOptionIds = [];
 
   BookingSummary? _bookingSummary;
 
@@ -78,8 +84,16 @@ class _HotelBookingFormState extends ConsumerState<HotelBookingForm>
 
     // Pre-fill preferences from metadata if available
     final metadata = widget.service.metadata;
-    
-    if (metadata['bedType'] != null) {
+    final dynamicBeds = metadata['bed_types_dynamic'] as Map<String, dynamic>?;
+    if (dynamicBeds != null) {
+      if (dynamicBeds['double']?['enabled'] == true) {
+        _bedType = BedType.double;
+      } else if (dynamicBeds['single']?['enabled'] == true) {
+        _bedType = BedType.single;
+      } else if (dynamicBeds['twin']?['enabled'] == true) {
+        _bedType = BedType.twin;
+      }
+    } else if (metadata['bedType'] != null) {
       final bedString = metadata['bedType'].toString().toLowerCase();
       if (bedString.contains('single')) {
         _bedType = BedType.single;
@@ -153,6 +167,7 @@ class _HotelBookingFormState extends ConsumerState<HotelBookingForm>
             double.tryParse(provider.metadata['airport_pickup_price']?.toString() ?? '') ?? 0.0,
         extraBedPrice: widget.service.extraBedPrice ?? 
             double.tryParse(provider.metadata['extra_bed_price']?.toString() ?? '') ?? 0.0,
+        selectedCustomOptionIds: _selectedCustomOptionIds,
       );
 
       final activeDiscount = DiscountRepository.getBestDiscount(
@@ -179,6 +194,7 @@ class _HotelBookingFormState extends ConsumerState<HotelBookingForm>
       : 1;
 
   Widget _buildStayDetailsStep() {
+    final bool datesSelected = _checkInDate != null && _checkOutDate != null;
     return FadeTransition(
       opacity: _fadeAnimation,
       child: Column(
@@ -200,7 +216,7 @@ class _HotelBookingFormState extends ConsumerState<HotelBookingForm>
                 : null,
             onTap: _selectCheckOutDate,
           ),
-          if (_checkInDate != null && _checkOutDate != null) ...[
+          if (datesSelected) ...[
             const SizedBox(height: 10),
             InfoBanner(
               text:
@@ -210,6 +226,8 @@ class _HotelBookingFormState extends ConsumerState<HotelBookingForm>
               color: AppColors.info,
               icon: Icons.nights_stay_outlined,
             ),
+            const SizedBox(height: 8),
+            const SizedBox(height: 8),
           ],
           const SizedBox(height: 20),
           CounterRow(
@@ -235,7 +253,10 @@ class _HotelBookingFormState extends ConsumerState<HotelBookingForm>
               _updateBookingSummary();
             }),
             onIncrement: () => setState(() {
-              _rooms++;
+              // Don't exceed available rooms
+              if (_availableRoomsForDates == null || _rooms < _availableRoomsForDates!) {
+                _rooms++;
+              }
               _updateBookingSummary();
             }),
           ),
@@ -243,6 +264,7 @@ class _HotelBookingFormState extends ConsumerState<HotelBookingForm>
       ),
     );
   }
+
 
   Widget _buildGuestInfoStep() {
     return FadeTransition(
@@ -322,19 +344,47 @@ class _HotelBookingFormState extends ConsumerState<HotelBookingForm>
             ),
           ),
           const SizedBox(height: 10),
-          ...BedType.values.map(
-            (type) => _buildOptionCard<BedType>(
+          ...BedType.values.where((type) {
+          final dynamicBeds = widget.service.metadata['bed_types_dynamic'] as Map<String, dynamic>?;
+          if (dynamicBeds == null) return true;
+          return dynamicBeds[type.name.toLowerCase()]?['enabled'] ?? false;
+        }).map(
+          (type) {
+            final dynamicBeds = widget.service.metadata['bed_types_dynamic'] as Map<String, dynamic>?;
+            double? price;
+            bool isAvailable = true;
+            
+            if (dynamicBeds != null && _checkInDate != null && _checkOutDate != null) {
+              final bedKey = type.name.toLowerCase();
+              price = (dynamicBeds[bedKey]?['price'] as num?)?.toDouble();
+              
+              final availableCount = ref.read(bookingProvider.notifier).getAvailableRoomsForDates(
+                serviceId: widget.service.id,
+                checkIn: _checkInDate!,
+                checkOut: _checkOutDate!,
+                bedType: type.name,
+              );
+              isAvailable = availableCount > 0;
+            }
+
+            return _buildOptionCard<BedType>(
               value: type,
               groupValue: _bedType,
               title: _formatBedType(type),
-              subtitle: _getBedTypeSubtitle(type),
+              subtitle: type == BedType.single 
+                  ? 'Standard room price'
+                  : (price != null && price > 0 
+                      ? '+\$${price.toStringAsFixed(0)} extra' 
+                      : _getBedTypeSubtitle(type)),
               icon: Icons.king_bed_outlined,
+              isEnabled: isAvailable,
               onTap: () => setState(() {
                 _bedType = type;
                 _updateBookingSummary();
               }),
-            ),
-          ),
+            );
+          },
+        ),
           const SizedBox(height: 16),
           const Text(
             'Smoking Preference',
@@ -424,6 +474,36 @@ class _HotelBookingFormState extends ConsumerState<HotelBookingForm>
               }),
             ),
 
+          if (widget.service.metadata['custom_room_options'] != null) ...[
+            const SizedBox(height: 16),
+            const Text(
+              'Other Options',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.primary),
+            ),
+            const SizedBox(height: 8),
+            ...(widget.service.metadata['custom_room_options'] as List).map((opt) {
+              final id = opt['id'];
+              final title = opt['title'];
+              final price = (opt['price'] as num).toDouble();
+              final isSelected = _selectedCustomOptionIds.contains(id);
+
+              return PremiumSwitchTile(
+                title: title,
+                subtitle: '+\$${price.toStringAsFixed(0)} flat fee',
+                value: isSelected,
+                icon: Icons.add_circle_outline,
+                onChanged: (v) => setState(() {
+                  if (v) {
+                    _selectedCustomOptionIds.add(id);
+                  } else {
+                    _selectedCustomOptionIds.remove(id);
+                  }
+                  _updateBookingSummary();
+                }),
+              );
+            }),
+          ],
+
           const SizedBox(height: 12),
           const InfoBanner(
             text: 'Free cancellation up to 24 hours before check-in.',
@@ -442,65 +522,80 @@ class _HotelBookingFormState extends ConsumerState<HotelBookingForm>
     required String subtitle,
     required IconData icon,
     required VoidCallback onTap,
+    bool isEnabled = true,
   }) {
     final isSelected = value == groupValue;
+
     return GestureDetector(
-      onTap: onTap,
+      onTap: isEnabled ? onTap : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.primary.withValues(alpha: 0.06)
-              : Colors.grey[50],
+          color: !isEnabled
+              ? Colors.grey[100]
+              : isSelected
+                  ? AppColors.primary.withValues(alpha: 0.06)
+                  : Colors.grey[50],
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? AppColors.primary : Colors.grey[200]!,
+            color: !isEnabled
+                ? Colors.grey[300]!
+                : isSelected
+                    ? AppColors.primary
+                    : Colors.grey[200]!,
             width: isSelected ? 2 : 1,
           ),
         ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? AppColors.primary : Colors.grey[500],
-              size: 22,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: isSelected ? AppColors.primary : Colors.black87,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  ),
-                ],
+        child: Opacity(
+          opacity: isEnabled ? 1.0 : 0.5,
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                color: isSelected ? AppColors.primary : Colors.grey[500],
+                size: 22,
               ),
-            ),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: isSelected
-                  ? Icon(
-                      Icons.check_circle,
-                      color: AppColors.primary,
-                      key: const ValueKey(true),
-                    )
-                  : Icon(
-                      Icons.circle_outlined,
-                      color: Colors.grey[300],
-                      key: const ValueKey(false),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: isSelected ? AppColors.primary : Colors.black87,
+                      ),
                     ),
-            ),
-          ],
+                    Text(
+                      !isEnabled ? 'Sold Out' : subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: !isEnabled ? Colors.red[400] : Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isEnabled)
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child: isSelected
+                      ? Icon(
+                          Icons.check_circle,
+                          color: AppColors.primary,
+                          key: const ValueKey(true),
+                        )
+                      : Icon(
+                          Icons.circle_outlined,
+                          color: Colors.grey[300],
+                          key: const ValueKey(false),
+                        ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -560,8 +655,10 @@ class _HotelBookingFormState extends ConsumerState<HotelBookingForm>
         if (_checkOutDate != null && _checkOutDate!.isBefore(_checkInDate!)) {
           _checkOutDate = _checkInDate!.add(const Duration(days: 1));
         }
+        _availableRoomsForDates = null; // reset until both dates confirmed
         _updateBookingSummary();
       });
+      if (_checkOutDate != null) _checkDateAvailability();
     }
   }
 
@@ -594,13 +691,35 @@ class _HotelBookingFormState extends ConsumerState<HotelBookingForm>
         _checkOutDate = picked;
         _updateBookingSummary();
       });
+      _checkDateAvailability(); // Check availability immediately after checkout selected
     }
+  }
+
+
+  /// Checks how many rooms are free for the selected date window and updates state.
+  void _checkDateAvailability() {
+    if (_checkInDate == null || _checkOutDate == null) { return; }
+    final available = ref.read(bookingProvider.notifier).getAvailableRoomsForDates(
+      serviceId: widget.service.id,
+      checkIn: _checkInDate!,
+      checkOut: _checkOutDate!,
+    );
+    setState(() {
+      _availableRoomsForDates = available;
+      // Clamp rooms to what's actually available
+      if (available > 0 && _rooms > available) {
+        _rooms = available;
+      }
+    });
   }
 
   bool _validateCurrentStep() {
     switch (_currentStep) {
       case 0:
-        return _checkInDate != null && _checkOutDate != null;
+        if (_checkInDate == null || _checkOutDate == null) { return false; }
+        // Block if no rooms available for the selected dates
+        if (_availableRoomsForDates != null && _availableRoomsForDates! <= 0) { return false; }
+        return true;
       case 1:
         return _formKey.currentState?.validate() ?? false;
       case 2:
@@ -611,6 +730,8 @@ class _HotelBookingFormState extends ConsumerState<HotelBookingForm>
         return false;
     }
   }
+
+
 
   void _goToStep(int step) {
     _fadeController.reset();
@@ -630,15 +751,49 @@ class _HotelBookingFormState extends ConsumerState<HotelBookingForm>
       }
     } else {
       setState(() {
-        _errorMessage = _currentStep == 0
-            ? 'Please select check-in and check-out dates'
-            : 'Please fill in all required fields';
+        if (_currentStep == 0) {
+          if (_checkInDate == null || _checkOutDate == null) {
+            _errorMessage = 'Please select check-in and check-out dates';
+          } else if (_availableRoomsForDates != null && _availableRoomsForDates! <= 0) {
+            _errorMessage = 'These dates are not available. Please select different dates.';
+          } else {
+            _errorMessage = 'Please select check-in and check-out dates';
+          }
+        } else {
+          _errorMessage = 'Please fill in all required fields';
+        }
       });
     }
   }
 
   Future<void> _submitBooking() async {
     if (!(_formKey.currentState?.validate() ?? true)) return;
+
+    // Final availability double-check before proceeding to payment
+    if (_checkInDate != null && _checkOutDate != null) {
+      final available = ref.read(bookingProvider.notifier).getAvailableRoomsForDates(
+        serviceId: widget.service.id,
+        checkIn: _checkInDate!,
+        checkOut: _checkOutDate!,
+      );
+      if (available <= 0) {
+        setState(() {
+          _errorMessage = 'These dates are no longer available. Please choose different dates.';
+          _currentStep = 0; // Send back to step 0
+          _availableRoomsForDates = 0;
+        });
+        return;
+      }
+      if (_rooms > available) {
+        setState(() {
+          _errorMessage = 'Only $available room(s) available for these dates. Please reduce your room count.';
+          _currentStep = 0;
+          _availableRoomsForDates = available;
+          _rooms = available;
+        });
+        return;
+      }
+    }
 
     setState(() {
       _isLoading = true;
@@ -671,6 +826,7 @@ class _HotelBookingFormState extends ConsumerState<HotelBookingForm>
             double.tryParse(provider.metadata['airport_pickup_price']?.toString() ?? '') ?? 0.0,
         extraBedPrice: widget.service.extraBedPrice ?? 
             double.tryParse(provider.metadata['extra_bed_price']?.toString() ?? '') ?? 0.0,
+        selectedCustomOptionIds: _selectedCustomOptionIds,
         specialRequests: _specialRequestsController.text.isEmpty
             ? null
             : _specialRequestsController.text,

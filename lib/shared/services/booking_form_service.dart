@@ -294,6 +294,19 @@ class BookingFormService {
     final nights = data.checkOut.difference(data.checkIn).inDays;
     totalPrice *= nights * data.rooms;
 
+    // Add Bed Type Price
+    final bedTypesDynamic =
+        service.metadata['bed_types_dynamic'] as Map<String, dynamic>?;
+    if (bedTypesDynamic != null) {
+      final bedKey = data.bedType.name.toLowerCase();
+      final bedData = bedTypesDynamic[bedKey] as Map<String, dynamic>?;
+      if (bedData != null && bedData['enabled'] == true) {
+        final bedPrice = (bedData['price'] as num?)?.toDouble() ?? 0.0;
+        totalPrice += bedPrice * nights * data.rooms;
+        extras['bedType_${data.bedType.name}'] = bedPrice * nights * data.rooms;
+      }
+    }
+
     // Add extras
     if (data.breakfastIncluded) {
       final breakfastCost = (data.breakfastPrice ?? 0.0) * data.guests * nights;
@@ -311,6 +324,27 @@ class BookingFormService {
       final bedCost = (data.extraBedPrice ?? 0.0) * nights;
       totalPrice += bedCost;
       extras['extraBed'] = bedCost;
+    }
+
+    // Add Custom Options
+    if (data.selectedCustomOptionIds.isNotEmpty &&
+        service.metadata['custom_room_options'] != null) {
+      final customOptions = List<Map<String, dynamic>>.from(
+        service.metadata['custom_room_options'],
+      );
+      for (final optionId in data.selectedCustomOptionIds) {
+        final option = customOptions.firstWhere(
+          (o) => o['id'] == optionId,
+          orElse: () => {},
+        );
+        if (option.isNotEmpty && option['price'] != null) {
+          final optionPrice = (option['price'] as num).toDouble();
+          // Custom options are usually flat fees per room/stay, or per night?
+          // Assuming flat fee for now as requested "qiimaha ku darsmayo"
+          totalPrice += optionPrice;
+          extras['custom_${option['id']}'] = optionPrice;
+        }
+      }
     }
 
     double subtotal = totalPrice;
@@ -374,11 +408,13 @@ class BookingFormService {
     }
 
     totalPrice += totalTaxAmount;
+    double displayTaxes = totalTaxAmount;
 
     // Apply System Fee
     if (platformFeePercentage > 0) {
       final systemFeeAmount = totalPrice * (platformFeePercentage / 100);
       totalPrice += systemFeeAmount;
+      displayTaxes += systemFeeAmount;
       extras['systemFee'] =
           'System Fee (${platformFeePercentage.toStringAsFixed(1)}%) : \$${systemFeeAmount.toStringAsFixed(2)}';
     }
@@ -388,7 +424,7 @@ class BookingFormService {
       serviceTitle: 'Hotel Booking',
       basePrice: basePrice * nights * data.rooms,
       subtotal: subtotal,
-      taxes: totalTaxAmount,
+      taxes: displayTaxes,
       discount: totalDiscount,
       totalPrice: totalPrice,
       extras: extras,
@@ -498,11 +534,13 @@ class BookingFormService {
     }
 
     totalPrice += totalTaxAmount;
+    double displayTaxes = totalTaxAmount;
 
     // Apply System Fee
     if (platformFeePercentage > 0) {
       final systemFeeAmount = totalPrice * (platformFeePercentage / 100);
       totalPrice += systemFeeAmount;
+      displayTaxes += systemFeeAmount;
       extras['systemFee'] =
           'System Fee (${platformFeePercentage.toStringAsFixed(1)}%) : \$${systemFeeAmount.toStringAsFixed(2)}';
     }
@@ -512,7 +550,7 @@ class BookingFormService {
       serviceTitle: 'Apartment Booking',
       basePrice: (basePrice / 30) * nights,
       subtotal: subtotal,
-      taxes: totalTaxAmount,
+      taxes: displayTaxes,
       discount: totalDiscount,
       totalPrice: totalPrice,
       extras: extras,
@@ -639,11 +677,13 @@ class BookingFormService {
     }
 
     totalPrice += totalTaxAmount;
+    double displayTaxes = totalTaxAmount;
 
     // Apply System Fee
     if (platformFeePercentage > 0) {
       final systemFeeAmount = totalPrice * (platformFeePercentage / 100);
       totalPrice += systemFeeAmount;
+      displayTaxes += systemFeeAmount;
       extras['systemFee'] =
           'System Fee (${platformFeePercentage.toStringAsFixed(1)}%) : \$${systemFeeAmount.toStringAsFixed(2)}';
     }
@@ -653,7 +693,7 @@ class BookingFormService {
       serviceTitle: 'Tour Booking',
       basePrice: baseTotalPrice * data.numberOfDays * packageMultiplier,
       subtotal: subtotal,
-      taxes: totalTaxAmount,
+      taxes: displayTaxes,
       discount: totalDiscount,
       totalPrice: totalPrice,
       extras: extras,
@@ -769,11 +809,13 @@ class BookingFormService {
     }
 
     totalPrice += totalTaxAmount;
+    double displayTaxes = totalTaxAmount;
 
     // Apply System Fee
     if (platformFeePercentage > 0) {
       final systemFeeAmount = totalPrice * (platformFeePercentage / 100);
       totalPrice += systemFeeAmount;
+      displayTaxes += systemFeeAmount;
       extras['systemFee'] =
           'System Fee (${platformFeePercentage.toStringAsFixed(1)}%) : \$${systemFeeAmount.toStringAsFixed(2)}';
     }
@@ -783,7 +825,7 @@ class BookingFormService {
       serviceTitle: 'Vehicle Booking',
       basePrice: basePrice * (days == 0 ? 1 : days),
       subtotal: subtotal,
-      taxes: totalTaxAmount,
+      taxes: displayTaxes,
       discount: totalDiscount,
       totalPrice: totalPrice,
       extras: extras,

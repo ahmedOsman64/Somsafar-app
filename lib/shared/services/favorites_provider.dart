@@ -55,6 +55,18 @@ class FavoritesNotifier extends StateNotifier<List<Service>> {
   bool isFavorite(String serviceId) {
     return state.any((s) => s.id == serviceId);
   }
+
+  /// Clears all favorites from memory and persistent storage.
+  /// Call this on logout or password reset so a new user starts fresh.
+  Future<void> clearFavorites() async {
+    state = [];
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_prefsKey);
+    } catch (e) {
+      print("Error clearing favorites: $e");
+    }
+  }
 }
 
 final favoritesProvider =

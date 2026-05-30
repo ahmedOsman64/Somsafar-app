@@ -32,6 +32,7 @@ class _TravelerHomeScreenState extends ConsumerState<TravelerHomeScreen> {
   String _selectedCategory = 'hotel';
   String? _selectedDestination; // null means no destination selected
   String? _selectedDestinationKey;
+  String _searchQuery = '';
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -53,6 +54,10 @@ class _TravelerHomeScreenState extends ConsumerState<TravelerHomeScreen> {
       if (dest == 'banadir') dest = 'banaadir';
       if (dest == 'hiran') dest = 'hiiraan';
       if (dest == 'bakol') dest = 'bakool';
+      if (dest == 'shabeellaha_hoose' || dest == 'shabeellaha hoose' || dest == 'lower shabelle' || dest == 'shsh') dest = 'lower_shabelle';
+      if (dest == 'shabeellaha_dhexe' || dest == 'shabeellaha dhexe' || dest == 'middle shabelle' || dest == 'shsh_d') dest = 'middle_shabelle';
+      if (dest == 'jubbada_hoose' || dest == 'jubbada hoose' || dest == 'lower juba' || dest == 'jh') dest = 'lower_juba';
+      if (dest == 'jubbada_dhexe' || dest == 'jubbada dhexe' || dest == 'middle juba' || dest == 'jd') dest = 'middle_juba';
       // Map common city names/spellings to the Banaadir region
       if (dest == 'mogadishu' ||
           dest == 'muqdisho' ||
@@ -140,6 +145,9 @@ class _TravelerHomeScreenState extends ConsumerState<TravelerHomeScreen> {
             child: _HeroSection(
               selectedCategory: _selectedCategory,
               onProfileTap: () => _showProfileMenu(context),
+              onSearchChanged: (query) {
+                setState(() => _searchQuery = query);
+              },
               onCategorySelected: (categoryKey) {
                 setState(() => _selectedCategory = categoryKey);
                 // Navigate to search screen with category filter
@@ -148,8 +156,76 @@ class _TravelerHomeScreenState extends ConsumerState<TravelerHomeScreen> {
             ),
           ),
 
+          // 🗺 Search Results (shown when searching)
+          if (_searchQuery.isNotEmpty)
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final filteredServices = services
+                        .where(
+                          (s) =>
+                              s.status == ServiceStatus.active &&
+                              (s.title.toLowerCase().contains(
+                                    _searchQuery.toLowerCase(),
+                                  ) ||
+                                  s.location.toLowerCase().contains(
+                                    _searchQuery.toLowerCase(),
+                                  )),
+                        )
+                        .toList();
+
+                    if (filteredServices.isEmpty) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 40),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.search_off_rounded,
+                                size: 64,
+                                color: Colors.grey[300],
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                "No results found for '$_searchQuery'",
+                                style: GoogleFonts.poppins(color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+
+                    if (index >= filteredServices.length) return null;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: _DestinationServiceCard(
+                        service: filteredServices[index],
+                      ),
+                    );
+                  },
+                  childCount: services
+                      .where(
+                        (s) =>
+                            s.status == ServiceStatus.active &&
+                            (s.title.toLowerCase().contains(
+                                  _searchQuery.toLowerCase(),
+                                ) ||
+                                s.location.toLowerCase().contains(
+                                  _searchQuery.toLowerCase(),
+                                )),
+                      )
+                      .length,
+                ),
+              ),
+            ),
+
           // ⭐ Featured Destinations (Circular Somalia Regions)
-          if (dynamicDestinations.isNotEmpty && _selectedDestination == null)
+          if (dynamicDestinations.isNotEmpty &&
+              _selectedDestination == null &&
+              _searchQuery.isEmpty)
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.only(top: 16),
@@ -173,7 +249,7 @@ class _TravelerHomeScreenState extends ConsumerState<TravelerHomeScreen> {
             ),
 
           // 🗺 Destination Services (shown when a destination is explored)
-          if (_selectedDestination != null)
+          if (_selectedDestination != null && _searchQuery.isEmpty)
             SliverToBoxAdapter(
               child: _DestinationServicesSection(
                 city: _selectedDestination!,
@@ -192,23 +268,23 @@ class _TravelerHomeScreenState extends ConsumerState<TravelerHomeScreen> {
             ),
 
           // 🏨 Recommended Services (Favorites / Top)
-          if (_selectedDestination == null)
+          if (_selectedDestination == null && _searchQuery.isEmpty)
             SliverToBoxAdapter(
               child: _RecommendedServicesSection(services: displayServices),
             ),
 
           // 🏖️ Somalia Travel Highlights
-          if (_selectedDestination == null)
+          if (_selectedDestination == null && _searchQuery.isEmpty)
             const SliverToBoxAdapter(child: _TravelHighlightsSection()),
 
           // 🔥 Special Offers
-          if (specialOffers.isNotEmpty)
+          if (specialOffers.isNotEmpty && _searchQuery.isEmpty)
             SliverToBoxAdapter(
               child: _SpecialOffersSection(offers: specialOffers),
             ),
 
           // 💬 Reviews Section
-          if (!context.isMobile)
+          if (!context.isMobile && _searchQuery.isEmpty)
             SliverToBoxAdapter(
               child: Consumer(
                 builder: (context, ref, child) {
@@ -342,11 +418,13 @@ class _TravelerHomeScreenState extends ConsumerState<TravelerHomeScreen> {
 class _HeroSection extends ConsumerStatefulWidget {
   final String? selectedCategory;
   final Function(String) onCategorySelected;
+  final Function(String) onSearchChanged;
   final VoidCallback onProfileTap;
 
   const _HeroSection({
     required this.selectedCategory,
     required this.onCategorySelected,
+    required this.onSearchChanged,
     required this.onProfileTap,
   });
 
@@ -497,8 +575,8 @@ class _HeroSectionState extends ConsumerState<_HeroSection> {
             child: SafeArea(
               bottom: false,
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.isMobile ? 18 : 24,
                   vertical: 16,
                 ),
                 child: Column(
@@ -727,6 +805,7 @@ class _HeroSectionState extends ConsumerState<_HeroSection> {
               ),
               child: TextField(
                 controller: _searchController,
+                onChanged: widget.onSearchChanged,
                 style: GoogleFonts.poppins(
                   fontSize: 14,
                   color: const Color(0xFF1A1A2E),
@@ -748,22 +827,32 @@ class _HeroSectionState extends ConsumerState<_HeroSection> {
                     ),
                   ),
                   prefixIconConstraints: const BoxConstraints(minWidth: 50),
-                  suffixIcon: GestureDetector(
-                    onTap: () => context.push('/traveler/search'),
-                    child: Container(
-                      margin: const EdgeInsets.all(10),
-                      padding: const EdgeInsets.all(7),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF0F4FF),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.tune_rounded,
-                        color: Color(0xFF1565C0),
-                        size: 18,
-                      ),
-                    ),
-                  ),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear_rounded, size: 20),
+                          color: Colors.grey,
+                          onPressed: () {
+                            _searchController.clear();
+                            widget.onSearchChanged('');
+                            setState(() {});
+                          },
+                        )
+                      : GestureDetector(
+                          onTap: () => context.push('/traveler/search'),
+                          child: Container(
+                            margin: const EdgeInsets.all(10),
+                            padding: const EdgeInsets.all(7),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF0F4FF),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.tune_rounded,
+                              color: Color(0xFF1565C0),
+                              size: 18,
+                            ),
+                          ),
+                        ),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(vertical: 17),
                 ),
@@ -1810,8 +1899,8 @@ class _CategoryIconCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isMobile = context.isMobile;
-    final cardWidth = isMobile ? 85.0 : 95.0;
-    final cardHeight = isMobile ? 90.0 : 105.0;
+    final cardWidth = isMobile ? 76.0 : 95.0;
+    final cardHeight = isMobile ? 82.0 : 105.0;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
@@ -1821,7 +1910,7 @@ class _CategoryIconCard extends StatelessWidget {
           duration: const Duration(milliseconds: 300),
           width: cardWidth,
           height: cardHeight,
-          padding: EdgeInsets.all(isMobile ? 8 : 12),
+          padding: EdgeInsets.all(isMobile ? 6 : 12),
           decoration: BoxDecoration(
             color: isSelected
                 ? Colors.white.withAlpha(60)
@@ -1848,12 +1937,12 @@ class _CategoryIconCard extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: Colors.white, size: isMobile ? 24 : 28),
-              SizedBox(height: isMobile ? 6 : 8),
+              Icon(icon, color: Colors.white, size: isMobile ? 22 : 28),
+              SizedBox(height: isMobile ? 4 : 8),
               Text(
                 label,
                 style: GoogleFonts.poppins(
-                  fontSize: isMobile ? 11 : 13,
+                  fontSize: isMobile ? 10 : 13,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
                   color: Colors.white,
                 ),

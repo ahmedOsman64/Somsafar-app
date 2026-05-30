@@ -27,12 +27,16 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       setState(() => _isLoading = true);
 
       // Check if email already exists
-      final isRegistered = await ref.read(userProvider.notifier).isEmailRegistered(_emailController.text.trim());
+      final isRegistered = await ref
+          .read(userProvider.notifier)
+          .isEmailRegistered(_emailController.text.trim());
       if (isRegistered) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('This email has already been registered. Please use a different one.'),
+              content: Text(
+                'This email has already been registered. Please use a different one.',
+              ),
               backgroundColor: Colors.orange,
             ),
           );
@@ -114,8 +118,16 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                     controller: _emailController,
                     label: 'Email',
                     hint: 'Enter your email',
-                    validator: (v) =>
-                        v?.contains('@') != true ? 'Invalid email' : null,
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return 'Required';
+                      final emailRegex = RegExp(
+                        r'^[\w\.\+\-]+@[a-zA-Z0-9\-]+\.[a-zA-Z]{2,}$',
+                      );
+                      if (!emailRegex.hasMatch(v.trim())) {
+                        return 'Enter a valid email (e.g. name@gmail.com)';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 16),
                   AppTextField(
@@ -129,6 +141,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   const SizedBox(height: 16),
                   AppDropdown<Gender>(
                     label: 'Gender',
+                    hint: 'Choose your gender',
                     value: _selectedGender,
                     items: const [
                       DropdownMenuItem(value: Gender.male, child: Text('Male')),

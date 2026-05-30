@@ -48,22 +48,28 @@ class _ProviderServiceFormScreenState
 
   // Hotel Specific
   late TextEditingController _hotelNameController;
-  late TextEditingController _starRatingController;
-  late TextEditingController _checkInController;
-  late TextEditingController _checkOutController;
   late TextEditingController _hotelRoomsController;
-  late TextEditingController _maxGuestsController;
   final List<String> _hotelAmenities = [];
   String? _bedType = 'Double';
   String? _smokingPreference = 'Non-Smoking';
   bool _breakfastIncluded = false;
   bool _airportPickup = false;
   bool _extraBedAvailable = false;
-  bool _hotelEarlyCheckInAllowed = false;
-  bool _hotelLateCheckoutAllowed = false;
   late TextEditingController _breakfastPriceController;
   late TextEditingController _airportPickupPriceController;
   late TextEditingController _extraBedPriceController;
+  final List<Map<String, dynamic>> _customRoomOptions = [];
+
+  // Bed Type Prices
+  bool _singleBedEnabled = false;
+  bool _doubleBedEnabled = false;
+  bool _twinBedEnabled = false;
+  late TextEditingController _singleBedPriceController;
+  late TextEditingController _doubleBedPriceController;
+  late TextEditingController _twinBedPriceController;
+  late TextEditingController _singleRoomsController;
+  late TextEditingController _doubleRoomsController;
+  late TextEditingController _twinRoomsController;
 
   // Apartment Specific
   String? _apartmentType;
@@ -74,15 +80,11 @@ class _ProviderServiceFormScreenState
   late TextEditingController _aptMaxGuestsController;
   bool _aptFurnished = false;
   bool _hasElevator = false;
-   bool _hasParking = false;
-   bool _cleaningAvailable = false;
-   bool _earlyCheckInAllowed = false;
-   bool _lateCheckoutAllowed = false;
-   late TextEditingController _houseRulesController;
-   late TextEditingController _cleaningPriceController;
-   late TextEditingController _earlyCheckInPriceController;
-   late TextEditingController _lateCheckoutPriceController;
-   final List<String> _aptAmenities = [];
+  bool _hasParking = false;
+  bool _cleaningAvailable = false;
+  late TextEditingController _houseRulesController;
+  late TextEditingController _cleaningPriceController;
+  final List<String> _aptAmenities = [];
 
   // Tour Specific
   late TextEditingController _durationController;
@@ -119,14 +121,14 @@ class _ProviderServiceFormScreenState
   late TextEditingController _eidDaysController;
   late TextEditingController _adultPriceController;
   late TextEditingController _childPriceController;
-  
+
   // Extra Services
   late TextEditingController _guidePriceController;
   late TextEditingController _privateTransportPriceController;
   late TextEditingController _photographerPriceController;
   late TextEditingController _vipAccessPriceController;
   late TextEditingController _translatorPriceController;
- 
+
   @override
   void initState() {
     super.initState();
@@ -137,14 +139,16 @@ class _ProviderServiceFormScreenState
 
     // Hotel
     _hotelNameController = TextEditingController();
-    _starRatingController = TextEditingController();
-    _checkInController = TextEditingController();
-    _checkOutController = TextEditingController();
     _hotelRoomsController = TextEditingController();
-    _maxGuestsController = TextEditingController();
     _breakfastPriceController = TextEditingController();
     _airportPickupPriceController = TextEditingController();
     _extraBedPriceController = TextEditingController();
+    _singleBedPriceController = TextEditingController();
+    _doubleBedPriceController = TextEditingController();
+    _twinBedPriceController = TextEditingController();
+    _singleRoomsController = TextEditingController();
+    _doubleRoomsController = TextEditingController();
+    _twinRoomsController = TextEditingController();
     _regionController = TextEditingController();
 
     // Apartment
@@ -152,11 +156,9 @@ class _ProviderServiceFormScreenState
     _aptRoomsController = TextEditingController();
     _aptBedroomsController = TextEditingController();
     _aptBathroomsController = TextEditingController();
-     _aptMaxGuestsController = TextEditingController();
-     _houseRulesController = TextEditingController();
-     _cleaningPriceController = TextEditingController();
-     _earlyCheckInPriceController = TextEditingController();
-     _lateCheckoutPriceController = TextEditingController();
+    _aptMaxGuestsController = TextEditingController();
+    _houseRulesController = TextEditingController();
+    _cleaningPriceController = TextEditingController();
 
     // Tour
     _durationController = TextEditingController();
@@ -168,7 +170,7 @@ class _ProviderServiceFormScreenState
     _tourImportantInfoController = TextEditingController();
     _adultPriceController = TextEditingController();
     _childPriceController = TextEditingController();
-    
+
     _guidePriceController = TextEditingController();
     _privateTransportPriceController = TextEditingController();
     _photographerPriceController = TextEditingController();
@@ -218,8 +220,11 @@ class _ProviderServiceFormScreenState
           _titleController.text = service.title;
           _selectedCategory = service.category;
           _priceController.text = service.price.toString();
-          _pricingType = service.metadata['pricing_type'] ?? 
-              (service.category.toLowerCase().contains('apartment') ? 'monthly' : 'nightly');
+          _pricingType =
+              service.metadata['pricing_type'] ??
+              (service.category.toLowerCase().contains('apartment')
+                  ? 'monthly'
+                  : 'nightly');
           _locationController.text = service.location;
           _descriptionController.text = service.description;
           _status = service.status;
@@ -245,29 +250,25 @@ class _ProviderServiceFormScreenState
                 service.breakfastPrice?.toString() ?? '';
             _airportPickupPriceController.text =
                 service.airportPickupPrice?.toString() ?? '';
-             _extraBedPriceController.text =
-                 service.extraBedPrice?.toString() ?? '';
-             _maxGuestsController.text =
-                 service.maxGuests?.toString() ?? '';
-             
-             // Ensure amenities are loaded even if not in metadata
-             if (service.amenities != null) {
-               _hotelAmenities.clear();
-               _hotelAmenities.addAll(List<String>.from(service.amenities!));
-             }
-           } else if (categoryLower.contains('apartment')) {
-             _cleaningPriceController.text =
-                 service.cleaningPrice?.toString() ?? '';
-             _lateCheckoutPriceController.text =
-                 service.lateCheckoutPrice?.toString() ?? '';
-                 
-             // Ensure amenities are loaded even if not in metadata
-             if (service.amenities != null) {
-               _aptAmenities.clear();
-               _aptAmenities.addAll(List<String>.from(service.amenities!));
-             }
-           }
-         });
+            _extraBedPriceController.text =
+                service.extraBedPrice?.toString() ?? '';
+
+            // Ensure amenities are loaded even if not in metadata
+            if (service.amenities != null) {
+              _hotelAmenities.clear();
+              _hotelAmenities.addAll(List<String>.from(service.amenities!));
+            }
+          } else if (categoryLower.contains('apartment')) {
+            _cleaningPriceController.text =
+                service.cleaningPrice?.toString() ?? '';
+
+            // Ensure amenities are loaded even if not in metadata
+            if (service.amenities != null) {
+              _aptAmenities.clear();
+              _aptAmenities.addAll(List<String>.from(service.amenities!));
+            }
+          }
+        });
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -284,11 +285,7 @@ class _ProviderServiceFormScreenState
       case 'hotel':
       case 'hotels':
         _hotelNameController.text = metadata['hotelName'] ?? '';
-        _starRatingController.text = metadata['starRating']?.toString() ?? '';
-        _checkInController.text = metadata['checkIn'] ?? '';
-        _checkOutController.text = metadata['checkOut'] ?? '';
         _hotelRoomsController.text = metadata['rooms']?.toString() ?? '';
-        _maxGuestsController.text = (metadata['max_guests'] ?? metadata['maxGuests'])?.toString() ?? '';
         if (metadata['amenities'] != null) {
           _hotelAmenities.clear();
           _hotelAmenities.addAll(List<String>.from(metadata['amenities']));
@@ -298,8 +295,39 @@ class _ProviderServiceFormScreenState
         _breakfastIncluded = metadata['breakfastIncluded'] ?? false;
         _airportPickup = metadata['airportPickup'] ?? false;
         _extraBedAvailable = metadata['extraBedAvailable'] ?? false;
-        _hotelEarlyCheckInAllowed = metadata['earlyCheckInAllowed'] ?? false;
-        _hotelLateCheckoutAllowed = metadata['lateCheckoutAllowed'] ?? false;
+
+        if (metadata['custom_room_options'] != null) {
+          _customRoomOptions.clear();
+          _customRoomOptions.addAll(
+            List<Map<String, dynamic>>.from(metadata['custom_room_options']),
+          );
+        }
+
+        final bedTypes = metadata['bed_types_dynamic'] as Map<String, dynamic>?;
+        if (bedTypes != null) {
+          _singleBedEnabled = bedTypes['single']?['enabled'] ?? false;
+          _singleBedPriceController.text =
+              bedTypes['single']?['price']?.toString() ?? '';
+          _singleRoomsController.text =
+              bedTypes['single']?['count']?.toString() ?? '';
+
+          _doubleBedEnabled = bedTypes['double']?['enabled'] ?? false;
+          _doubleBedPriceController.text =
+              bedTypes['double']?['price']?.toString() ?? '';
+          _doubleRoomsController.text =
+              bedTypes['double']?['count']?.toString() ?? '';
+
+          _twinBedEnabled = bedTypes['twin']?['enabled'] ?? false;
+          _twinBedPriceController.text =
+              bedTypes['twin']?['price']?.toString() ?? '';
+          _twinRoomsController.text =
+              bedTypes['twin']?['count']?.toString() ?? '';
+        } else if (_bedType != null) {
+          // Fallback for old data
+          if (_bedType == 'Single') _singleBedEnabled = true;
+          if (_bedType == 'Double') _doubleBedEnabled = true;
+          if (_bedType == 'Twin') _twinBedEnabled = true;
+        }
         break;
 
       case 'apartment':
@@ -309,13 +337,12 @@ class _ProviderServiceFormScreenState
         _aptRoomsController.text = metadata['rooms']?.toString() ?? '';
         _aptBedroomsController.text = metadata['bedrooms']?.toString() ?? '';
         _aptBathroomsController.text = metadata['bathrooms']?.toString() ?? '';
-        _aptMaxGuestsController.text = (metadata['max_guests'] ?? metadata['maxGuests'])?.toString() ?? '';
+        _aptMaxGuestsController.text =
+            (metadata['max_guests'] ?? metadata['maxGuests'])?.toString() ?? '';
         _aptFurnished = metadata['furnished'] ?? false;
         _hasElevator = metadata['elevator'] ?? false;
         _hasParking = metadata['parking'] ?? false;
         _cleaningAvailable = metadata['cleaningAvailable'] ?? false;
-        _earlyCheckInAllowed = metadata['earlyCheckInAllowed'] ?? false;
-        _lateCheckoutAllowed = metadata['lateCheckoutAllowed'] ?? false;
         _houseRulesController.text = metadata['houseRules'] ?? '';
         if (metadata['amenities'] != null) {
           _aptAmenities.clear();
@@ -327,7 +354,8 @@ class _ProviderServiceFormScreenState
         _durationController.text = metadata['duration'] ?? '';
         _meetingPointController.text = metadata['meetingPoint'] ?? '';
         _maxTravelersController.text =
-            (metadata['max_guests'] ?? metadata['maxTravelers'])?.toString() ?? '';
+            (metadata['max_guests'] ?? metadata['maxTravelers'])?.toString() ??
+            '';
         _tourLanguages.clear();
         if (metadata['languages'] != null) {
           _tourLanguages.addAll(List<String>.from(metadata['languages']));
@@ -341,7 +369,7 @@ class _ProviderServiceFormScreenState
           _tourIncludes.clear();
           _tourIncludes.addAll(List<String>.from(metadata['includes']));
         }
-        
+
         // Restore Package
         final packageStr = metadata['package'] ?? 'jumma';
         _selectedTourPackage = TourPackage.values.firstWhere(
@@ -351,7 +379,8 @@ class _ProviderServiceFormScreenState
 
         // Restore Package Specific Fields
         if (_selectedTourPackage == TourPackage.jumma) {
-          _preferredLocationController.text = metadata['preferredLocation'] ?? '';
+          _preferredLocationController.text =
+              metadata['preferredLocation'] ?? '';
           _jummaTransportController.text = metadata['jummaTransport'] ?? '';
           _accommodationType = metadata['accommodationType'] ?? 'Hotel';
           _includeLunch = metadata['includeLunch'] ?? true;
@@ -366,18 +395,29 @@ class _ProviderServiceFormScreenState
           _budgetRangeController.text = metadata['budgetRange'] ?? '';
           if (metadata['availableServices'] != null) {
             _availableServices.clear();
-            _availableServices.addAll(List<String>.from(metadata['availableServices']));
+            _availableServices.addAll(
+              List<String>.from(metadata['availableServices']),
+            );
           }
         }
-        _adultPriceController.text = (metadata['adult_price'] ?? metadata['adultPrice'])?.toString() ?? '';
-        _childPriceController.text = (metadata['child_price'] ?? metadata['childPrice'])?.toString() ?? '';
-        
-        final extraPrices = metadata['extraServicePrices'] as Map<String, dynamic>? ?? {};
+        _adultPriceController.text =
+            (metadata['adult_price'] ?? metadata['adultPrice'])?.toString() ??
+            '';
+        _childPriceController.text =
+            (metadata['child_price'] ?? metadata['childPrice'])?.toString() ??
+            '';
+
+        final extraPrices =
+            metadata['extraServicePrices'] as Map<String, dynamic>? ?? {};
         _guidePriceController.text = extraPrices['Guide']?.toString() ?? '';
-        _privateTransportPriceController.text = extraPrices['Private Transport']?.toString() ?? '';
-        _photographerPriceController.text = extraPrices['Photographer']?.toString() ?? '';
-        _vipAccessPriceController.text = extraPrices['VIP Access']?.toString() ?? '';
-        _translatorPriceController.text = extraPrices['Translator']?.toString() ?? '';
+        _privateTransportPriceController.text =
+            extraPrices['Private Transport']?.toString() ?? '';
+        _photographerPriceController.text =
+            extraPrices['Photographer']?.toString() ?? '';
+        _vipAccessPriceController.text =
+            extraPrices['VIP Access']?.toString() ?? '';
+        _translatorPriceController.text =
+            extraPrices['Translator']?.toString() ?? '';
         break;
     }
   }
@@ -396,31 +436,36 @@ class _ProviderServiceFormScreenState
     _tourExclusionsController.dispose();
     _tourItineraryController.dispose();
     _tourImportantInfoController.dispose();
-    _maxGuestsController.dispose();
+    _hotelNameController.dispose();
+    _hotelRoomsController.dispose();
     _houseRulesController.dispose();
     _breakfastPriceController.dispose();
     _airportPickupPriceController.dispose();
-     _extraBedPriceController.dispose();
-     _cleaningPriceController.dispose();
-     _earlyCheckInPriceController.dispose();
-     _lateCheckoutPriceController.dispose();
-     _preferredLocationController.dispose();
-     _jummaTransportController.dispose();
-     _eidTransportController.dispose();
-     _eidFoodController.dispose();
-     _budgetRangeController.dispose();
-     _eidDestinationController.dispose();
-     _eidDaysController.dispose();
-     _adultPriceController.dispose();
-     _childPriceController.dispose();
-     _guidePriceController.dispose();
-     _privateTransportPriceController.dispose();
-     _photographerPriceController.dispose();
-     _vipAccessPriceController.dispose();
-     _translatorPriceController.dispose();
-     _regionController.dispose();
- 
-     super.dispose();
+    _extraBedPriceController.dispose();
+    _singleBedPriceController.dispose();
+    _doubleBedPriceController.dispose();
+    _twinBedPriceController.dispose();
+    _singleRoomsController.dispose();
+    _doubleRoomsController.dispose();
+    _twinRoomsController.dispose();
+    _cleaningPriceController.dispose();
+    _preferredLocationController.dispose();
+    _jummaTransportController.dispose();
+    _eidTransportController.dispose();
+    _eidFoodController.dispose();
+    _budgetRangeController.dispose();
+    _eidDestinationController.dispose();
+    _eidDaysController.dispose();
+    _adultPriceController.dispose();
+    _childPriceController.dispose();
+    _guidePriceController.dispose();
+    _privateTransportPriceController.dispose();
+    _photographerPriceController.dispose();
+    _vipAccessPriceController.dispose();
+    _translatorPriceController.dispose();
+    _regionController.dispose();
+
+    super.dispose();
   }
 
   Future<bool> _onWillPop() async {
@@ -530,11 +575,15 @@ class _ProviderServiceFormScreenState
           }
         } catch (uploadError) {
           debugPrint('DEBUG: Detailed Upload Error: $uploadError');
-          throw Exception('Image upload failed: $uploadError. Please make sure storage bucket is configured.');
+          throw Exception(
+            'Image upload failed: $uploadError. Please make sure storage bucket is configured.',
+          );
         }
 
         if (finalImageUrls.isEmpty && _images.isNotEmpty) {
-          throw Exception('Failed to upload images: List is empty after processing. Check console logs.');
+          throw Exception(
+            'Failed to upload images: List is empty after processing. Check console logs.',
+          );
         }
 
         final title = _titleController.text;
@@ -553,19 +602,31 @@ class _ProviderServiceFormScreenState
           case 'hotel':
           case 'hotels':
             metadata['hotelName'] = _hotelNameController.text;
-            metadata['starRating'] = int.tryParse(_starRatingController.text);
-            metadata['checkIn'] = _checkInController.text;
-            metadata['checkOut'] = _checkOutController.text;
             metadata['rooms'] = int.tryParse(_hotelRoomsController.text);
-            metadata['max_guests'] = int.tryParse(_maxGuestsController.text);
             metadata['amenities'] = _hotelAmenities;
             metadata['bedType'] = _bedType;
             metadata['smokingPreference'] = _smokingPreference;
             metadata['breakfastIncluded'] = _breakfastIncluded;
             metadata['airportPickup'] = _airportPickup;
             metadata['extraBedAvailable'] = _extraBedAvailable;
-            metadata['earlyCheckInAllowed'] = _hotelEarlyCheckInAllowed;
-            metadata['lateCheckoutAllowed'] = _hotelLateCheckoutAllowed;
+            metadata['custom_room_options'] = _customRoomOptions;
+            metadata['bed_types_dynamic'] = {
+              'single': {
+                'enabled': _singleBedEnabled,
+                'price': 0.0, // Single is now automatic/base
+                'count': int.tryParse(_singleRoomsController.text) ?? 0,
+              },
+              'double': {
+                'enabled': _doubleBedEnabled,
+                'price': double.tryParse(_doubleBedPriceController.text) ?? 0.0,
+                'count': int.tryParse(_doubleRoomsController.text) ?? 0,
+              },
+              'twin': {
+                'enabled': _twinBedEnabled,
+                'price': double.tryParse(_twinBedPriceController.text) ?? 0.0,
+                'count': int.tryParse(_twinRoomsController.text) ?? 0,
+              },
+            };
             break;
 
           case 'apartment':
@@ -580,8 +641,6 @@ class _ProviderServiceFormScreenState
             metadata['elevator'] = _hasElevator;
             metadata['parking'] = _hasParking;
             metadata['cleaningAvailable'] = _cleaningAvailable;
-            metadata['earlyCheckInAllowed'] = _earlyCheckInAllowed;
-            metadata['lateCheckoutAllowed'] = _lateCheckoutAllowed;
             metadata['houseRules'] = _houseRulesController.text;
             metadata['amenities'] = _aptAmenities;
             break;
@@ -589,9 +648,7 @@ class _ProviderServiceFormScreenState
           case 'tours':
             metadata['duration'] = _durationController.text;
             metadata['meetingPoint'] = _meetingPointController.text;
-            metadata['max_guests'] = int.tryParse(
-              _maxTravelersController.text,
-            );
+            metadata['max_guests'] = int.tryParse(_maxTravelersController.text);
             metadata['languages'] = _tourLanguages;
             metadata['includes'] = _tourIncludes;
             metadata['package'] = _selectedTourPackage.name;
@@ -618,19 +675,27 @@ class _ProviderServiceFormScreenState
               metadata['budgetRange'] = _budgetRangeController.text;
               metadata['availableServices'] = _availableServices;
             }
-            
+
             // Core Pricing for Tours
-             metadata['adult_price'] = double.tryParse(_adultPriceController.text);
-             metadata['child_price'] = double.tryParse(_childPriceController.text);
-             
-             // Extra Services Pricing
-             metadata['extraServicePrices'] = {
-               'Guide': double.tryParse(_guidePriceController.text) ?? 0.0,
-               'Private Transport': double.tryParse(_privateTransportPriceController.text) ?? 0.0,
-               'Photographer': double.tryParse(_photographerPriceController.text) ?? 0.0,
-               'VIP Access': double.tryParse(_vipAccessPriceController.text) ?? 0.0,
-               'Translator': double.tryParse(_translatorPriceController.text) ?? 0.0,
-             };
+            metadata['adult_price'] = double.tryParse(
+              _adultPriceController.text,
+            );
+            metadata['child_price'] = double.tryParse(
+              _childPriceController.text,
+            );
+
+            // Extra Services Pricing
+            metadata['extraServicePrices'] = {
+              'Guide': double.tryParse(_guidePriceController.text) ?? 0.0,
+              'Private Transport':
+                  double.tryParse(_privateTransportPriceController.text) ?? 0.0,
+              'Photographer':
+                  double.tryParse(_photographerPriceController.text) ?? 0.0,
+              'VIP Access':
+                  double.tryParse(_vipAccessPriceController.text) ?? 0.0,
+              'Translator':
+                  double.tryParse(_translatorPriceController.text) ?? 0.0,
+            };
             break;
         }
 
@@ -651,25 +716,29 @@ class _ProviderServiceFormScreenState
             metadata: metadata,
             amenities: category.trim().toLowerCase().contains('hotel')
                 ? List<String>.from(_hotelAmenities)
-                : (category.trim().toLowerCase().contains('apartment') ? List<String>.from(_aptAmenities) : null),
+                : (category.trim().toLowerCase().contains('apartment')
+                      ? List<String>.from(_aptAmenities)
+                      : null),
             breakfastPrice: double.tryParse(_breakfastPriceController.text),
             airportPickupPrice: double.tryParse(
               _airportPickupPriceController.text,
             ),
             extraBedPrice: double.tryParse(_extraBedPriceController.text),
             maxGuests: category.trim().toLowerCase().contains('hotel')
-                ? int.tryParse(_maxGuestsController.text)
+                ? 2
                 : (category.trim().toLowerCase().contains('apartment')
-                    ? int.tryParse(_maxGuestsController.text)
-                    : int.tryParse(_maxTravelersController.text)),
+                      ? int.tryParse(_aptMaxGuestsController.text)
+                      : int.tryParse(_maxTravelersController.text)),
             cleaningPrice: double.tryParse(_cleaningPriceController.text),
-            earlyCheckInPrice: double.tryParse(_earlyCheckInPriceController.text),
-            lateCheckoutPrice: double.tryParse(_lateCheckoutPriceController.text),
             adultPrice: double.tryParse(_adultPriceController.text),
             childPrice: double.tryParse(_childPriceController.text),
             availableSlots: category.toLowerCase().contains('hotel')
-                ? (int.tryParse(_hotelRoomsController.text) ?? 1) - (existingService.metadata['bookedRooms'] as num? ?? 0).toInt()
-                : (category.toLowerCase().contains('apartment') ? 1 : (int.tryParse(_maxTravelersController.text) ?? 10)),
+                ? (int.tryParse(_hotelRoomsController.text) ?? 1) -
+                      (existingService.metadata['bookedRooms'] as num? ?? 0)
+                          .toInt()
+                : (category.toLowerCase().contains('apartment')
+                      ? 1
+                      : (int.tryParse(_maxTravelersController.text) ?? 10)),
           );
 
           await ref
@@ -714,25 +783,27 @@ class _ProviderServiceFormScreenState
             metadata: metadata,
             amenities: category.trim().toLowerCase().contains('hotel')
                 ? List<String>.from(_hotelAmenities)
-                : (category.trim().toLowerCase().contains('apartment') ? List<String>.from(_aptAmenities) : null),
+                : (category.trim().toLowerCase().contains('apartment')
+                      ? List<String>.from(_aptAmenities)
+                      : null),
             breakfastPrice: double.tryParse(_breakfastPriceController.text),
             airportPickupPrice: double.tryParse(
               _airportPickupPriceController.text,
             ),
             extraBedPrice: double.tryParse(_extraBedPriceController.text),
             maxGuests: category.trim().toLowerCase().contains('hotel')
-                ? int.tryParse(_maxGuestsController.text)
+                ? 2
                 : (category.trim().toLowerCase().contains('apartment')
-                    ? int.tryParse(_aptMaxGuestsController.text)
-                    : int.tryParse(_maxTravelersController.text)),
+                      ? int.tryParse(_aptMaxGuestsController.text)
+                      : int.tryParse(_maxTravelersController.text)),
             cleaningPrice: double.tryParse(_cleaningPriceController.text),
-            earlyCheckInPrice: double.tryParse(_earlyCheckInPriceController.text),
-            lateCheckoutPrice: double.tryParse(_lateCheckoutPriceController.text),
             adultPrice: double.tryParse(_adultPriceController.text),
             childPrice: double.tryParse(_childPriceController.text),
             availableSlots: category.toLowerCase().contains('hotel')
                 ? (int.tryParse(_hotelRoomsController.text) ?? 1)
-                : (category.toLowerCase().contains('apartment') ? 1 : (int.tryParse(_maxTravelersController.text) ?? 10)),
+                : (category.toLowerCase().contains('apartment')
+                      ? 1
+                      : (int.tryParse(_maxTravelersController.text) ?? 10)),
           );
 
           await ref.read(serviceProvider.notifier).addService(newService);
@@ -752,14 +823,14 @@ class _ProviderServiceFormScreenState
         if (mounted) {
           String errorMsg = e.toString();
           if (errorMsg.contains('PostgrestException')) {
-             // Try to extract a cleaner message
-             final regex = RegExp(r"message:\s*(.+?),");
-             final match = regex.firstMatch(errorMsg);
-             if (match != null) {
-               errorMsg = match.group(1) ?? errorMsg;
-             }
+            // Try to extract a cleaner message
+            final regex = RegExp(r"message:\s*(.+?),");
+            final match = regex.firstMatch(errorMsg);
+            if (match != null) {
+              errorMsg = match.group(1) ?? errorMsg;
+            }
           }
-          
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Error saving service: $errorMsg'),
@@ -904,16 +975,26 @@ class _ProviderServiceFormScreenState
                         child: Center(
                           child: Column(
                             children: [
-                              const Icon(Icons.category_outlined, size: 64, color: Colors.grey),
+                              const Icon(
+                                Icons.category_outlined,
+                                size: 64,
+                                color: Colors.grey,
+                              ),
                               const SizedBox(height: 16),
                               Text(
                                 'No categories available for $typeLabel.',
-                                style: const TextStyle(fontSize: 16, color: Colors.grey),
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey,
+                                ),
                               ),
                               const SizedBox(height: 8),
                               const Text(
                                 'Please contact support or try again later.',
-                                style: TextStyle(fontSize: 14, color: Colors.grey),
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey,
+                                ),
                               ),
                             ],
                           ),
@@ -953,7 +1034,11 @@ class _ProviderServiceFormScreenState
                     child: Center(
                       child: Column(
                         children: [
-                          const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                          const Icon(
+                            Icons.error_outline,
+                            size: 64,
+                            color: Colors.red,
+                          ),
                           const SizedBox(height: 16),
                           Text(
                             'Error loading categories: $err',
@@ -1020,12 +1105,16 @@ class _ProviderServiceFormScreenState
         const SizedBox(height: 16),
         Column(
           children: [
-            ref.watch(regionsProvider).when(
+            ref
+                .watch(regionsProvider)
+                .when(
                   data: (items) {
                     return AppDropdown<String>(
                       label: 'Region (Gobol) *',
                       hint: 'Select Region',
-                      value: _regionController.text.isNotEmpty ? _regionController.text : null,
+                      value: _regionController.text.isNotEmpty
+                          ? _regionController.text
+                          : null,
                       items: items.map((e) {
                         return DropdownMenuItem<String>(
                           value: e.label,
@@ -1039,7 +1128,9 @@ class _ProviderServiceFormScreenState
                           });
                         }
                       },
-                      validator: (val) => val == null || val.isEmpty ? 'Region is required' : null,
+                      validator: (val) => val == null || val.isEmpty
+                          ? 'Region is required'
+                          : null,
                     );
                   },
                   loading: () => const LinearProgressIndicator(),
@@ -1067,11 +1158,17 @@ class _ProviderServiceFormScreenState
             Expanded(
               child: AppTextField(
                 controller: _priceController,
-                label: (_selectedCategory?.toLowerCase().contains('tour') ?? false)
+                label:
+                    (_selectedCategory?.toLowerCase().contains('tour') ?? false)
                     ? 'Qiimaha Maalintii (Price per Day) *'
-                    : ((_selectedCategory?.toLowerCase().contains('apartment') ?? false)
-                        ? (_pricingType == 'monthly' ? 'Qiimaha Bishii (Price per Month) *' : 'Qiimaha Habeenkii (Price per Night) *')
-                        : 'Qiimaha Habeenkii (Price per Night) *'),
+                    : ((_selectedCategory?.toLowerCase().contains(
+                                'apartment',
+                              ) ??
+                              false)
+                          ? (_pricingType == 'monthly'
+                                ? 'Qiimaha Bishii (Price per Month) *'
+                                : 'Qiimaha Habeenkii (Price per Night) *')
+                          : 'Qiimaha Habeenkii (Price per Night) *'),
                 hint: '0.00',
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
@@ -1087,14 +1184,21 @@ class _ProviderServiceFormScreenState
             ),
           ],
         ),
-        if (_selectedCategory?.toLowerCase().contains('apartment') ?? false) ...[
+        if (_selectedCategory?.toLowerCase().contains('apartment') ??
+            false) ...[
           const SizedBox(height: 16),
           AppDropdown<String>(
             label: 'Nooca Qiimaha (Pricing Type) *',
             value: _pricingType,
             items: [
-              const DropdownMenuItem(value: 'nightly', child: Text('Habeenkii (Nightly)')),
-              const DropdownMenuItem(value: 'monthly', child: Text('Bishii (Monthly)')),
+              const DropdownMenuItem(
+                value: 'nightly',
+                child: Text('Habeenkii (Nightly)'),
+              ),
+              const DropdownMenuItem(
+                value: 'monthly',
+                child: Text('Bishii (Monthly)'),
+              ),
             ],
             onChanged: (val) => setState(() => _pricingType = val!),
           ),
@@ -1133,89 +1237,120 @@ class _ProviderServiceFormScreenState
           prefixIcon: const Icon(Icons.hotel),
         ),
         const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: AppTextField(
-                controller: _starRatingController,
-                label: 'Star Rating (1-5) *',
-                hint: 'e.g. 5',
-                keyboardType: TextInputType.number,
-                prefixIcon: const Icon(Icons.star_border),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: AppTextField(
-                controller: _hotelRoomsController,
-                label: 'Number of Rooms *',
-                hint: 'e.g. 20',
-                keyboardType: TextInputType.number,
-                prefixIcon: const Icon(Icons.meeting_room_outlined),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
         AppTextField(
-          controller: _maxGuestsController,
-          label: 'Number of Guests per Room *',
-          hint: 'e.g. 2 adults, 1 child',
-          prefixIcon: const Icon(Icons.group_outlined),
+          controller: _hotelRoomsController,
+          label: 'Number of Rooms *',
+          hint: 'e.g. 20',
+          keyboardType: TextInputType.number,
+          prefixIcon: const Icon(Icons.meeting_room_outlined),
         ),
         const SizedBox(height: 16),
+        const Text(
+          'Bed Types & Prices',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
         Row(
           children: [
             Expanded(
-              child: AppTextField(
-                controller: _checkInController,
-                label: 'Check-in Time *',
-                hint: 'select check-in time',
-                prefixIcon: const Icon(Icons.login),
-                readOnly: true,
-                onTap: () async {
-                  final time = await showTimePicker(
-                    context: context,
-                    initialTime: TimeOfDay.now(),
-                  );
-                  if (time != null && context.mounted) {
-                    _checkInController.text = time.format(context);
-                  }
-                },
+              child: Column(
+                children: [
+                  SwitchListTile(
+                    title: const Text('Single Bed'),
+                    value: _singleBedEnabled,
+                    onChanged: (val) => setState(() => _singleBedEnabled = val),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  if (_singleBedEnabled)
+                    AppTextField(
+                      controller: _singleRoomsController,
+                      label: 'Number of Rooms',
+                      hint: '5',
+                      keyboardType: TextInputType.number,
+                      prefixIcon: const Icon(Icons.meeting_room_outlined),
+                    ),
+                ],
               ),
             ),
             const SizedBox(width: 16),
             Expanded(
-              child: AppTextField(
-                controller: _checkOutController,
-                label: 'Check-out Time *',
-                hint: 'select check-out time',
-                prefixIcon: const Icon(Icons.logout),
-                readOnly: true,
-                onTap: () async {
-                  final time = await showTimePicker(
-                    context: context,
-                    initialTime: TimeOfDay.now(),
-                  );
-                  if (time != null && context.mounted) {
-                    _checkOutController.text = time.format(context);
-                  }
-                },
+              child: Column(
+                children: [
+                  SwitchListTile(
+                    title: const Text('Double Bed'),
+                    value: _doubleBedEnabled,
+                    onChanged: (val) => setState(() => _doubleBedEnabled = val),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  if (_doubleBedEnabled)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: AppTextField(
+                            controller: _doubleBedPriceController,
+                            label: 'Price +',
+                            hint: '10.00',
+                            keyboardType: TextInputType.number,
+                            prefixIcon: const Icon(Icons.attach_money),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: AppTextField(
+                            controller: _doubleRoomsController,
+                            label: 'Count',
+                            hint: '5',
+                            keyboardType: TextInputType.number,
+                            prefixIcon: const Icon(Icons.meeting_room_outlined),
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
               ),
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
         Row(
           children: [
             Expanded(
-              child: AppDropdown<String>(
-                label: 'Bed Type *',
-                value: _bedType,
-                items: ['Single', 'Double', 'Twin']
-                    .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-                    .toList(),
-                onChanged: (val) => setState(() => _bedType = val),
+              child: Column(
+                children: [
+                  SwitchListTile(
+                    title: const Text('Twin Beds'),
+                    value: _twinBedEnabled,
+                    onChanged: (val) => setState(() => _twinBedEnabled = val),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  if (_twinBedEnabled)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: AppTextField(
+                            controller: _twinBedPriceController,
+                            label: 'Price +',
+                            hint: '5.00',
+                            keyboardType: TextInputType.number,
+                            prefixIcon: const Icon(Icons.attach_money),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: AppTextField(
+                            controller: _twinRoomsController,
+                            label: 'Count',
+                            hint: '5',
+                            keyboardType: TextInputType.number,
+                            prefixIcon: const Icon(Icons.meeting_room_outlined),
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
               ),
             ),
             const SizedBox(width: 16),
@@ -1272,7 +1407,8 @@ class _ProviderServiceFormScreenState
                   if (_airportPickup)
                     AppTextField(
                       controller: _airportPickupPriceController,
-                      label: 'Qiimaha Kasoo Qaadista Gegada (Airport Pickup Fee) *',
+                      label:
+                          'Qiimaha Kasoo Qaadista Gegada (Airport Pickup Fee) *',
                       hint: '25.00',
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
@@ -1310,34 +1446,11 @@ class _ProviderServiceFormScreenState
           ],
         ),
 
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: SwitchListTile(
-                title: const Text('Early Check-in'),
-                value: _hotelEarlyCheckInAllowed,
-                onChanged: (val) =>
-                    setState(() => _hotelEarlyCheckInAllowed = val),
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-            Expanded(
-              child: SwitchListTile(
-                title: const Text('Late Checkout'),
-                value: _hotelLateCheckoutAllowed,
-                onChanged: (val) =>
-                    setState(() => _hotelLateCheckoutAllowed = val),
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-          ],
-        ),
         const SizedBox(height: 16),
         const Text('Amenities', style: TextStyle(fontWeight: FontWeight.bold)),
-        ref.watch(amenitiesHotelProvider).when(
+        ref
+            .watch(amenitiesHotelProvider)
+            .when(
               data: (items) => Wrap(
                 spacing: 8,
                 runSpacing: 0,
@@ -1364,6 +1477,120 @@ class _ProviderServiceFormScreenState
               loading: () => const LinearProgressIndicator(),
               error: (e, _) => const Text('Error loading amenities'),
             ),
+        const SizedBox(height: 24),
+        _buildCustomOptionsSection(),
+      ],
+    );
+  }
+
+  Widget _buildCustomOptionsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Dookhyada Dheeraadka ah (Custom Options)',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Halkan ku dar dookhyada kale ee qolka yeelan karo iyo qiimahooda dheeraadka ah.',
+          style: TextStyle(fontSize: 12, color: Colors.grey),
+        ),
+        const SizedBox(height: 16),
+        ..._customRoomOptions.asMap().entries.map((entry) {
+          final index = entry.key;
+          final option = entry.value;
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey[300]!),
+              borderRadius: BorderRadius.circular(12),
+              color: Colors.grey[50],
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Magaca (Title)',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      TextFormField(
+                        initialValue: option['title'],
+                        decoration: InputDecoration(
+                          hintText: 'e.g. Sea View',
+                          contentPadding: const EdgeInsets.all(12),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        onChanged: (v) =>
+                            _customRoomOptions[index]['title'] = v,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Qiimaha (\$)',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      TextFormField(
+                        initialValue: option['price']?.toString(),
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          hintText: '20',
+                          contentPadding: const EdgeInsets.all(12),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        onChanged: (v) => _customRoomOptions[index]['price'] =
+                            double.tryParse(v) ?? 0.0,
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                  onPressed: () =>
+                      setState(() => _customRoomOptions.removeAt(index)),
+                ),
+              ],
+            ),
+          );
+        }),
+        TextButton.icon(
+          onPressed: () {
+            setState(() {
+              _customRoomOptions.add({
+                'id': 'opt_${DateTime.now().millisecondsSinceEpoch}',
+                'title': '',
+                'price': 0.0,
+              });
+            });
+          },
+          icon: const Icon(Icons.add),
+          label: const Text('Add Custom Option'),
+          style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+        ),
       ],
     );
   }
@@ -1484,28 +1711,6 @@ class _ProviderServiceFormScreenState
             ),
           ],
         ),
-        Row(
-          children: [
-            Expanded(
-              child: SwitchListTile(
-                title: const Text('Early Check-in'),
-                value: _earlyCheckInAllowed,
-                onChanged: (val) => setState(() => _earlyCheckInAllowed = val),
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-            Expanded(
-              child: SwitchListTile(
-                title: const Text('Late Checkout'),
-                value: _lateCheckoutAllowed,
-                onChanged: (val) => setState(() => _lateCheckoutAllowed = val),
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-          ],
-        ),
         const SizedBox(height: 16),
         AppTextField(
           controller: _houseRulesController,
@@ -1530,30 +1735,14 @@ class _ProviderServiceFormScreenState
                 prefixIcon: const Icon(Icons.cleaning_services),
               ),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: AppTextField(
-                controller: _earlyCheckInPriceController,
-                label: 'Soo Galista Hore (Early Check-in)',
-                hint: '0.00',
-                keyboardType: TextInputType.number,
-                prefixIcon: const Icon(Icons.wb_sunny_outlined),
-              ),
-            ),
           ],
-        ),
-        const SizedBox(height: 16),
-        AppTextField(
-          controller: _lateCheckoutPriceController,
-          label: 'Ka Bixista Dib u Dhacday (Late Checkout Fee)',
-          hint: '0.00',
-          keyboardType: TextInputType.number,
-          prefixIcon: const Icon(Icons.nightlight_outlined),
         ),
         const SizedBox(height: 24),
         const Text('Amenities', style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
-        ref.watch(amenitiesApartmentProvider).when(
+        ref
+            .watch(amenitiesApartmentProvider)
+            .when(
               data: (items) => Wrap(
                 spacing: 8,
                 runSpacing: 0,
@@ -1701,7 +1890,8 @@ class _ProviderServiceFormScreenState
                 label: 'Tour Duration *',
                 hint: 'e.g. 1 Day, 4 Hours',
                 prefixIcon: const Icon(Icons.timer_outlined),
-                validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                validator: (val) =>
+                    val == null || val.isEmpty ? 'Required' : null,
               ),
             ),
             const SizedBox(width: 16),
@@ -1732,7 +1922,8 @@ class _ProviderServiceFormScreenState
         const SizedBox(height: 32),
 
         // 2. Specific Package Fields
-        if (_selectedTourPackage == TourPackage.jumma) _buildJummaPackageFields(),
+        if (_selectedTourPackage == TourPackage.jumma)
+          _buildJummaPackageFields(),
         if (_selectedTourPackage == TourPackage.eid) _buildEidPackageFields(),
         if (_selectedTourPackage == TourPackage.custom) ...[
           _buildCustomPackageFields(),
@@ -1744,33 +1935,34 @@ class _ProviderServiceFormScreenState
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: [
-              'Guide',
-              'Transport',
-              'Meals',
-              'Tickets',
-              'Equipment',
-              'Insurance',
-              'Hotel Pickup',
-              'WiFi'
-            ].map((item) {
-              final isSelected = _tourIncludes.contains(item);
-              return FilterChip(
-                label: Text(item),
-                selected: isSelected,
-                onSelected: (selected) {
-                  setState(() {
-                    if (selected) {
-                      _tourIncludes.add(item);
-                    } else {
-                      _tourIncludes.remove(item);
-                    }
-                  });
-                },
-                selectedColor: AppColors.primary.withValues(alpha: 0.2),
-                checkmarkColor: AppColors.primary,
-              );
-            }).toList(),
+            children:
+                [
+                  'Guide',
+                  'Transport',
+                  'Meals',
+                  'Tickets',
+                  'Equipment',
+                  'Insurance',
+                  'Hotel Pickup',
+                  'WiFi',
+                ].map((item) {
+                  final isSelected = _tourIncludes.contains(item);
+                  return FilterChip(
+                    label: Text(item),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      setState(() {
+                        if (selected) {
+                          _tourIncludes.add(item);
+                        } else {
+                          _tourIncludes.remove(item);
+                        }
+                      });
+                    },
+                    selectedColor: AppColors.primary.withValues(alpha: 0.2),
+                    checkmarkColor: AppColors.primary,
+                  );
+                }).toList(),
           ),
           const SizedBox(height: 12),
           AppTextField(
@@ -1778,7 +1970,10 @@ class _ProviderServiceFormScreenState
             label: 'Other Inclusions',
             hint: 'Enter any additional inclusions...',
             maxLines: 2,
-            prefixIcon: const Icon(Icons.add_circle_outline, color: Colors.green),
+            prefixIcon: const Icon(
+              Icons.add_circle_outline,
+              color: Colors.green,
+            ),
           ),
           const SizedBox(height: 24),
           _buildSectionTitle('What\'s Not Included?'),
@@ -1786,31 +1981,32 @@ class _ProviderServiceFormScreenState
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: [
-              'Tips',
-              'Personal Expenses',
-              'Flights',
-              'Entry Fees',
-              'Dinner',
-              'Alcohol'
-            ].map((item) {
-              final isSelected = _tourExcludes.contains(item);
-              return FilterChip(
-                label: Text(item),
-                selected: isSelected,
-                onSelected: (selected) {
-                  setState(() {
-                    if (selected) {
-                      _tourExcludes.add(item);
-                    } else {
-                      _tourExcludes.remove(item);
-                    }
-                  });
-                },
-                selectedColor: Colors.red.withValues(alpha: 0.1),
-                checkmarkColor: Colors.red,
-              );
-            }).toList(),
+            children:
+                [
+                  'Tips',
+                  'Personal Expenses',
+                  'Flights',
+                  'Entry Fees',
+                  'Dinner',
+                  'Alcohol',
+                ].map((item) {
+                  final isSelected = _tourExcludes.contains(item);
+                  return FilterChip(
+                    label: Text(item),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      setState(() {
+                        if (selected) {
+                          _tourExcludes.add(item);
+                        } else {
+                          _tourExcludes.remove(item);
+                        }
+                      });
+                    },
+                    selectedColor: Colors.red.withValues(alpha: 0.1),
+                    checkmarkColor: Colors.red,
+                  );
+                }).toList(),
           ),
           const SizedBox(height: 12),
           AppTextField(
@@ -1818,7 +2014,10 @@ class _ProviderServiceFormScreenState
             label: 'Other Exclusions',
             hint: 'Enter any additional exclusions...',
             maxLines: 2,
-            prefixIcon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+            prefixIcon: const Icon(
+              Icons.remove_circle_outline,
+              color: Colors.red,
+            ),
           ),
           const SizedBox(height: 24),
           _buildSectionTitle('Tour Itinerary'),
@@ -1849,7 +2048,9 @@ class _ProviderServiceFormScreenState
           DropdownButtonFormField<String>(
             initialValue: _tourDifficulty,
             decoration: InputDecoration(
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               prefixIcon: const Icon(Icons.speed_outlined),
             ),
             items: ['Easy', 'Moderate', 'Challenging', 'Strenuous'].map((diff) {
@@ -1858,37 +2059,39 @@ class _ProviderServiceFormScreenState
             onChanged: (val) => setState(() => _tourDifficulty = val!),
           ),
           const SizedBox(height: 24),
-        const Text(
-          'Languages Available',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        ref.watch(languagesProvider).when(
-              data: (items) => Wrap(
-                spacing: 8,
-                children: items.map((item) {
-                  final lang = item.label;
-                  final isSelected = _tourLanguages.contains(lang);
-                  return FilterChip(
-                    label: Text(lang),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      setState(() {
-                        if (selected) {
-                          _tourLanguages.add(lang);
-                        } else {
-                          _tourLanguages.remove(lang);
-                        }
-                      });
-                    },
-                    selectedColor: AppColors.primary.withAlpha(50),
-                    checkmarkColor: AppColors.primary,
-                  );
-                }).toList(),
+          const Text(
+            'Languages Available',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          ref
+              .watch(languagesProvider)
+              .when(
+                data: (items) => Wrap(
+                  spacing: 8,
+                  children: items.map((item) {
+                    final lang = item.label;
+                    final isSelected = _tourLanguages.contains(lang);
+                    return FilterChip(
+                      label: Text(lang),
+                      selected: isSelected,
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            _tourLanguages.add(lang);
+                          } else {
+                            _tourLanguages.remove(lang);
+                          }
+                        });
+                      },
+                      selectedColor: AppColors.primary.withAlpha(50),
+                      checkmarkColor: AppColors.primary,
+                    );
+                  }).toList(),
+                ),
+                loading: () => const LinearProgressIndicator(),
+                error: (e, _) => const Text('Error loading languages'),
               ),
-              loading: () => const LinearProgressIndicator(),
-              error: (e, _) => const Text('Error loading languages'),
-            ),
         ],
       ],
     );
@@ -1930,8 +2133,10 @@ class _ProviderServiceFormScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildSectionTitle('Service Images'),
-                const Text('Add up to 20 high-quality images.', 
-                    style: TextStyle(color: Colors.grey, fontSize: 13)),
+                const Text(
+                  'Add up to 20 high-quality images.',
+                  style: TextStyle(color: Colors.grey, fontSize: 13),
+                ),
               ],
             ),
             if (_images.isNotEmpty)
@@ -1939,8 +2144,15 @@ class _ProviderServiceFormScreenState
                 onPressed: () {
                   setState(() => _images.clear());
                 },
-                icon: const Icon(Icons.delete_sweep_outlined, color: Colors.red, size: 18),
-                label: const Text('Clear All', style: TextStyle(color: Colors.red)),
+                icon: const Icon(
+                  Icons.delete_sweep_outlined,
+                  color: Colors.red,
+                  size: 18,
+                ),
+                label: const Text(
+                  'Clear All',
+                  style: TextStyle(color: Colors.red),
+                ),
               ),
           ],
         ),
@@ -2092,7 +2304,8 @@ class _ProviderServiceFormScreenState
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4, // 4 columns for a cleaner look when many images are added
+        crossAxisCount:
+            4, // 4 columns for a cleaner look when many images are added
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
         childAspectRatio: 1,
@@ -2119,13 +2332,20 @@ class _ProviderServiceFormScreenState
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.add_photo_alternate_rounded, 
-                        color: AppColors.primary, size: 32),
+                    Icon(
+                      Icons.add_photo_alternate_rounded,
+                      color: AppColors.primary,
+                      size: 32,
+                    ),
                     SizedBox(height: 8),
-                    Text('Add Image', 
-                        style: TextStyle(fontSize: 12, 
-                        fontWeight: FontWeight.bold, 
-                        color: AppColors.primary)),
+                    Text(
+                      'Add Image',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -2157,12 +2377,15 @@ class _ProviderServiceFormScreenState
                         memCacheWidth: 300, // Reasonable size for grid preview
                       )
                     : item is Map && item.containsKey('bytes')
-                    ? Image.memory(item['bytes'] as Uint8List, fit: BoxFit.cover)
+                    ? Image.memory(
+                        item['bytes'] as Uint8List,
+                        fit: BoxFit.cover,
+                      )
                     : !kIsWeb && item is XFile
                     ? Image.file(io.File(item.path), fit: BoxFit.cover)
                     : const Center(child: CircularProgressIndicator()),
               ),
-              
+
               // Gradient Overlay for visibility
               Positioned.fill(
                 child: Container(
@@ -2180,21 +2403,28 @@ class _ProviderServiceFormScreenState
                   ),
                 ),
               ),
-              
+
               // Primary Tag
               if (index == 0)
                 Positioned(
                   top: 8,
                   left: 8,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.primary,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Text(
                       'Primary',
-                      style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
@@ -2215,13 +2445,18 @@ class _ProviderServiceFormScreenState
                     },
                     child: Container(
                       padding: const EdgeInsets.all(4),
-                      child: const Icon(Icons.close_rounded, size: 16, color: Colors.red),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        size: 16,
+                        color: Colors.red,
+                      ),
                     ),
                   ),
                 ),
               ),
 
-              if (_isUploading && (item is XFile || (item is Map && item.containsKey('file'))))
+              if (_isUploading &&
+                  (item is XFile || (item is Map && item.containsKey('file'))))
                 Positioned.fill(
                   child: Container(
                     decoration: BoxDecoration(
@@ -2248,12 +2483,12 @@ class _ProviderServiceFormScreenState
       label: 'Tour Package Type',
       value: _selectedTourPackage,
       items: TourPackage.values.map((package) {
-        String label = package.name[0].toUpperCase() + package.name.substring(1);
+        String label =
+            package.name[0].toUpperCase() + package.name.substring(1);
         IconData icon = Icons.explore_outlined;
         Color color = AppColors.primary;
 
         switch (package) {
-
           case TourPackage.jumma:
             icon = Icons.mosque_outlined;
             color = Colors.green;
@@ -2286,7 +2521,6 @@ class _ProviderServiceFormScreenState
     );
   }
 
-
   Widget _buildJummaPackageFields() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2310,9 +2544,11 @@ class _ProviderServiceFormScreenState
         AppDropdown<String>(
           label: 'Accommodation *',
           value: _accommodationType,
-          items: ['Hotel', 'Apartment', 'None']
-              .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-              .toList(),
+          items: [
+            'Hotel',
+            'Apartment',
+            'None',
+          ].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
           onChanged: (val) => setState(() => _accommodationType = val!),
         ),
         const SizedBox(height: 8),
@@ -2336,9 +2572,10 @@ class _ProviderServiceFormScreenState
         AppDropdown<String>(
           label: 'Eid Type *',
           value: _eidType,
-          items: ['Eid al-Fitr', 'Eid al-Adha']
-              .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-              .toList(),
+          items: [
+            'Eid al-Fitr',
+            'Eid al-Adha',
+          ].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
           onChanged: (val) => setState(() => _eidType = val!),
         ),
         const SizedBox(height: 16),
@@ -2401,7 +2638,9 @@ class _ProviderServiceFormScreenState
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
-        ref.watch(lookupServicesProvider).when(
+        ref
+            .watch(lookupServicesProvider)
+            .when(
               data: (items) => Wrap(
                 spacing: 8,
                 runSpacing: 8,

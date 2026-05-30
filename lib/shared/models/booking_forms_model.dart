@@ -57,6 +57,7 @@ class HotelBookingData extends BookingFormData {
   final double? breakfastPrice;
   final double? airportPickupPrice;
   final double? extraBedPrice;
+  final List<String> selectedCustomOptionIds;
 
   HotelBookingData({
     required super.checkIn,
@@ -75,6 +76,7 @@ class HotelBookingData extends BookingFormData {
     this.breakfastPrice,
     this.airportPickupPrice,
     this.extraBedPrice,
+    this.selectedCustomOptionIds = const [],
     super.specialRequests,
   });
 }

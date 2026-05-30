@@ -10,8 +10,7 @@ import 'booking/booking_detail_screen.dart';
 import '../../shared/models/review_model.dart';
 import '../../shared/services/review_repository.dart';
 import '../../shared/services/auth_service.dart';
-import 'package:uuid/uuid.dart'; 
-
+import 'package:uuid/uuid.dart';
 
 class TravelerBookingsScreen extends ConsumerWidget {
   const TravelerBookingsScreen({super.key});
@@ -102,7 +101,10 @@ class _BookingList extends ConsumerWidget {
                   const SizedBox(height: 16),
                   Text(
                     emptyMessage,
-                    style: GoogleFonts.poppins(color: Colors.grey, fontSize: 16),
+                    style: GoogleFonts.poppins(
+                      color: Colors.grey,
+                      fontSize: 16,
+                    ),
                   ),
                 ],
               ),
@@ -136,7 +138,9 @@ class _BookingCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final services = ref.watch(serviceProvider);
-    final service = services.where((s) => s.id == booking.serviceId).firstOrNull;
+    final service = services
+        .where((s) => s.id == booking.serviceId)
+        .firstOrNull;
     final imageUrl = service?.images.isNotEmpty == true
         ? service!.images.first
         : 'https://picsum.photos/seed/hotel/200/200';
@@ -276,56 +280,75 @@ class _BookingCard extends ConsumerWidget {
                       ),
                       Row(
                         children: [
-                          TextButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      BookingDetailScreen(booking: booking),
-                                ),
-                              );
-                            },
-                            child: Text(
-                              'View',
-                              style: GoogleFonts.poppins(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          if (booking.status == BookingStatus.confirmed ||
-                              booking.status == BookingStatus.pending)
-                            ElevatedButton.icon(
+                          // Icon-based Actions for space efficiency
+                          Tooltip(
+                            message: 'View Details',
+                            child: IconButton(
+                              icon: const Icon(Icons.visibility_outlined),
+                              color: AppColors.primary,
                               onPressed: () {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => ChatScreen(
-                                      bookingId: booking.id,
-                                      chatTitle: 'Provider',
-                                    ),
+                                    builder: (context) =>
+                                        BookingDetailScreen(booking: booking),
                                   ),
                                 );
                               },
-                              icon: const Icon(
-                                Icons.chat_bubble_outline,
-                                size: 18,
-                              ),
-                              label: const Text('Chat'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
+                            ),
+                          ),
+                          if (booking.status == BookingStatus.confirmed ||
+                              booking.status == BookingStatus.pending) ...[
+                            Tooltip(
+                              message: 'Cancel Booking',
+                              child: OutlinedButton(
+                                onPressed: () =>
+                                    _showCancelDialog(context, ref),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.red,
+                                  side: const BorderSide(
+                                    color: Colors.red,
+                                    width: 1.2,
+                                  ),
+                                  shape: const CircleBorder(),
+                                  padding: const EdgeInsets.all(8),
+                                  minimumSize: Size.zero,
                                 ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                                child: const Icon(Icons.close, size: 20),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Tooltip(
+                              message: 'Chat with Provider',
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => ChatScreen(
+                                        bookingId: booking.id,
+                                        chatTitle: 'Provider',
+                                      ),
+                                    ),
+                                  );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  padding: const EdgeInsets.all(10),
+                                  minimumSize: Size.zero,
+                                ),
+                                child: const Icon(
+                                  Icons.chat_bubble_outline,
+                                  size: 20,
                                 ),
                               ),
                             ),
+                          ],
                           if (booking.status == BookingStatus.completed)
                             OutlinedButton.icon(
                               onPressed: () => _showReviewDialog(context, ref),
@@ -354,6 +377,106 @@ class _BookingCard extends ConsumerWidget {
     );
   }
 
+  void _showCancelDialog(BuildContext context, WidgetRef ref) {
+    final reasonController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Cancel Booking',
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.bold,
+            color: Colors.red,
+          ),
+        ),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Please tell us why you want to cancel your booking for ${booking.serviceTitle}.',
+                style:
+                    GoogleFonts.poppins(fontSize: 13, color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: reasonController,
+                maxLines: 3,
+                style: GoogleFonts.poppins(fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: 'Enter reason for cancellation...',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.red),
+                  ),
+                ),
+                validator: (v) => v == null || v.trim().isEmpty
+                    ? 'Please provide a reason'
+                    : null,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Keep Booking',
+              style: GoogleFonts.poppins(color: Colors.grey),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (formKey.currentState?.validate() ?? false) {
+                final updatedBooking = booking.copyWith(
+                  status: BookingStatus.cancelled,
+                  metadata: {
+                    ...booking.metadata,
+                    'cancel_reason': reasonController.text.trim(),
+                    'cancelled_by': 'traveler',
+                    'cancelled_at': DateTime.now().toIso8601String(),
+                  },
+                );
+
+                await ref
+                    .read(bookingProvider.notifier)
+                    .updateBooking(updatedBooking);
+
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Booking cancelled successfully'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text(
+              'Confirm Cancel',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showReviewDialog(BuildContext context, WidgetRef ref) {
     int localRating = 5;
     final commentController = TextEditingController();
@@ -362,7 +485,9 @@ class _BookingCard extends ConsumerWidget {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           title: Text(
             'Review your stay',
             style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
@@ -372,7 +497,10 @@ class _BookingCard extends ConsumerWidget {
             children: [
               Text(
                 'How was your experience at ${booking.serviceTitle}?',
-                style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey[600]),
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
               ),
               const SizedBox(height: 20),
               Row(
@@ -473,10 +601,7 @@ class _BookingCard extends ConsumerWidget {
         const SizedBox(width: 6),
         Text(
           label,
-          style: GoogleFonts.poppins(
-            color: Colors.grey[600],
-            fontSize: 12,
-          ),
+          style: GoogleFonts.poppins(color: Colors.grey[600], fontSize: 12),
         ),
       ],
     );

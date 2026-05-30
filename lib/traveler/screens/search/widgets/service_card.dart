@@ -1103,13 +1103,9 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
   }
 
   Widget _buildAvailabilityBadge() {
-    final bool isHotel = widget.service.category.toLowerCase().contains(
-      'hotel',
-    );
-    final metadata = widget.service.metadata;
-    final int availableRooms =
-        (metadata['availableRooms'] as num?)?.toInt() ?? 1;
     final bool isInactive = widget.service.status == ServiceStatus.inactive;
+    final metadata = widget.service.metadata;
+    final String category = widget.service.category.toLowerCase();
 
     if (isInactive) {
       return Container(
@@ -1136,37 +1132,10 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
       );
     }
 
-    if (isHotel && availableRooms > 0 && availableRooms <= 3) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.orange.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.flash_on, size: 12, color: Colors.orange),
-            const SizedBox(width: 4),
-            Text(
-              'Only $availableRooms left!',
-              style: const TextStyle(
-                color: Colors.orange,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
+    // Build availability text (no low-stock count shown to customers)
     String availabilityText = 'Available Now';
-    final String category = widget.service.category.toLowerCase();
     final String? package = metadata['package'] as String?;
-
     if (category.contains('tour') && package != null) {
-      // Capitalize first letter
       final formattedPackage = package[0].toUpperCase() + package.substring(1);
       availabilityText = 'Available Now - $formattedPackage';
     }

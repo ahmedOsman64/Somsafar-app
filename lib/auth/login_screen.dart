@@ -129,19 +129,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   const SizedBox(height: 16),
                   const Text(
                     'Somsafar',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 32),
                   AppTextField(
                     controller: _emailController,
-                    label: 'Email / Username',
-                    hint: 'Enter your email or username',
+                    label: 'Email ',
+                    hint: 'Enter your email',
                     prefixIcon: const Icon(Icons.person_outline),
                     validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'Email or Username is required';
+                      if (v == null || v.trim().isEmpty) {
+                        return 'Email is required';
+                      }
                       return null;
                     },
                   ),
@@ -153,8 +152,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     obscureText: true,
                     prefixIcon: const Icon(Icons.lock_outline),
                     validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'Password is required';
-                      if (v.length < 6) return 'Password must be at least 6 characters';
+                      if (v == null || v.trim().isEmpty) {
+                        return 'Password is required';
+                      }
+                      if (v.length < 6) {
+                        return 'Password must be at least 6 characters';
+                      }
                       return null;
                     },
                   ),

@@ -118,6 +118,10 @@ class _AdminRegionManagerScreenState extends ConsumerState<AdminRegionManagerScr
             }
             if (reg == 'hiran') reg = 'hiiraan';
             if (reg == 'bakol') reg = 'bakool';
+            if (reg == 'shabeellaha_hoose' || reg == 'shabeellaha hoose' || reg == 'lower shabelle' || reg == 'shsh') reg = 'lower_shabelle';
+            if (reg == 'shabeellaha_dhexe' || reg == 'shabeellaha dhexe' || reg == 'middle shabelle' || reg == 'shsh_d') reg = 'middle_shabelle';
+            if (reg == 'jubbada_hoose' || reg == 'jubbada hoose' || reg == 'lower juba' || reg == 'jh') reg = 'lower_juba';
+            if (reg == 'jubbada_dhexe' || reg == 'jubbada dhexe' || reg == 'middle juba' || reg == 'jd') reg = 'middle_juba';
             
             regionCounts[reg] = (regionCounts[reg] ?? 0) + 1;
           }
@@ -189,6 +193,10 @@ class _AdminRegionManagerScreenState extends ConsumerState<AdminRegionManagerScr
                       if (slug == 'banadir') slug = 'banaadir';
                       if (slug == 'hiran') slug = 'hiiraan';
                       if (slug == 'bakol') slug = 'bakool';
+                      if (slug == 'shabeellaha_hoose') slug = 'lower_shabelle';
+                      if (slug == 'shabeellaha_dhexe') slug = 'middle_shabelle';
+                      if (slug == 'jubbada_hoose') slug = 'lower_juba';
+                      if (slug == 'jubbada_dhexe') slug = 'middle_juba';
                       
                       final count = regionCounts[slug] ?? 0;
                       

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Confirm Your Email - SomSafar</title>
+<style>
+  body { margin: 0; padding: 40px 16px; background: #F3F4F6; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+  .card { max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.07); }
+  .header { background: #0A3D62; padding: 36px 32px; text-align: center; }
+  .header h1 { color: #ffffff; margin: 0 0 4px; font-size: 28px; font-weight: 800; }
+  .header p { color: #1DD1A1; margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; }
+  .accent { height: 3px; background: #1DD1A1; }
+  .body { padding: 40px 36px 32px; text-align: center; }
+  .body h2 { color: #0A3D62; font-size: 22px; font-weight: 700; margin: 0 0 14px; }
+  .body p { color: #4B5563; font-size: 15px; line-height: 1.7; margin: 0 0 32px; }
+  .btn { display: inline-block; background: #0A3D62; color: #ffffff !important; text-decoration: none; padding: 16px 44px; border-radius: 10px; font-size: 15px; font-weight: 600; box-shadow: 0 4px 14px rgba(10,61,98,0.25); }
+  .link-box { display: none; }
+  .link-box a { color: #0A3D62; word-break: break-all; font-weight: 500; text-decoration: none; }
+  .footer { padding: 24px; background: #F9FAFB; border-top: 1px solid #F0F0F0; text-align: center; font-size: 11.5px; color: #9CA3AF; }
+  .footer a { color: #6B7280; text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="card">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>SomSafar</h1>
+    <p>Your Somali Travel Partner</p>
+  </div>
+  <div class="accent"></div>
+
+  <!-- Body -->
+  <div class="body">
+    <h2>Confirm Your Email Address</h2>
+    <p>
+      Thanks for signing up! Click the button below to verify your email and activate your account.
+    </p>
+    <a href="{{ .ConfirmationURL }}" class="btn">Confirm My Account</a>
+
+    <div class="link-box">
+      Can't click the button? Copy this link into your browser:<br><br>
+      <a href="{{ .ConfirmationURL }}">{{ .ConfirmationURL }}</a>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <p><strong style="color:#0A3D62;">SomSafar</strong> · © <span id="yr"></span> All rights reserved</p>
+    <script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
+    <p style="margin-top:6px;">Help: <a href="mailto:somsafarbooking@gmail.com">somsafarbooking@gmail.com</a></p>
+  </div>
+
+</div>
+</body>
+</html>

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../shared/services/settings_repository.dart';
+import '../core/theme/app_colors.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -62,7 +63,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 child: const Text(
                   'SKIP',
                   style: TextStyle(
-                    color: Color(0xFF1A237E),
+                    color: AppColors.primary,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -94,7 +95,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                             Text(
                               data.title,
                               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                    color: const Color(0xFF1A237E),
+                                    color: AppColors.primary,
                                     fontWeight: FontWeight.bold,
                                     letterSpacing: 1.2,
                                   ),
@@ -104,7 +105,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                             Text(
                               data.description,
                               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                    color: Colors.grey[600],
+                                    color: AppColors.grey,
                                     height: 1.5,
                                   ),
                               textAlign: TextAlign.center,
@@ -131,8 +132,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         width: _currentPage == index ? 24 : 8,
                         decoration: BoxDecoration(
                           color: _currentPage == index
-                              ? const Color(0xFF1A237E)
-                              : Colors.grey[300],
+                              ? AppColors.primary
+                              : AppColors.grey.withAlpha(80),
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
@@ -141,7 +142,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   ElevatedButton(
                     onPressed: _onNext,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1A237E),
+                      backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),

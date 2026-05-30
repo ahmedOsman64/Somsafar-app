@@ -3,6 +3,7 @@ import 'dart:async';
 import '../models/payment_account_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import '../../core/services/supabase_service.dart';
 
@@ -495,16 +496,34 @@ class AuthService extends ChangeNotifier {
           'role': role.name,
           if (phone != null) 'phone': phone,
           if (businessName != null) 'businessName': businessName,
+          // Write gender at the top level so _createDefaultProfile can read it
+          if (gender != null) 'gender': gender.name,
           'metadata': {if (gender != null) 'gender': gender.name},
         },
       );
 
       if (res.session != null) {
+        // Email confirmation is disabled — user is auto-logged in.
+        // Explicitly create the profile row so it exists immediately.
+        final user = res.user!;
+        final meta = user.userMetadata ?? {};
+        await SupabaseConfig.client.from('users').upsert({
+          'id': user.id,
+          'name': meta['name'] ?? name,
+          'email': user.email ?? email,
+          'role': meta['role'] ?? role.name,
+          if (gender != null) 'gender': gender.name,
+          'metadata': {if (gender != null) 'gender': gender.name},
+          'status': 'active',
+          'created_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+          'date_of_birth': DateTime.now().toIso8601String(),
+        });
         await _fetchAndSetProfile(res.session!);
         return 'AUTO_LOGIN';
       }
 
-      return null; // success, confirmation required
+      return null; // success — confirmation email sent
     } on sb.AuthException catch (e) {
       if (e.message.contains('rate limit') ||
           e.message.toLowerCase().contains('email rate limit exceeded')) {
@@ -575,6 +594,8 @@ class AuthService extends ChangeNotifier {
   Future<String?> resetPassword(String email) async {
     try {
       await SupabaseConfig.client.auth.resetPasswordForEmail(email);
+      // Clear saved recommendations — user is losing/changing their session
+      await _clearFavoritesFromStorage();
       return null;
     } on sb.AuthException catch (e) {
       return e.message;
@@ -735,7 +756,21 @@ class AuthService extends ChangeNotifier {
       debugPrint('AuthService: logout called but no session exists. Skipping.');
       return;
     }
+    // Clear saved recommendations so a new user starts with a clean slate
+    await _clearFavoritesFromStorage();
     await SupabaseConfig.client.auth.signOut();
+  }
+
+  /// Removes favorite/recommended services from local storage.
+  /// Called on logout and password reset to prevent data leaking between users.
+  Future<void> _clearFavoritesFromStorage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('favorite_services_v1');
+      debugPrint('AuthService: Favorites cleared from storage.');
+    } catch (e) {
+      debugPrint('AuthService: Failed to clear favorites: $e');
+    }
   }
 
   // --- Multi-Factor Authentication (MFA) ---

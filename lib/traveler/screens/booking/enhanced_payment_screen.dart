@@ -162,6 +162,7 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
     final hasMobileMoney = provider.paymentAccounts.any((a) => a.type == PaymentAccountType.mobileMoney);
     final hasCard = provider.paymentAccounts.any((a) => a.type == PaymentAccountType.card);
     final hasBank = provider.paymentAccounts.any((a) => a.type == PaymentAccountType.bank);
+    final payLaterEnabled = provider.metadata['pay_later_enabled'] ?? true;
 
     // Ensure selected method is valid
     if (_selectedMethod == PaymentMethod.mobileMoney && !hasMobileMoney) {
@@ -169,7 +170,7 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
         _selectedMethod = PaymentMethod.bank;
       } else if (hasCard) {
         _selectedMethod = PaymentMethod.card;
-      } else if (widget.serviceType != ServiceType.tour) {
+      } else if (widget.serviceType != ServiceType.tour && payLaterEnabled) {
         _selectedMethod = PaymentMethod.payLater;
       }
     } else if (_selectedMethod == PaymentMethod.card && !hasCard) {
@@ -177,7 +178,7 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
         _selectedMethod = PaymentMethod.mobileMoney;
       } else if (hasBank) {
         _selectedMethod = PaymentMethod.bank;
-      } else if (widget.serviceType != ServiceType.tour) {
+      } else if (widget.serviceType != ServiceType.tour && payLaterEnabled) {
         _selectedMethod = PaymentMethod.payLater;
       }
     } else if (_selectedMethod == PaymentMethod.bank && !hasBank) {
@@ -185,8 +186,16 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
         _selectedMethod = PaymentMethod.mobileMoney;
       } else if (hasCard) {
         _selectedMethod = PaymentMethod.card;
-      } else if (widget.serviceType != ServiceType.tour) {
+      } else if (widget.serviceType != ServiceType.tour && payLaterEnabled) {
         _selectedMethod = PaymentMethod.payLater;
+      }
+    } else if (_selectedMethod == PaymentMethod.payLater && !payLaterEnabled) {
+      if (hasMobileMoney) {
+        _selectedMethod = PaymentMethod.mobileMoney;
+      } else if (hasBank) {
+        _selectedMethod = PaymentMethod.bank;
+      } else if (hasCard) {
+        _selectedMethod = PaymentMethod.card;
       }
     }
 
@@ -569,6 +578,7 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
   }
 
   Widget _buildPaymentMethodSelection(User provider, bool hasCard, bool hasMobileMoney, bool hasBank) {
+    final payLaterEnabled = provider.metadata['pay_later_enabled'] ?? true;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -613,7 +623,7 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
               ),
               const SizedBox(width: 10),
             ],
-            if (widget.serviceType != ServiceType.tour) ...[
+            if (widget.serviceType != ServiceType.tour && payLaterEnabled) ...[
               Expanded(
                 child: _buildMethodCard(
                   PaymentMethod.payLater,
@@ -810,56 +820,57 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
           const _SectionLabel(label: 'Mobile Money', icon: Icons.phone_android),
           const SizedBox(height: 12),
           
-          // --- NEW: DISPLAY PROVIDER'S RECEIVING ACCOUNTS ---
+          // --- NEW: DISPLAY SELECTED PROVIDER'S RECEIVING ACCOUNT ---
           Builder(builder: (context) {
-            final payout = provider.paymentAccounts.where((a) => a.type == PaymentAccountType.mobileMoney).isEmpty 
-              ? null 
-              : provider.paymentAccounts.where((a) => a.type == PaymentAccountType.mobileMoney).firstWhere((a) => a.isDefault, orElse: () => provider.paymentAccounts.where((a) => a.type == PaymentAccountType.mobileMoney).first);
+            final mobileAccounts = provider.paymentAccounts.where((a) => a.type == PaymentAccountType.mobileMoney).toList();
+            if (mobileAccounts.isEmpty) return const SizedBox.shrink();
 
-            if (payout != null) {
-              return Container(
-                margin: const EdgeInsets.only(bottom: 16),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.account_balance_wallet, size: 16, color: AppColors.primary),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Send payment to provider:',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary.withValues(alpha: 0.8),
-                          ),
+            final payout = mobileAccounts.firstWhere(
+              (a) => a.providerName == _mobileProvider,
+              orElse: () => mobileAccounts.firstWhere((a) => a.isDefault, orElse: () => mobileAccounts.first),
+            );
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.account_balance_wallet, size: 16, color: AppColors.primary),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Send payment to provider:',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary.withValues(alpha: 0.8),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      payout.providerName,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                    Text(
-                      'Account/Phone: ${payout.accountNumber}',
-                      style: const TextStyle(fontSize: 14, color: Colors.blueGrey),
-                    ),
-                    Text(
-                      'Name: ${payout.holderName}',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                  ],
-                ),
-              );
-            }
-            return const SizedBox.shrink();
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    payout.providerName,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  Text(
+                    'Account/Phone: ${payout.accountNumber}',
+                    style: const TextStyle(fontSize: 14, color: Colors.blueGrey),
+                  ),
+                  Text(
+                    'Name: ${payout.holderName}',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ],
+              ),
+            );
           }),
           if (hasMobileMoney) ...[
             DropdownButtonFormField<String>(
@@ -958,58 +969,55 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
           
           // DISPLAY SELECTED BANK DETAILS
           Builder(builder: (context) {
-             final payout = provider.paymentAccounts.firstWhere(
-              (a) => a.providerName == _bankProvider && a.type == PaymentAccountType.bank,
-              orElse: () => provider.paymentAccounts.firstWhere(
-                (a) => a.type == PaymentAccountType.bank,
-                orElse: () => provider.paymentAccounts.first, // Fallback
-              ),
+            final bankAccounts = provider.paymentAccounts.where((a) => a.type == PaymentAccountType.bank).toList();
+            if (bankAccounts.isEmpty) return const SizedBox.shrink();
+
+             final payout = bankAccounts.firstWhere(
+              (a) => a.providerName == _bankProvider,
+              orElse: () => bankAccounts.firstWhere((a) => a.isDefault, orElse: () => bankAccounts.first),
             );
 
-            if (payout.type == PaymentAccountType.bank) {
-              return Container(
-                margin: const EdgeInsets.only(bottom: 16),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.account_balance, size: 16, color: AppColors.primary),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Send payment to provider:',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary.withValues(alpha: 0.8),
-                          ),
+            return Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.account_balance, size: 16, color: AppColors.primary),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Send payment to provider:',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary.withValues(alpha: 0.8),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      payout.providerName,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                    Text(
-                      'Account Number: ${payout.accountNumber}',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.primary),
-                    ),
-                    Text(
-                      'Account Holder: ${payout.holderName}',
-                      style: const TextStyle(fontSize: 13, color: Colors.grey),
-                    ),
-                  ],
-                ),
-              );
-            }
-            return const SizedBox.shrink();
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    payout.providerName,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  Text(
+                    'Account Number: ${payout.accountNumber}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.primary),
+                  ),
+                  Text(
+                    'Account Holder: ${payout.holderName}',
+                    style: const TextStyle(fontSize: 13, color: Colors.grey),
+                  ),
+                ],
+              ),
+            );
           }),
 
           if (hasBank) ...[

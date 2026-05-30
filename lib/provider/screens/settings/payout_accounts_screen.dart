@@ -49,7 +49,56 @@ class _PayoutAccountsScreenState extends ConsumerState<PayoutAccountsScreen> {
               'Manage where you receive payments. These details will be shown to travelers to complete their bookings.',
               style: TextStyle(color: Colors.grey, fontSize: 14),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
+
+            // --- PAY LATER TOGGLE ---
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey[200]!),
+              ),
+              child: SwitchListTile(
+                title: const Text(
+                  'Allow "Pay Later"',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0D3B66),
+                  ),
+                ),
+                subtitle: const Text(
+                  'If active, customers can book and pay at arrival.',
+                  style: TextStyle(fontSize: 12),
+                ),
+                secondary: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.info.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.schedule, color: AppColors.info, size: 20),
+                ),
+                value: user.metadata['pay_later_enabled'] ?? true,
+                onChanged: (v) async {
+                  final updatedMetadata = Map<String, dynamic>.from(user.metadata);
+                  updatedMetadata['pay_later_enabled'] = v;
+                  final updatedUser = user.copyWith(metadata: updatedMetadata);
+                  
+                  await ref.read(userProvider.notifier).updateUser(updatedUser);
+                  ref.read(authServiceProvider).updateUserData(updatedUser);
+
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(v ? 'Pay Later enabled' : 'Pay Later disabled')),
+                    );
+                  }
+                },
+                activeColor: AppColors.secondary,
+              ),
+            ),
+            const SizedBox(height: 24),
+
             if (accounts.isEmpty)
               _buildEmptyState()
             else
@@ -188,13 +237,28 @@ class _PayoutAccountsScreenState extends ConsumerState<PayoutAccountsScreen> {
               ],
             ),
           ),
-          IconButton(
-            icon: const Icon(
-              Icons.delete_outline,
-              color: Colors.redAccent,
-              size: 20,
-            ),
-            onPressed: () => _confirmDelete(account),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(
+                  Icons.edit_outlined,
+                  color: Color(0xFF0D3B66),
+                  size: 20,
+                ),
+                onPressed: () => _showEditAccountSheet(context, account),
+              ),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(
+                  Icons.delete_outline,
+                  color: Colors.redAccent,
+                  size: 20,
+                ),
+                onPressed: () => _confirmDelete(account),
+              ),
+            ],
           ),
         ],
       ),
@@ -235,22 +299,48 @@ class _PayoutAccountsScreenState extends ConsumerState<PayoutAccountsScreen> {
     if (confirmed == true) {
       final user = ref.read(authProvider);
       if (user != null) {
-        ref
-            .read(userProvider.notifier)
-            .removePaymentAccount(user.id, account.id);
-        // Also update local auth state for UI reload
-        final updatedUser =
-            ref.read(userProvider).firstWhere((u) => u.id == user.id);
-        ref.read(authServiceProvider).updateUserData(updatedUser);
+        try {
+          final updatedUser = await ref
+              .read(userProvider.notifier)
+              .removePaymentAccount(user.id, account.id);
 
-        // LOG ACTIVITY
-        ref.read(activityProvider.notifier).logStatusUpdate(
-              user.name,
-              'Payout Account',
-              'Removed ${account.providerName}',
+          if (updatedUser != null) {
+            // Update local auth state for UI reload
+            ref.read(authServiceProvider).updateUserData(updatedUser);
+          }
+
+          // LOG ACTIVITY
+          ref.read(activityProvider.notifier).logStatusUpdate(
+                user.name,
+                'Payout Account',
+                'Removed ${account.providerName}',
+              );
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Account removed successfully')),
             );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error removing account: $e')),
+            );
+          }
+        }
       }
     }
+  }
+
+  void _showEditAccountSheet(BuildContext context, PaymentAccount account) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => _AddPaymentAccountSheet(initialAccount: account),
+    );
   }
 
   void _showAddAccountSheet(BuildContext context) {
@@ -266,6 +356,9 @@ class _PayoutAccountsScreenState extends ConsumerState<PayoutAccountsScreen> {
 }
 
 class _AddPaymentAccountSheet extends ConsumerStatefulWidget {
+  final PaymentAccount? initialAccount;
+  const _AddPaymentAccountSheet({this.initialAccount});
+
   @override
   ConsumerState<_AddPaymentAccountSheet> createState() =>
       _AddPaymentAccountSheetState();
@@ -275,8 +368,22 @@ class _AddPaymentAccountSheetState
     extends ConsumerState<_AddPaymentAccountSheet> {
   final _holderController = TextEditingController();
   final _numberController = TextEditingController();
-  String _provider = 'Hormuud EVC Plus';
-  PaymentAccountType _type = PaymentAccountType.mobileMoney;
+  late String _provider;
+  late PaymentAccountType _type;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialAccount != null) {
+      _holderController.text = widget.initialAccount!.holderName;
+      _numberController.text = widget.initialAccount!.accountNumber;
+      _provider = widget.initialAccount!.providerName;
+      _type = widget.initialAccount!.type;
+    } else {
+      _provider = 'Hormuud EVC Plus';
+      _type = PaymentAccountType.mobileMoney;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -320,13 +427,25 @@ class _AddPaymentAccountSheetState
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Add Receiving Method',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF0D3B66),
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                widget.initialAccount != null
+                    ? 'Edit Receiving Method'
+                    : 'Add Receiving Method',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0D3B66),
+                ),
+              ),
+              if (widget.initialAccount != null)
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
+            ],
           ),
           const SizedBox(height: 24),
           const Text(
@@ -430,42 +549,74 @@ class _AddPaymentAccountSheetState
     );
   }
 
-  void _save() {
+  void _save() async {
     if (_holderController.text.isEmpty || _numberController.text.isEmpty) {
       return;
     }
 
     final user = ref.read(authProvider);
     if (user != null) {
-      final newAcc = PaymentAccount(
-        id: const Uuid().v4(),
-        providerName: _provider,
-        accountNumber: _numberController.text,
-        holderName: _holderController.text,
-        type: _type,
-        isDefault: user.paymentAccounts.isEmpty,
-      );
+      if (widget.initialAccount != null) {
+        // EDIT MODE
+        final updatedAcc = widget.initialAccount!.copyWith(
+          providerName: _provider,
+          accountNumber: _numberController.text,
+          holderName: _holderController.text,
+          type: _type,
+        );
 
-      ref.read(userProvider.notifier).addPaymentAccount(user.id, newAcc);
-      // Sync local auth state
-      final updatedUser = ref
-          .read(userProvider)
-          .firstWhere((u) => u.id == user.id);
-      ref.read(authServiceProvider).updateUserData(updatedUser);
+        final updatedUser = await ref
+            .read(userProvider.notifier)
+            .updatePaymentAccount(user.id, updatedAcc);
 
-      // LOG ACTIVITY
-      ref
-          .read(activityProvider.notifier)
-          .logStatusUpdate(
-            user.name,
-            'Payout Account',
-            'Added ${newAcc.providerName}',
-          );
+        if (updatedUser != null) {
+          // Sync local auth state
+          ref.read(authServiceProvider).updateUserData(updatedUser);
+        }
 
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Account saved successfully')),
-      );
+        // LOG ACTIVITY
+        ref.read(activityProvider.notifier).logStatusUpdate(
+              user.name,
+              'Payout Account',
+              'Updated ${updatedAcc.providerName}',
+            );
+      } else {
+        // ADD MODE
+        final newAcc = PaymentAccount(
+          id: const Uuid().v4(),
+          providerName: _provider,
+          accountNumber: _numberController.text,
+          holderName: _holderController.text,
+          type: _type,
+          isDefault: user.paymentAccounts.isEmpty,
+        );
+
+        final updatedUser = await ref
+            .read(userProvider.notifier)
+            .addPaymentAccount(user.id, newAcc);
+
+        if (updatedUser != null) {
+          // Sync local auth state
+          ref.read(authServiceProvider).updateUserData(updatedUser);
+        }
+
+        // LOG ACTIVITY
+        ref.read(activityProvider.notifier).logStatusUpdate(
+              user.name,
+              'Payout Account',
+              'Added ${newAcc.providerName}',
+            );
+      }
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(widget.initialAccount != null
+                  ? 'Account updated successfully'
+                  : 'Account saved successfully')),
+        );
+      }
     }
   }
 }

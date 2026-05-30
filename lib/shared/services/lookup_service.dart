@@ -395,6 +395,10 @@ final regionsProvider = StreamProvider<List<LookupItem>>((ref) {
           if (normalizedKey == 'banadir') normalizedKey = 'banaadir';
           if (normalizedKey == 'hiran') normalizedKey = 'hiiraan';
           if (normalizedKey == 'bakol') normalizedKey = 'bakool';
+          if (normalizedKey == 'shabeellaha_hoose') normalizedKey = 'lower_shabelle';
+          if (normalizedKey == 'shabeellaha_dhexe') normalizedKey = 'middle_shabelle';
+          if (normalizedKey == 'jubbada_hoose') normalizedKey = 'lower_juba';
+          if (normalizedKey == 'jubbada_dhexe') normalizedKey = 'middle_juba';
 
           final existing = uniqueRegions[normalizedKey];
           bool shouldReplace = existing == null;

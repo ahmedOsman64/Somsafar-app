@@ -210,6 +210,11 @@ USING (
   (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
 );
 
+-- Travelers & Helpers can view provider profiles to see business/payment info
+DROP POLICY IF EXISTS "Anyone can view provider profiles" ON public.users;
+CREATE POLICY "Anyone can view provider profiles" ON public.users FOR SELECT TO authenticated 
+USING (role = 'provider');
+
 -- Provider & Helper Visibility
 DROP POLICY IF EXISTS "Providers view their helpers" ON public.users;
 CREATE POLICY "Providers view their helpers" ON public.users FOR SELECT TO authenticated 
@@ -403,7 +408,7 @@ CREATE TABLE IF NOT EXISTS public.system_activities (
   title text NOT NULL,
   subtitle text NOT NULL,
   type text NOT NULL,
-  user_id uuid REFERENCES public.users(id) ON DELETE CASCADE, -- Link for automatic deletion
+  user_id uuid REFERENCES public.users(id) ON DELETE SET NULL, -- Preserve log even if user is deleted
   user_name text, -- Keep name even if user is deleted (but cascade will remove row if user deleted)
   metadata jsonb DEFAULT '{}'::jsonb,
   created_at timestamp with time zone DEFAULT now() NOT NULL
