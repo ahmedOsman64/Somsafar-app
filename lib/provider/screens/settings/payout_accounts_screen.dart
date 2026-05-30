@@ -94,7 +94,7 @@ class _PayoutAccountsScreenState extends ConsumerState<PayoutAccountsScreen> {
                     );
                   }
                 },
-                activeColor: AppColors.secondary,
+                activeThumbColor: AppColors.secondary,
               ),
             ),
             const SizedBox(height: 24),
