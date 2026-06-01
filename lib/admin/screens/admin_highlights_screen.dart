@@ -149,8 +149,8 @@ class AdminHighlightsScreen extends ConsumerWidget {
                 TextField(
                   controller: titleController,
                   decoration: const InputDecoration(
-                    labelText: 'Title',
-                    hintText: 'e.g., Liido Beach',
+                    labelText: 'Title (Optional)',
+                    hintText: 'If empty, Location will be used',
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -191,48 +191,77 @@ class AdminHighlightsScreen extends ConsumerWidget {
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: (isUploading || pickedImage == null)
+              onPressed: isUploading
                   ? null
                   : () async {
-                      if (titleController.text.isEmpty) return;
+                      final title = titleController.text.trim();
+                      final location = locationController.text.trim();
+                      final description = descriptionController.text.trim();
+                      final tag = tagController.text.trim();
 
-                      setModalState(() => isUploading = true);
-
-                      // Upload image first
-                      final imageUrl = await mediaService.uploadImage(
-                        pickedImage!,
-                      );
-
-                      if (imageUrl == null) {
-                        setModalState(() => isUploading = false);
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Failed to upload image'),
-                            ),
-                          );
-                        }
+                      if (pickedImage == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please pick an image')),
+                        );
                         return;
                       }
 
-                      final error = await ref
-                          .read(highlightProvider.notifier)
-                          .addHighlight(
-                            title: titleController.text,
-                            location: locationController.text,
-                            description: descriptionController.text,
-                            imageUrl: imageUrl,
-                            tag: tagController.text,
-                          );
+                      if (location.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please enter location')),
+                        );
+                        return;
+                      }
 
-                      if (context.mounted) {
-                        if (error != null) {
+                      setModalState(() => isUploading = true);
+
+                      try {
+                        // Upload image first
+                        final imageUrl = await mediaService.uploadImage(
+                          pickedImage!,
+                        );
+
+                        if (imageUrl == null) {
                           setModalState(() => isUploading = false);
-                          ScaffoldMessenger.of(
-                            context,
-                          ).showSnackBar(SnackBar(content: Text(error)));
-                        } else {
-                          Navigator.pop(context);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Failed to upload image'),
+                              ),
+                            );
+                          }
+                          return;
+                        }
+
+                        final error = await ref
+                            .read(highlightProvider.notifier)
+                            .addHighlight(
+                              title: title.isEmpty ? location : title,
+                              location: location,
+                              description: description,
+                              imageUrl: imageUrl,
+                              tag: tag,
+                            );
+
+                        if (context.mounted) {
+                          if (error != null) {
+                            setModalState(() => isUploading = false);
+                            ScaffoldMessenger.of(
+                              context,
+                            ).showSnackBar(SnackBar(content: Text(error)));
+                          } else {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Highlight added successfully')),
+                            );
+                          }
+                        }
+                      } catch (e) {
+                        setModalState(() => isUploading = false);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: $e')),
+                          );
                         }
                       }
                     },
@@ -389,7 +418,7 @@ class _HighlightListTile extends ConsumerWidget {
                 TextField(
                   controller: titleController,
                   decoration: const InputDecoration(
-                    labelText: 'Title',
+                    labelText: 'Title (Optional)',
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -430,34 +459,53 @@ class _HighlightListTile extends ConsumerWidget {
               onPressed: isUploading
                   ? null
                   : () async {
-                      if (titleController.text.isEmpty) return;
+                      final title = titleController.text.trim();
+                      final location = locationController.text.trim();
+                      if (location.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please enter location')),
+                        );
+                        return;
+                      }
 
                       setModalState(() => isUploading = true);
 
-                      String? finalImageUrl;
-                      if (pickedImage != null) {
-                        finalImageUrl =
-                            await mediaService.uploadImage(pickedImage!);
-                      }
+                      try {
+                        String? finalImageUrl;
+                        if (pickedImage != null) {
+                          finalImageUrl =
+                              await mediaService.uploadImage(pickedImage!);
+                        }
 
-                      final error = await ref
-                          .read(highlightProvider.notifier)
-                          .updateHighlight(
-                            highlight.id,
-                            title: titleController.text,
-                            location: locationController.text,
-                            description: descriptionController.text,
-                            imageUrl: finalImageUrl,
-                            tag: tagController.text,
+                        final error = await ref
+                            .read(highlightProvider.notifier)
+                            .updateHighlight(
+                              highlight.id,
+                              title: title.isEmpty ? location : title,
+                              location: location,
+                              description: descriptionController.text.trim(),
+                              imageUrl: finalImageUrl,
+                              tag: tagController.text.trim(),
+                            );
+
+                        if (context.mounted) {
+                          if (error != null) {
+                            setModalState(() => isUploading = false);
+                            ScaffoldMessenger.of(context)
+                                .showSnackBar(SnackBar(content: Text(error)));
+                          } else {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Highlight updated successfully')),
+                            );
+                          }
+                        }
+                      } catch (e) {
+                        setModalState(() => isUploading = false);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: $e')),
                           );
-
-                      if (context.mounted) {
-                        if (error != null) {
-                          setModalState(() => isUploading = false);
-                          ScaffoldMessenger.of(context)
-                              .showSnackBar(SnackBar(content: Text(error)));
-                        } else {
-                          Navigator.pop(context);
                         }
                       }
                     },

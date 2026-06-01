@@ -183,6 +183,10 @@ class ServiceRepository extends StateNotifier<List<Service>> {
       if (mounted) {
         state = previousState;
       }
+      // Re-throw with more context if it's an RLS error
+      if (e.toString().contains('42501') || e.toString().contains('row-level security')) {
+        throw Exception('Access Denied: You do not have permission to update this service status. Please ensure you are the owner or an authorized helper.');
+      }
       rethrow;
     }
   }

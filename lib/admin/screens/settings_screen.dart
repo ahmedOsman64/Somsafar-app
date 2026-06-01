@@ -114,11 +114,6 @@ class AdminSettingsScreen extends ConsumerWidget {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Version 1.2.4 (Build 45) • Enterprise Edition',
-                        style: TextStyle(color: Colors.grey[500], fontSize: 12),
-                      ),
                     ],
                   ),
                 ),

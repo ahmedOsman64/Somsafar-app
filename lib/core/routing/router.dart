@@ -67,11 +67,12 @@ final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authNotifier = ref.read(authServiceProvider);
+  final refreshListenable = RouterRefreshListenable(ref);
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: '/splash',
-    refreshListenable: authNotifier,
+    refreshListenable: refreshListenable,
     redirect: (context, state) {
       final authState = authNotifier.state;
       final isLoggedIn = authState != null;
@@ -105,7 +106,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       // If logged in and at public entry points, redirect to dashboard
-      final authEntryPaths = {'/login', '/signup'};
+      final authEntryPaths = {'/login', '/signup', '/splash'};
       if (authEntryPaths.contains(path)) {
         switch (authState.role) {
           case UserRole.traveler:
@@ -497,3 +498,21 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
+
+/// A [Listenable] that combines multiple providers to trigger GoRouter redirects.
+class RouterRefreshListenable extends ChangeNotifier {
+  RouterRefreshListenable(Ref ref) {
+    // Listen to auth changes
+    ref.listen(authServiceProvider, (previous, next) {
+      notifyListeners();
+    });
+    
+    // Listen to settings changes (especially the 'initialized' flag)
+    ref.listen(settingsProvider, (previous, next) {
+      if (previous?.initialized != next.initialized || 
+          previous?.hasSeenOnboarding != next.hasSeenOnboarding) {
+        notifyListeners();
+      }
+    });
+  }
+}

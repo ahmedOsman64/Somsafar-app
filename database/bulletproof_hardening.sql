@@ -75,6 +75,7 @@ CREATE OR REPLACE FUNCTION public.create_booking_safe(
 RETURNS uuid AS $$
 DECLARE
   v_available int;
+  v_category text;
   v_booking_id uuid;
   v_traveler record;
 BEGIN
@@ -95,19 +96,24 @@ BEGIN
     SET available_slots = available_slots - p_guests 
     WHERE id = (p_metadata->>'package_id')::uuid;
   ELSE
-    SELECT available_slots INTO v_available 
+    SELECT available_slots, category INTO v_available, v_category 
     FROM public.services 
     WHERE id = p_service_id 
     FOR UPDATE;
 
-    IF v_available < p_rooms THEN
-      RAISE EXCEPTION 'Not enough rooms/slots available for this service.';
-    END IF;
+    -- Skip strict slot decrement for apartments/homes as they use date-based logic in app
+    IF v_category ILIKE '%apartment%' OR v_category ILIKE '%home%' THEN
+      -- Just allow the booking, availability is handled by date-aware logic
+    ELSE
+      IF v_available < p_rooms THEN
+        RAISE EXCEPTION 'Not enough rooms/slots available for this service.';
+      END IF;
 
-    -- Update slots
-    UPDATE public.services 
-    SET available_slots = available_slots - p_rooms 
-    WHERE id = p_service_id;
+      -- Update slots
+      UPDATE public.services 
+      SET available_slots = available_slots - p_rooms 
+      WHERE id = p_service_id;
+    END IF;
   END IF;
 
   -- 2. Insert the booking

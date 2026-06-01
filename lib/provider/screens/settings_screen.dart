@@ -201,13 +201,6 @@ class ProviderSettingsScreen extends ConsumerWidget {
                 onTap: () => _showCurrencySelector(context, ref),
               ),
             ]),
-            const SizedBox(height: 40),
-            Center(
-              child: Text(
-                'SomSafar v1.0.0',
-                style: TextStyle(color: Colors.grey[400], fontSize: 12),
-              ),
-            ),
             const SizedBox(height: 20),
           ],
         ),

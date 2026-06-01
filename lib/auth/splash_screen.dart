@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import '../shared/services/settings_repository.dart';
-import '../shared/services/auth_service.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -54,9 +51,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     // Floating animation
     _floatController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 2),
+      duration: const Duration(seconds: 3),
     )..repeat(reverse: true);
-    _floatAnimation = Tween<double>(begin: 0.0, end: 10.0).animate(
+    _floatAnimation = Tween<double>(begin: 0.0, end: 15.0).animate(
       CurvedAnimation(parent: _floatController, curve: Curves.easeInOut),
     );
 
@@ -87,29 +84,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   Future<void> _initializeApp() async {
-    await Future.delayed(const Duration(milliseconds: 2800));
-
-    int timeoutCount = 0;
-    while (mounted &&
-        (!ref.read(settingsProvider).initialized ||
-            !ref.read(authServiceProvider).initialized) &&
-        timeoutCount < 50) {
-      await Future.delayed(const Duration(milliseconds: 100));
-      timeoutCount++;
-    }
-
-    final settings = ref.read(settingsProvider);
-    final auth = ref.read(authServiceProvider);
-
-    if (!settings.hasSeenOnboarding) {
-      if (mounted) context.go('/onboarding');
-    } else {
-      if (auth.state == null) {
-        if (mounted) context.go('/login');
-      } else {
-        if (mounted) context.go('/');
-      }
-    }
+    // Simply wait for initialization. The GoRouter redirect logic will handle navigation
+    // once authNotifier.initialized and settings.initialized are true.
+    await Future.delayed(const Duration(milliseconds: 2800)); // Maintain splash time
+    debugPrint('SplashScreen: Initialization check complete. Handing over to Router.');
   }
 
   @override
@@ -136,11 +114,19 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
               children: [
                 // Animated Logo
                 AnimatedBuilder(
-                  animation: _floatAnimation,
+                  animation: _floatController,
                   builder: (context, child) {
                     return Transform.translate(
                       offset: Offset(0, -_floatAnimation.value),
-                      child: child,
+                      child: Transform.scale(
+                        scale:
+                            1.0 +
+                            (0.05 * (1.0 - (_floatAnimation.value / 15.0))),
+                        child: Transform.rotate(
+                          angle: 0.05 * (1.0 - (_floatAnimation.value / 15.0)),
+                          child: child,
+                        ),
+                      ),
                     );
                   },
                   child: FadeTransition(
@@ -202,25 +188,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
             ),
           ),
 
-          // Version
-          Positioned(
-            bottom: 40,
-            left: 0,
-            right: 0,
-            child: FadeTransition(
-              opacity: _textOpacity,
-              child: const Text(
-                'v1.0.0',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.black26,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 1,
-                ),
-              ),
-            ),
-          ),
+          // Version removed
         ],
       ),
     );
@@ -247,15 +215,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                 ),
               ),
             ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          '${(_progressValue.value * 100).toInt()}%',
-          style: TextStyle(
-            color: Colors.black.withValues(alpha: 0.3),
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
           ),
         ),
       ],

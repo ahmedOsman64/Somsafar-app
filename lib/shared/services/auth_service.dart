@@ -44,30 +44,49 @@ class AuthService extends ChangeNotifier {
   AuthService({bool listen = true}) {
     debugPrint('AuthService: Initializing...');
     if (listen) {
-      _initInitialState();
-      _initAuthStateListener();
+      _initialize();
     }
   }
 
-  Future<void> _initInitialState() async {
-    // A slight delay to ensure Supabase client is fully ready
-    await Future.delayed(const Duration(milliseconds: 100));
-    final session = SupabaseConfig.client.auth.currentSession;
-    debugPrint('AuthService: Current session: ${session?.user.id}');
+  Future<void> _initialize() async {
+    try {
+      // Start listening to auth changes first
+      _initAuthStateListener();
 
-    if (session == null) {
-      if (!_initialized) {
-        _initialized = true;
-        debugPrint('AuthService: Initialized (No session)');
-        notifyListeners();
+      // Then check for an immediate session if available with a safety timeout
+      debugPrint('AuthService: Starting initial session check...');
+      
+      final session = await Future.any([
+        Future.value(SupabaseConfig.client.auth.currentSession),
+        Future.delayed(const Duration(seconds: 5)).then((_) => null),
+      ]).catchError((e) {
+        debugPrint('AuthService: Supabase access error during init: $e');
+        return null;
+      });
+
+      debugPrint('AuthService: Initial session check: ${session?.user.id}');
+
+      if (session != null) {
+        debugPrint('AuthService: Session found on startup, fetching profile...');
+        await _fetchAndSetProfile(session).timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            debugPrint('AuthService: Profile fetch timed out.');
+          },
+        );
+      } else {
+        debugPrint('AuthService: No initial session or session check timed out.');
       }
-    } else {
-      // If we have a session, fetch profile immediately to avoid waiting for listener
-      debugPrint('AuthService: Session found on startup, fetching profile...');
-      await _fetchAndSetProfile(session);
+    } catch (e) {
+      debugPrint('AuthService: Critical error during _initialize: $e');
+    } finally {
+      // Set initialized only after we've had a chance to check the initial state
       if (!_initialized) {
         _initialized = true;
         notifyListeners();
+        debugPrint(
+          'AuthService: Initialization complete. State: ${_state != null ? "Logged In" : "Logged Out"}',
+        );
       }
     }
   }
