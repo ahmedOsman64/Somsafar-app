@@ -40,6 +40,15 @@ class SupabaseConfig {
       return;
     }
 
+    // Check if already initialized
+    try {
+      Supabase.instance;
+      debugPrint('Supabase already initialized. Skipping.');
+      return;
+    } catch (_) {
+      // Not initialized, continue
+    }
+
     await Supabase.initialize(
       url: supabaseUrl,
       anonKey: supabaseAnonKey,

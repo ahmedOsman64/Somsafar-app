@@ -352,11 +352,6 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          BookingSectionHeader(
-            title: '${_formatPackageName(_package, multiplier)} Details',
-            icon: _getPackageIcon(_package),
-          ),
-
           // ── Price Overview Card ──────────────────────────────────────
           Container(
             margin: const EdgeInsets.only(bottom: 20),
@@ -1429,8 +1424,12 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
                       padding: const EdgeInsets.all(20),
                       child: Column(
                         children: [
-                          if (_currentStep == 0)
+                          if (_currentStep == 0) ...[
+                            _buildPackageSelectionUI(),
+                            const SizedBox(height: 20),
                             ServiceImageGallery(images: widget.service.images),
+                            const SizedBox(height: 20),
+                          ],
                           _buildCurrentStep(),
                         ],
                       ),
@@ -1455,6 +1454,101 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
                 ),
               ],
             ),
+    );
+  }
+
+  Widget _buildPackageSelectionUI() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Service Title & Category ────────────────────────────────
+        Text(
+          widget.service.title,
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: AppColors.primary,
+          ),
+        ),
+        Text(
+          'Tour Package Category',
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.grey[600],
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        // ── Package Selection ───────────────────────────────────────
+        const Text(
+          'Select Tour Package Type *',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: TourPackage.values.map((pkg) {
+            final isSelected = _package == pkg;
+            final packages = ref.watch(travelPackagesProvider).valueOrNull ?? [];
+            final pkgInfo = packages.firstWhere(
+              (p) => p.key.toLowerCase() == pkg.name.toLowerCase(),
+              orElse: () => LookupItem(key: pkg.name, label: pkg.name),
+            );
+
+            return Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _package = pkg;
+                    _updateAutomaticDate();
+                    if (pkg == TourPackage.custom) {
+                      _numberOfDays = 1;
+                    }
+                    _updateBookingSummary();
+                    _goToStep(0); // Refresh animation
+                  });
+                },
+                child: Container(
+                  margin: EdgeInsets.only(
+                    right: pkg == TourPackage.values.last ? 0 : 8,
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: isSelected ? AppColors.primary.withValues(alpha: 0.05) : Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected ? AppColors.primary : Colors.grey[300]!,
+                      width: isSelected ? 2 : 1,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(
+                        _getPackageIcon(pkg),
+                        color: isSelected ? AppColors.primary : Colors.grey[600],
+                        size: 24,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        pkgInfo.label,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          color: isSelected ? AppColors.primary : Colors.grey[600],
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 

@@ -86,7 +86,7 @@ SomSafar is built using an industry-leading stack that prioritizes performance a
 
 ---
 
-*Created by **Ahmed Osman*** 👨‍💻
+*Created by **Somsafar Team*** 👨‍💻
 
 *This document serves as the official project showcase for the SomSafar ecosystem. Last updated: May 2026.* 🧬
 

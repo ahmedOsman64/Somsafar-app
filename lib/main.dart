@@ -57,7 +57,7 @@ class SomSafarApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final router = ref.read(routerProvider);
+    final router = ref.watch(routerProvider);
     final settings = ref.watch(settingsProvider);
 
     return MaterialApp.router(
