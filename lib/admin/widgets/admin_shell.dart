@@ -118,7 +118,7 @@ class AdminShell extends ConsumerWidget {
                       icon: Icons.logout,
                     );
                     if (confirmed == true) {
-                      ref.read(authServiceProvider).logout();
+                      await ref.read(authServiceProvider).logout();
                       if (context.mounted) context.go('/login');
                     }
                   },
@@ -228,7 +228,7 @@ class AdminShell extends ConsumerWidget {
                                   icon: Icons.logout,
                                 );
                                 if (confirmed == true) {
-                                  ref.read(authServiceProvider).logout();
+                                  await ref.read(authServiceProvider).logout();
                                   if (context.mounted) context.go('/login');
                                 }
                               },

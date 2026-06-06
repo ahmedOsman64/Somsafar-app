@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum DiscountStatus { active, scheduled, ended, pending }
+enum DiscountStatus { active, scheduled, ended, pending, inactive }
 
 class Discount {
   final String id;
@@ -116,6 +116,8 @@ class Discount {
         return Colors.grey;
       case DiscountStatus.pending:
         return Colors.orange;
+      case DiscountStatus.inactive:
+        return Colors.red;
     }
   }
 
@@ -133,6 +135,7 @@ class Discount {
 
   String get expiryText {
     if (status == DiscountStatus.pending) return 'Pending approval';
+    if (status == DiscountStatus.inactive) return 'Deactivated';
     final now = DateTime.now();
     if (status == DiscountStatus.ended) {
       final diff = now.difference(endDate).inDays;

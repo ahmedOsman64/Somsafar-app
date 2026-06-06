@@ -56,8 +56,11 @@ class DiscountRepository extends StateNotifier<List<Discount>> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     
-    // Process local state to find what needs updating on the server
+      // Process local state to find what needs updating on the server
     for (final d in state) {
+      // If manually deactivated, don't change status automatically
+      if (d.status == DiscountStatus.inactive) continue;
+
       final endOfDay = DateTime(d.endDate.year, d.endDate.month, d.endDate.day, 23, 59, 59);
       final startOfDay = DateTime(d.startDate.year, d.startDate.month, d.startDate.day);
 
@@ -82,6 +85,8 @@ class DiscountRepository extends StateNotifier<List<Discount>> {
   Future<void> addDiscount(Discount discount) async {
     try {
       await SupabaseConfig.client.from('discounts').insert(discount.toJson());
+      // Explicitly update state for immediate UI refresh
+      state = [...state, discount];
     } catch (e) {
       debugPrint('Error adding discount to Supabase: $e');
       rethrow;
@@ -94,6 +99,9 @@ class DiscountRepository extends StateNotifier<List<Discount>> {
           .from('discounts')
           .update(updatedDiscount.toJson())
           .eq('id', updatedDiscount.id);
+      
+      // Explicitly update state for immediate UI refresh
+      state = state.map((d) => d.id == updatedDiscount.id ? updatedDiscount : d).toList();
     } catch (e) {
       debugPrint('Error updating discount in Supabase: $e');
       rethrow;
@@ -103,10 +111,35 @@ class DiscountRepository extends StateNotifier<List<Discount>> {
   Future<void> deleteDiscount(String id) async {
     try {
       await SupabaseConfig.client.from('discounts').delete().eq('id', id);
+      // Explicitly update state for immediate UI refresh
+      state = state.where((d) => d.id != id).toList();
     } catch (e) {
       debugPrint('Error deleting discount from Supabase: $e');
       rethrow;
     }
+  }
+
+  Future<void> toggleDiscountStatus(Discount discount) async {
+    DiscountStatus newStatus;
+    if (discount.status == DiscountStatus.inactive) {
+      // Recalculate status based on dates when re-activating
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final start = DateTime(discount.startDate.year, discount.startDate.month, discount.startDate.day);
+      final end = DateTime(discount.endDate.year, discount.endDate.month, discount.endDate.day, 23, 59, 59);
+
+      if (now.isAfter(end)) {
+        newStatus = DiscountStatus.ended;
+      } else if (now.isAfter(start) || now.isAtSameMomentAs(today)) {
+        newStatus = DiscountStatus.active;
+      } else {
+        newStatus = DiscountStatus.scheduled;
+      }
+    } else {
+      newStatus = DiscountStatus.inactive;
+    }
+
+    await updateDiscount(discount.copyWith(status: newStatus));
   }
 
   static Discount? getBestDiscount(

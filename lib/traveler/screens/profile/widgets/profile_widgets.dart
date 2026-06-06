@@ -1035,10 +1035,10 @@ class DangerZoneSection extends ConsumerWidget {
               content: 'Are you sure you want to log out of your account?',
               confirmLabel: 'Log Out',
               confirmColor: Colors.orange.shade600,
-              onConfirm: () {
+              onConfirm: () async {
                 // Navigate to splash/login and clear state
-                ref.read(authServiceProvider).logout();
-                context.go('/splash');
+                await ref.read(authServiceProvider).logout();
+                if (context.mounted) context.go('/login');
               },
             ),
           ),
@@ -1264,7 +1264,7 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
         SnackBar(content: Text(error), backgroundColor: Colors.red),
       );
     } else {
-      context.go('/splash');
+      context.go('/login');
     }
   }
 }

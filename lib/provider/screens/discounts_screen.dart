@@ -34,9 +34,11 @@ class _ProviderDiscountsScreenState extends ConsumerState<ProviderDiscountsScree
         discounts.where((d) => d.status == DiscountStatus.scheduled).length;
     final endedCount =
         discounts.where((d) => d.status == DiscountStatus.ended).length;
+    final inactiveCount =
+        discounts.where((d) => d.status == DiscountStatus.inactive).length;
 
     return DefaultTabController(
-      length: 4,
+      length: 5,
       child: Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
@@ -59,6 +61,7 @@ class _ProviderDiscountsScreenState extends ConsumerState<ProviderDiscountsScree
               Tab(text: 'Active'),
               Tab(text: 'Scheduled'),
               Tab(text: 'Expired'),
+              Tab(text: 'Inactive'),
             ],
           ),
         ),
@@ -130,6 +133,13 @@ class _ProviderDiscountsScreenState extends ConsumerState<ProviderDiscountsScree
                           Icons.history,
                           Colors.grey,
                         ),
+                        const SizedBox(width: 12),
+                        _buildStatCard(
+                          'Inactive',
+                          inactiveCount.toString(),
+                          Icons.pause_circle_outline,
+                          Colors.red,
+                        ),
                       ],
                     ),
                   ),
@@ -156,6 +166,11 @@ class _ProviderDiscountsScreenState extends ConsumerState<ProviderDiscountsScree
                     context,
                     ref,
                     discounts.where((d) => d.status == DiscountStatus.ended).toList(),
+                  ),
+                  _buildDiscountList(
+                    context,
+                    ref,
+                    discounts.where((d) => d.status == DiscountStatus.inactive).toList(),
                   ),
                 ],
               ),
@@ -447,10 +462,18 @@ class _ProviderDiscountsScreenState extends ConsumerState<ProviderDiscountsScree
                                   );
                                 } else if (value == 'delete') {
                                   _showDeleteDialog(context, ref, discount);
+                                } else if (value == 'toggle_status') {
+                                  _toggleDiscountStatus(context, ref, discount);
                                 }
                               },
                               itemBuilder: (context) => [
                                 const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                                PopupMenuItem(
+                                  value: 'toggle_status',
+                                  child: Text(discount.status == DiscountStatus.inactive
+                                      ? 'Activate'
+                                      : 'Deactivate'),
+                                ),
                                 const PopupMenuItem(
                                   value: 'delete',
                                   child: Text('Delete', style: TextStyle(color: Colors.red)),
@@ -516,6 +539,32 @@ class _ProviderDiscountsScreenState extends ConsumerState<ProviderDiscountsScree
           ),
         );
       }
+    }
+  }
+
+  void _toggleDiscountStatus(
+    BuildContext context,
+    WidgetRef ref,
+    Discount discount,
+  ) async {
+    final isDeactivating = discount.status != DiscountStatus.inactive;
+    
+    await ref
+        .read(discountRepositoryProvider.notifier)
+        .toggleDiscountStatus(discount);
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isDeactivating 
+                ? 'Discount deactivated successfully!' 
+                : 'Discount activated successfully!',
+          ),
+          backgroundColor: isDeactivating ? Colors.orange : Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 }

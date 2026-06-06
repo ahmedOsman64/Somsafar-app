@@ -4,12 +4,14 @@ import 'package:uuid/uuid.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import '../../shared/widgets/app_network_image.dart';
 
 import '../../shared/models/discount_model.dart';
 import '../../shared/services/discount_repository.dart';
 import '../../shared/services/auth_service.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/services/storage_service.dart';
 
 class CreateDiscountScreen extends ConsumerStatefulWidget {
   final Discount? discountToEdit;
@@ -26,11 +28,13 @@ class _CreateDiscountScreenState extends ConsumerState<CreateDiscountScreen> {
   late TextEditingController _valueController;
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
+  bool _isSaving = false;
 
   bool _isPercentage = true;
   DateTime _startDate = DateTime.now();
   DateTime _endDate = DateTime.now().add(const Duration(days: 7));
   String? _selectedImagePath;
+  bool _isActive = true;
   final ImagePicker _picker = ImagePicker();
 
   bool get isEdit => widget.discountToEdit != null;
@@ -52,6 +56,7 @@ class _CreateDiscountScreenState extends ConsumerState<CreateDiscountScreen> {
       _startDate = widget.discountToEdit!.startDate;
       _endDate = widget.discountToEdit!.endDate;
       _selectedImagePath = widget.discountToEdit!.imageUrl;
+      _isActive = widget.discountToEdit!.status != DiscountStatus.inactive;
     }
   }
 
@@ -118,37 +123,56 @@ class _CreateDiscountScreenState extends ConsumerState<CreateDiscountScreen> {
       final user = ref.read(authProvider);
       if (user == null) return;
 
-      // Automatically determine status based on dates
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      final start = DateTime(_startDate.year, _startDate.month, _startDate.day);
-      final end = DateTime(_endDate.year, _endDate.month, _endDate.day, 23, 59, 59);
-
-      DiscountStatus calculatedStatus;
-      if (now.isAfter(end)) {
-        calculatedStatus = DiscountStatus.ended;
-      } else if (now.isAfter(start) || now.isAtSameMomentAs(today)) {
-        calculatedStatus = DiscountStatus.active;
-      } else {
-        calculatedStatus = DiscountStatus.scheduled;
-      }
-
-      final discount = Discount(
-        id: widget.discountToEdit?.id ?? const Uuid().v4(),
-        providerId: user.providerId ?? user.id,
-        value: double.parse(_valueController.text),
-        isPercentage: _isPercentage,
-        startDate: _startDate,
-        endDate: _endDate,
-        applicableServiceIds: widget.discountToEdit?.applicableServiceIds ?? [],
-        status: calculatedStatus,
-        title: _titleController.text,
-        description: _descriptionController.text,
-        imageUrl: _selectedImagePath,
-        createdAt: widget.discountToEdit?.createdAt ?? DateTime.now(),
-      );
+      setState(() => _isSaving = true);
 
       try {
+        // ─── Image Upload Logic ──────────────────────────────────────────
+        String? finalImageUrl = _selectedImagePath;
+        
+        // If image is a local path (newly picked), upload it to Supabase
+        // Note: For web, _selectedImagePath might start with blob:
+        if (_selectedImagePath != null && 
+           !_selectedImagePath!.startsWith('http') && 
+           !_selectedImagePath!.startsWith('assets/')) {
+          
+          finalImageUrl = await StorageService.uploadImage(
+            XFile(_selectedImagePath!),
+            folder: 'discounts',
+          );
+        }
+
+        // Automatically determine status based on dates
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        final start = DateTime(_startDate.year, _startDate.month, _startDate.day);
+        final end = DateTime(_endDate.year, _endDate.month, _endDate.day, 23, 59, 59);
+
+        DiscountStatus calculatedStatus;
+        if (!_isActive) {
+          calculatedStatus = DiscountStatus.inactive;
+        } else if (now.isAfter(end)) {
+          calculatedStatus = DiscountStatus.ended;
+        } else if (now.isAfter(start) || now.isAtSameMomentAs(today)) {
+          calculatedStatus = DiscountStatus.active;
+        } else {
+          calculatedStatus = DiscountStatus.scheduled;
+        }
+
+        final discount = Discount(
+          id: widget.discountToEdit?.id ?? const Uuid().v4(),
+          providerId: user.providerId ?? user.id,
+          value: double.parse(_valueController.text),
+          isPercentage: _isPercentage,
+          startDate: _startDate,
+          endDate: _endDate,
+          applicableServiceIds: widget.discountToEdit?.applicableServiceIds ?? [],
+          status: calculatedStatus,
+          title: _titleController.text,
+          description: _descriptionController.text,
+          imageUrl: finalImageUrl,
+          createdAt: widget.discountToEdit?.createdAt ?? DateTime.now(),
+        );
+
         if (widget.discountToEdit != null) {
           await ref.read(discountRepositoryProvider.notifier).updateDiscount(discount);
         } else {
@@ -177,6 +201,8 @@ class _CreateDiscountScreenState extends ConsumerState<CreateDiscountScreen> {
             ),
           );
         }
+      } finally {
+        if (mounted) setState(() => _isSaving = false);
       }
     }
   }
@@ -230,20 +256,26 @@ class _CreateDiscountScreenState extends ConsumerState<CreateDiscountScreen> {
                             children: [
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(22),
-                                child: _selectedImagePath!.startsWith('http')
-                                    ? Image.network(
-                                        _selectedImagePath!,
-                                        fit: BoxFit.cover,
-                                      )
-                                    : (kIsWeb
-                                          ? Image.network(
-                                              _selectedImagePath!,
-                                              fit: BoxFit.cover,
-                                            )
-                                          : Image.file(
-                                              File(_selectedImagePath!),
-                                              fit: BoxFit.cover,
-                                            )),
+                            child: _selectedImagePath!.startsWith('http')
+                                // Existing saved URL — use AppNetworkImage for
+                                // proper caching and Supabase URL resolution
+                                ? AppNetworkImage(
+                                    imageUrl: _selectedImagePath,
+                                    fit: BoxFit.cover,
+                                    width: double.infinity,
+                                    height: 200,
+                                    borderRadius: 22,
+                                  )
+                                // Newly picked image — blob: on web, file path on mobile
+                                : (kIsWeb || _selectedImagePath!.startsWith('blob:')
+                                      ? Image.network(
+                                          _selectedImagePath!,
+                                          fit: BoxFit.cover,
+                                        )
+                                      : Image.file(
+                                          File(_selectedImagePath!),
+                                          fit: BoxFit.cover,
+                                        )),
                               ),
                               Container(
                                 decoration: BoxDecoration(
@@ -405,6 +437,63 @@ class _CreateDiscountScreenState extends ConsumerState<CreateDiscountScreen> {
                   ],
                 ),
 
+                const SizedBox(height: 24),
+                // Activation Toggle
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _isActive 
+                        ? Colors.green.withValues(alpha: 0.05) 
+                        : Colors.red.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: _isActive 
+                          ? Colors.green.withValues(alpha: 0.1) 
+                          : Colors.red.withValues(alpha: 0.1),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _isActive ? Icons.check_circle_outline : Icons.pause_circle_outline,
+                        color: _isActive ? Colors.green : Colors.red,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _isActive ? 'Promotion Active' : 'Promotion Inactive',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: _isActive ? Colors.green[700] : Colors.red[700],
+                              ),
+                            ),
+                            Text(
+                              _isActive 
+                                  ? 'This offer will be visible to travelers.' 
+                                  : 'This offer will be hidden from everyone.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: _isActive ? Colors.green[600] : Colors.red[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        value: _isActive,
+                        onChanged: (v) => setState(() => _isActive = v),
+                        activeColor: Colors.green,
+                        activeTrackColor: Colors.green.withValues(alpha: 0.2),
+                        inactiveThumbColor: Colors.red,
+                        inactiveTrackColor: Colors.red.withValues(alpha: 0.2),
+                      ),
+                    ],
+                  ),
+                ),
+
                 const SizedBox(height: 48),
 
                 // ─── Action Button ────────────────────────────────────
@@ -431,14 +520,23 @@ class _CreateDiscountScreenState extends ConsumerState<CreateDiscountScreen> {
                       ),
                       elevation: 0,
                     ),
-                    child: Text(
-                      isEdit ? 'Update Special Offer' : 'Add Special Offer',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
+                    child: _isSaving
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 3,
+                            ),
+                          )
+                        : Text(
+                            isEdit ? 'Update Special Offer' : 'Add Special Offer',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
                   ),
                 ),
                 const SizedBox(height: 40),

@@ -2,10 +2,60 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/service_model.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../models/user_model.dart';
+import 'auth_service.dart';
+import 'service_repository.dart';
+import 'dart:async';
 
 class FavoritesNotifier extends StateNotifier<List<Service>> {
-  FavoritesNotifier() : super([]) {
+  final Ref? _ref;
+  
+  FavoritesNotifier([this._ref]) : super([]) {
     _loadFromPrefs();
+    _listenToAuth();
+  }
+
+  void _listenToAuth() {
+    _ref?.listen<User?>(authProvider, (previous, next) {
+      if (next != null) {
+        if (previous?.id != next.id) {
+          _syncWithServer(next);
+        }
+      } else {
+        // Logged out: Clear memory but keep local storage for guest use if needed
+        state = [];
+      }
+    }, fireImmediately: true);
+  }
+
+  Future<void> _syncWithServer(User user) async {
+    final List<dynamic>? serverFavIds = user.metadata['favorites'];
+    if (serverFavIds == null) return;
+
+    final List<String> favoriteIds = List<String>.from(serverFavIds);
+    
+    // We need the full Service objects. We can try to find them in the serviceProvider
+    final allServices = _ref?.read(serviceProvider) ?? [];
+    final List<Service> syncedServices = [];
+    
+    for (final id in favoriteIds) {
+      final service = allServices.firstWhere((s) => s.id == id, orElse: () => Service(id: '', providerId: '', title: '', category: '', price: 0, location: '', description: '', status: ServiceStatus.active, images: []));
+      if (service.id.isNotEmpty) {
+        syncedServices.add(service);
+      }
+    }
+
+    // Merge with local (prioritize server or combine)
+    final Map<String, Service> merged = {};
+    for (final s in state) {
+      merged[s.id] = s;
+    }
+    for (final s in syncedServices) {
+      merged[s.id] = s;
+    }
+
+    state = merged.values.toList();
+    _saveToPrefs(state);
   }
 
   static const _prefsKey = 'favorite_services_v1';
@@ -50,6 +100,26 @@ class FavoritesNotifier extends StateNotifier<List<Service>> {
     }
     state = newList;
     _saveToPrefs(newList);
+    _syncToSupabase(newList);
+  }
+
+  Future<void> _syncToSupabase(List<Service> services) async {
+    final user = _ref?.read(authProvider);
+    if (user == null) return;
+
+    final favoriteIds = services.map((s) => s.id).toList();
+    
+    try {
+      await _ref?.read(authServiceProvider).updateProfile(
+        metadata: {
+          ...user.metadata,
+          'favorites': favoriteIds,
+        },
+      );
+      print("Favorites synced to Supabase.");
+    } catch (e) {
+      print("Error syncing favorites: $e");
+    }
   }
 
   bool isFavorite(String serviceId) {
@@ -71,5 +141,5 @@ class FavoritesNotifier extends StateNotifier<List<Service>> {
 
 final favoritesProvider =
     StateNotifierProvider<FavoritesNotifier, List<Service>>((ref) {
-      return FavoritesNotifier();
+      return FavoritesNotifier(ref);
     });

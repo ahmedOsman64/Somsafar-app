@@ -80,8 +80,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       final hasSeenOnboarding = settings.hasSeenOnboarding;
       final path = state.uri.path;
       
-      if (!authNotifier.initialized || !settings.initialized) {
-        return null; // Wait for both services to initialize
+      if (!authNotifier.initializationComplete || !settings.initialized) {
+        return null; // Wait for both services to fully initialize (prevents refresh -> login race condition)
       }
 
       // If hasn't seen onboarding, redirect there
@@ -101,6 +101,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         };
         final isPublic = publicPaths.contains(path);
 
+        if (path == '/splash') return '/login';
         if (isPublic) return null;
         return '/login';
       }

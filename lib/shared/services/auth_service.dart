@@ -38,6 +38,13 @@ class AuthService extends ChangeNotifier {
   bool _initialized = false;
   bool get initialized => _initialized;
 
+  /// True only after initialization is fully complete (session check + profile
+  /// fetch). The router must wait for this before making redirect decisions,
+  /// otherwise a page refresh causes a brief "not logged in" state that
+  /// incorrectly redirects the user to /login.
+  bool _initializationComplete = false;
+  bool get initializationComplete => _initializationComplete;
+
   bool _mounted = true;
   bool get mounted => _mounted;
 
@@ -49,6 +56,7 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<void> _initialize() async {
+    final startTime = DateTime.now();
     try {
       // Start listening to auth changes first
       _initAuthStateListener();
@@ -67,29 +75,36 @@ class AuthService extends ChangeNotifier {
       debugPrint('AuthService: Initial session check: ${session?.user.id}');
 
       if (session != null) {
-        debugPrint('AuthService: Session found on startup, fetching profile in background...');
-        // Don't await this if we want to avoid splash screen hangs
-        // It will update _state and notify listeners once done
-        _fetchAndSetProfile(session).timeout(
-          const Duration(seconds: 4),
+        debugPrint('AuthService: Session found on startup, fetching profile...');
+        // Await the profile fetch so the router has valid state before deciding
+        // where to redirect. Capped at 6 seconds to avoid hangng on slow networks.
+        await _fetchAndSetProfile(session).timeout(
+          const Duration(seconds: 6),
           onTimeout: () {
-            debugPrint('AuthService: Profile fetch background timeout.');
+            debugPrint('AuthService: Profile fetch timed out on startup.');
           },
         );
       } else {
-        debugPrint('AuthService: No initial session or session check timed out.');
+        debugPrint('AuthService: No initial session found.');
       }
     } catch (e) {
       debugPrint('AuthService: Critical error during _initialize: $e');
     } finally {
-      // Set initialized only after we've had a chance to check the initial state
+      // Add a minimum delay for the splash screen (e.g., 1.5s total)
+      final elapsed = DateTime.now().difference(startTime).inMilliseconds;
+      if (elapsed < 1500) {
+        await Future.delayed(Duration(milliseconds: 1500 - elapsed));
+      }
+
+      // Mark fully complete so the router can now make redirect decisions.
       if (!_initialized) {
         _initialized = true;
-        notifyListeners();
-        debugPrint(
-          'AuthService: Initialization complete. State: ${_state != null ? "Logged In" : "Logged Out"}',
-        );
       }
+      _initializationComplete = true;
+      notifyListeners();
+      debugPrint(
+        'AuthService: Init fully complete. State: ${_state != null ? "Logged In" : "Logged Out"}',
+      );
     }
   }
 
@@ -773,13 +788,20 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    if (SupabaseConfig.client.auth.currentSession == null) {
-      debugPrint('AuthService: logout called but no session exists. Skipping.');
-      return;
+    debugPrint('AuthService: Logging out...');
+    
+    // Clear state immediately so the UI/Router responds instantly
+    state = null;
+    _stopSessionMonitoring();
+
+    try {
+      // Attempt clean server-side sign out
+      await SupabaseConfig.client.auth.signOut();
+      debugPrint('AuthService: Server-side signOut complete.');
+    } catch (e) {
+      debugPrint('AuthService: Non-fatal error during signOut: $e');
+      // Even if server call fails, we are "logged out" locally
     }
-    // Clear saved recommendations so a new user starts with a clean slate
-    await _clearFavoritesFromStorage();
-    await SupabaseConfig.client.auth.signOut();
   }
 
   /// Removes favorite/recommended services from local storage.
