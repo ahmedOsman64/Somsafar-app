@@ -485,7 +485,7 @@ class _CreateDiscountScreenState extends ConsumerState<CreateDiscountScreen> {
                       Switch(
                         value: _isActive,
                         onChanged: (v) => setState(() => _isActive = v),
-                        activeColor: Colors.green,
+                        activeThumbColor: Colors.green,
                         activeTrackColor: Colors.green.withValues(alpha: 0.2),
                         inactiveThumbColor: Colors.red,
                         inactiveTrackColor: Colors.red.withValues(alpha: 0.2),

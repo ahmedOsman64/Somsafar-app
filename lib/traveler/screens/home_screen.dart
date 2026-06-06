@@ -3298,7 +3298,7 @@ class _DiscountBannerSection extends ConsumerWidget {
           ),
         ),
         SizedBox(
-          height: 180,
+          height: 200,
           child: PageView.builder(
             itemCount: discounts.length,
             controller: PageController(viewportFraction: 0.9),
