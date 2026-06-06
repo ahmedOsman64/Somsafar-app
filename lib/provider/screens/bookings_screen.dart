@@ -26,8 +26,6 @@ class ProviderBookingsScreen extends ConsumerWidget {
         title = 'Room Bookings';
         break;
       case ProviderType.home:
-        title = 'Apartment Bookings';
-        break;
       case ProviderType.apartment:
         title = 'Apartment Bookings';
         break;
@@ -39,39 +37,94 @@ class ProviderBookingsScreen extends ConsumerWidget {
         break;
     }
 
-    // Sort logic
-    final sortedBookings = [...bookings];
-    sortedBookings.sort((a, b) {
-      // Pending first
-      if (a.status == BookingStatus.pending &&
-          b.status != BookingStatus.pending) {
-        return -1;
-      }
-      if (a.status != BookingStatus.pending &&
-          b.status == BookingStatus.pending) {
-        return 1;
-      }
-      // Then date
-      return a.date.compareTo(b.date);
-    });
-
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Column(
-        children: [
-          _buildSummary(ref, providerType),
-          Expanded(
-            child: sortedBookings.isEmpty
-                ? const Center(child: Text('No bookings yet'))
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: sortedBookings.length,
-                    itemBuilder: (context, index) =>
-                        _BookingCard(booking: sortedBookings[index], ref: ref),
-                  ),
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(title),
+          foregroundColor: Colors.white,
+          bottom: TabBar(
+            tabs: [
+              _buildTab('Pending', bookings.where((b) => b.status == BookingStatus.pending).length),
+              _buildTab('Confirmed', bookings.where((b) => b.status == BookingStatus.confirmed).length),
+              _buildTab('Completed', bookings.where((b) => b.status == BookingStatus.completed).length),
+            ],
+            indicatorColor: Colors.white,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white.withValues(alpha: 0.6),
+            labelStyle: const TextStyle(fontWeight: FontWeight.bold),
           ),
+        ),
+        body: Column(
+          children: [
+            _buildSummary(ref, providerType),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  _buildBookingList(context, ref, bookings, BookingStatus.pending),
+                  _buildBookingList(context, ref, bookings, BookingStatus.confirmed),
+                  _buildBookingList(context, ref, bookings, BookingStatus.completed),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTab(String label, int count) {
+    return Tab(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(label),
+          if (count > 0) ...[
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                count.toString(),
+                style: const TextStyle(fontSize: 10),
+              ),
+            ),
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _buildBookingList(BuildContext context, WidgetRef ref, List<Booking> allBookings, BookingStatus status) {
+    final bookings = allBookings.where((b) => b.status == status).toList();
+    
+    // Sort logic
+    bookings.sort((a, b) => b.date.compareTo(a.date)); // Newest first
+
+    if (bookings.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[300]),
+            const SizedBox(height: 16),
+            Text(
+              'No ${status.name} bookings',
+              style: TextStyle(color: Colors.grey[500], fontSize: 16),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: bookings.length,
+      itemBuilder: (context, index) =>
+          _BookingCard(booking: bookings[index], ref: ref),
     );
   }
 
@@ -516,20 +569,35 @@ class _BookingCard extends StatelessWidget {
             child: const Text('Accept'),
           ),
         ] else if (booking.status == BookingStatus.confirmed) ...[
+          OutlinedButton(
+            onPressed: () => _updateStatus(context, BookingStatus.cancelled),
+            style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Cancel'),
+          ),
+          const SizedBox(width: 8),
           OutlinedButton.icon(
-            onPressed: () {
-              ref.read(bookingProvider.notifier).resendConfirmationEmail(booking.id);
+            onPressed: () async {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Receipt email sending...'),
-                  duration: Duration(seconds: 2),
+                  content: Text('Attempting to send email receipt...'),
+                  duration: Duration(seconds: 1),
                 ),
               );
+              final success = await ref.read(bookingProvider.notifier).resendConfirmationEmail(booking.id);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(success ? 'Receipt email sent successfully!' : 'Failed to send email. Check credentials.'),
+                    backgroundColor: success ? AppColors.success : AppColors.error,
+                  ),
+                );
+              }
             },
             icon: const Icon(Icons.email_outlined, size: 18),
             label: const Text('Resend Receipt'),
           ),
-          OutlinedButton.icon(
+          IconButton(
             onPressed: () {
               Navigator.push(
                 context,
@@ -541,12 +609,8 @@ class _BookingCard extends StatelessWidget {
                 ),
               );
             },
-            icon: const Icon(Icons.chat_bubble_outline, size: 18),
-            label: const Text('Chat'),
-          ),
-          ElevatedButton(
-            onPressed: () => _updateStatus(context, BookingStatus.completed),
-            child: const Text('Mark Completed'),
+            icon: const Icon(Icons.chat_bubble_outline, color: AppColors.primary),
+            tooltip: 'Chat with Traveler',
           ),
         ],
       ],
@@ -741,7 +805,7 @@ class _BookingCard extends StatelessWidget {
         themeColor = AppColors.success;
         break;
       case BookingStatus.cancelled:
-        actionNoun = 'Reject';
+        actionNoun = booking.status == BookingStatus.pending ? 'Reject' : 'Cancel';
         themeColor = AppColors.error;
         break;
       case BookingStatus.completed:

@@ -70,7 +70,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     // Progress bar
     _progressController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2500),
+      duration: const Duration(milliseconds: 1500),
     );
     _progressValue = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _progressController, curve: Curves.easeInOut),
@@ -86,7 +86,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   Future<void> _initializeApp() async {
     // Simply wait for initialization. The GoRouter redirect logic will handle navigation
     // once authNotifier.initialized and settings.initialized are true.
-    await Future.delayed(const Duration(milliseconds: 2800)); // Maintain splash time
+    await Future.delayed(const Duration(milliseconds: 2000)); // Faster splash time
     debugPrint('SplashScreen: Initialization check complete. Handing over to Router.');
   }
 

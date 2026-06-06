@@ -223,6 +223,7 @@ class CounterRow extends StatelessWidget {
   final VoidCallback onDecrement;
   final VoidCallback onIncrement;
   final int minValue;
+  final int? maxValue;
 
   const CounterRow({
     required this.label,
@@ -231,11 +232,13 @@ class CounterRow extends StatelessWidget {
     required this.onDecrement,
     required this.onIncrement,
     this.minValue = 1,
+    this.maxValue,
     super.key,
   });
 
   @override
   Widget build(BuildContext context) {
+    final bool atMax = maxValue != null && value >= maxValue!;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -281,7 +284,10 @@ class CounterRow extends StatelessWidget {
                   ),
                 ),
               ),
-              _CounterButton(icon: Icons.add, onTap: onIncrement),
+              _CounterButton(
+                icon: Icons.add,
+                onTap: atMax ? null : onIncrement,
+              ),
             ],
           ),
         ],

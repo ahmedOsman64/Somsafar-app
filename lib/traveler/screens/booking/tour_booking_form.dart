@@ -1376,6 +1376,8 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
             guests: travelersList.length,
             rooms: 1,
             totalPrice: _bookingSummary!.totalPrice,
+            taxes: _bookingSummary!.taxes,
+            extras: _bookingSummary!.extras,
             contactName: _fullNameController.text,
             contactEmail: _emailController.text,
             contactPhone: _phoneController.text,

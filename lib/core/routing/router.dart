@@ -252,7 +252,16 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: '/traveler/search',
                 builder: (context, state) {
                   final category = state.uri.queryParameters['category'];
-                  return TravelerSearchScreen(category: category);
+                  final ids = state.uri.queryParameters['ids'];
+                  final providerId = state.uri.queryParameters['providerId'];
+                  final hasDiscount = state.uri.queryParameters['hasDiscount'] == 'true';
+                  
+                  return TravelerSearchScreen(
+                    category: category,
+                    ids: ids,
+                    providerId: providerId,
+                    hasDiscount: hasDiscount,
+                  );
                 },
               ),
             ],

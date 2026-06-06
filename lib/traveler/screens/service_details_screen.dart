@@ -322,7 +322,10 @@ class ServiceDetailsScreen extends ConsumerWidget {
                 _buildInfoRow(
                   Icons.people,
                   'Max Guests',
-                  '${metadata['maxGuests'] ?? 'N/A'}',
+                  () {
+                    final v = metadata['max_guests'] ?? metadata['maxGuests'] ?? service.maxGuests;
+                    return v != null ? '$v Guests' : 'N/A';
+                  }(),
                 ),
                 _buildInfoRow(
                   Icons.king_bed,

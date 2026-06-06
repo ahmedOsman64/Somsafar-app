@@ -27,35 +27,29 @@ class EmailService {
       return;
     }
 
-    try {
-      // 1. Generate the PDF bytes
-      final pdfBytes = await _generateReceiptPdf(booking);
+    // 1. Generate the PDF bytes
+    final pdfBytes = await _generateReceiptPdf(booking);
 
-      // 2. Build the email message
-      final smtpServer = gmail(_senderEmail, _senderAppPassword);
+    // 2. Build the email message
+    final smtpServer = gmail(_senderEmail, _senderAppPassword);
 
-      final message = Message()
-        ..from = Address(_senderEmail, _senderName)
-        ..recipients.add(booking.contactEmail.trim())
-        ..subject = '✅ Booking Confirmed – ${booking.serviceTitle}'
-        ..html = _buildEmailBody(booking)
-        ..attachments = [
-          StreamAttachment(
-            Stream.fromIterable([pdfBytes]),
-            'application/pdf',
-            fileName:
-                'SomSafar_Booking_${booking.id.substring(0, 8).toUpperCase()}.pdf',
-          ),
-        ];
+    final message = Message()
+      ..from = Address(_senderEmail, _senderName)
+      ..recipients.add(booking.contactEmail.trim())
+      ..subject = '✅ Booking Confirmed – ${booking.serviceTitle}'
+      ..html = _buildEmailBody(booking)
+      ..attachments = [
+        StreamAttachment(
+          Stream.value(pdfBytes),
+          'application/pdf',
+          fileName: 'SomSafar_Booking_${booking.id.substring(0, 8).toUpperCase()}.pdf',
+        ),
+      ];
 
-      // 3. Send
-      final sendReport = await send(message, smtpServer);
-      debugPrint(
-          'EmailService: Confirmation email sent → ${sendReport.toString()}');
-    } catch (e) {
-      // Non-fatal: log but don't crash the booking flow
-      debugPrint('EmailService: Failed to send email – $e');
-    }
+    // 3. Send
+    final sendReport = await send(message, smtpServer);
+    debugPrint(
+        'EmailService: Confirmation email sent → ${sendReport.toString()}');
   }
 
   // ── PDF Generation ──────────────────────────────────────────────────────────

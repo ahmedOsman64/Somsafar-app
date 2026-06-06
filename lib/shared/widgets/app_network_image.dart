@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
+import '../../core/services/storage_service.dart';
 
 class AppNetworkImage extends StatelessWidget {
   final String? imageUrl;
@@ -37,13 +38,16 @@ class AppNetworkImage extends StatelessWidget {
       return _buildErrorWidget();
     }
 
+    // Resolve relative paths to public URLs if needed
+    final resolvedUrl = StorageService.ensurePublicUrl(imageUrl!);
+
     // On Web, CachedNetworkImage can sometimes trigger CORS exceptions
     // depending on the server. The browser already handles caching.
     if (kIsWeb) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(borderRadius),
         child: Image.network(
-          imageUrl!,
+          resolvedUrl,
           width: width,
           height: height,
           fit: fit,
@@ -62,7 +66,7 @@ class AppNetworkImage extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius),
       child: CachedNetworkImage(
-        imageUrl: imageUrl!,
+        imageUrl: resolvedUrl,
         width: width,
         height: height,
         fit: fit,

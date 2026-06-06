@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/discount_model.dart';
 import '../models/user_model.dart';
@@ -5,9 +6,26 @@ import 'auth_service.dart';
 import '../../core/services/supabase_service.dart';
 import 'package:flutter/foundation.dart';
 
+
 class DiscountRepository extends StateNotifier<List<Discount>> {
+  Timer? _expirationTimer;
+
   DiscountRepository() : super([]) {
     _initStream();
+    _startAutoCheck();
+  }
+
+  @override
+  void dispose() {
+    _expirationTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startAutoCheck() {
+    // Check every hour (or whenever app starts) to ensure accurate statuses
+    _expirationTimer = Timer.periodic(const Duration(hours: 1), (timer) {
+      if (mounted) checkExpirations();
+    });
   }
 
   void _initStream() {
@@ -17,35 +35,46 @@ class DiscountRepository extends StateNotifier<List<Discount>> {
         .listen((data) {
           if (!mounted) return;
           try {
-            state = data.map((json) => Discount.fromJson(json)).toList();
-            checkExpirations(); // Check expirations on every data update
+            final List<Discount> loadedDiscounts = [];
+            for (final json in data) {
+              try {
+                loadedDiscounts.add(Discount.fromJson(json));
+              } catch (e) {
+                debugPrint('Error parsing individual discount (${json['id']}): $e');
+              }
+            }
+            state = loadedDiscounts;
+            // Run expiration check to ensure statuses match current date
+            checkExpirations();
           } catch (e) {
-            debugPrint('Error parsing discounts from Supabase: $e');
+            debugPrint('Error in discount stream listener: $e');
           }
         });
   }
 
   Future<void> checkExpirations() async {
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
     
-    // We update local state first for immediate UI response, 
-    // but the actual auto-expiration should ideally be handled by a DB cron job or Function.
-    // For now, we'll keep the logic to trigger updates if we detect expired ones.
-    
+    // Process local state to find what needs updating on the server
     for (final d in state) {
-      if (d.status == DiscountStatus.pending || d.status == DiscountStatus.ended) continue;
-      
       final endOfDay = DateTime(d.endDate.year, d.endDate.month, d.endDate.day, 23, 59, 59);
       final startOfDay = DateTime(d.startDate.year, d.startDate.month, d.startDate.day);
 
-      if (d.status == DiscountStatus.active && now.isAfter(endOfDay)) {
-        await updateDiscount(d.copyWith(status: DiscountStatus.ended));
-      } else if (d.status == DiscountStatus.scheduled && (now.isAfter(startOfDay) || now.isAtSameMomentAs(startOfDay))) {
-        if (now.isAfter(endOfDay)) {
-           await updateDiscount(d.copyWith(status: DiscountStatus.ended));
-        } else {
-           await updateDiscount(d.copyWith(status: DiscountStatus.active));
-        }
+      DiscountStatus? newStatus;
+
+      if (d.status != DiscountStatus.ended && now.isAfter(endOfDay)) {
+        newStatus = DiscountStatus.ended;
+      } else if (d.status == DiscountStatus.scheduled && (now.isAfter(startOfDay) || now.isAtSameMomentAs(today))) {
+        newStatus = DiscountStatus.active;
+      } else if (d.status == DiscountStatus.pending && (now.isAfter(startOfDay) || now.isAtSameMomentAs(today))) {
+        // Auto-activate pending if dates match (simplified for provider self-management)
+        newStatus = now.isAfter(endOfDay) ? DiscountStatus.ended : DiscountStatus.active;
+      }
+
+      if (newStatus != null && newStatus != d.status) {
+        // Fire and forget update to server; stream will update local state
+        updateDiscount(d.copyWith(status: newStatus));
       }
     }
   }
@@ -94,10 +123,15 @@ class DiscountRepository extends StateNotifier<List<Discount>> {
           (startOfDay.isBefore(now) ||
               startOfDay.isAtSameMomentAs(now)) &&
           (endOfDay.isAfter(now) || endOfDay.isAtSameMomentAs(now));
-      final isProviderMatch = d.providerId == providerId;
+      
+      // Robust matching: A discount matches if it has the same providerId 
+      // as the service, or if it's a platform-wide 'sample-provider' discount.
+      final isProviderMatch = d.providerId == providerId || d.providerId == 'sample-provider';
+      
       final isServiceMatch =
           d.applicableServiceIds.isEmpty ||
           d.applicableServiceIds.contains(serviceId);
+          
       return d.status == DiscountStatus.active &&
           isDateValid &&
           isProviderMatch &&
@@ -129,18 +163,22 @@ final filteredDiscountsProvider = Provider<List<Discount>>((ref) {
 
   if (user == null) return [];
 
-  if (user.role == UserRole.provider || user.role == UserRole.providerHelper) {
-    final providerKey = user.providerId ?? user.id;
-    // For demo purposes, if it's the sample provider or matches the key
-    return discounts
-        .where(
-          (d) =>
-              d.providerId == providerKey || d.providerId == 'sample-provider',
-        )
-        .toList();
-  }
-
+  // Admins see all discounts across the platform
   if (user.role == UserRole.admin) return discounts;
+
+  // Providers see their own business discounts or sample data
+  if (user.role == UserRole.provider || user.role == UserRole.providerHelper) {
+    final businessId = user.providerId;
+    final personalId = user.id;
+    
+    return discounts.where((d) {
+      final isOwner = d.providerId == personalId;
+      final isBusinessMatch = businessId != null && d.providerId == businessId;
+      final isSample = d.providerId == 'sample-provider';
+      
+      return isOwner || isBusinessMatch || isSample;
+    }).toList();
+  }
 
   return [];
 });

@@ -67,11 +67,13 @@ class AuthService extends ChangeNotifier {
       debugPrint('AuthService: Initial session check: ${session?.user.id}');
 
       if (session != null) {
-        debugPrint('AuthService: Session found on startup, fetching profile...');
-        await _fetchAndSetProfile(session).timeout(
-          const Duration(seconds: 10),
+        debugPrint('AuthService: Session found on startup, fetching profile in background...');
+        // Don't await this if we want to avoid splash screen hangs
+        // It will update _state and notify listeners once done
+        _fetchAndSetProfile(session).timeout(
+          const Duration(seconds: 4),
           onTimeout: () {
-            debugPrint('AuthService: Profile fetch timed out.');
+            debugPrint('AuthService: Profile fetch background timeout.');
           },
         );
       } else {
@@ -158,7 +160,7 @@ class AuthService extends ChangeNotifier {
         // Wait before retrying (exponential backoff or simple delay)
         retries++;
         if (retries < maxRetries) {
-          await Future.delayed(Duration(milliseconds: 500 * retries));
+          await Future.delayed(Duration(milliseconds: 200 * retries));
         }
       } on sb.PostgrestException catch (e) {
         debugPrint('ERROR: Database error querying "users": ${e.message}');
@@ -485,7 +487,7 @@ class AuthService extends ChangeNotifier {
         return 'Server unreachable. Please try again later.';
       }
 
-      return 'An unexpected error occurred. Please try again.';
+      return 'An unexpected error occurred: ${e.toString().split(':').last.trim()}';
     } finally {
       if (mounted) {
         _isLoading = false;
@@ -570,7 +572,7 @@ class AuthService extends ChangeNotifier {
           err.contains('certificate_verify_failed')) {
         return 'Please check your internet connection';
       }
-      return 'Signup failed. Please try again.';
+      return 'Signup failed: ${e.toString().split(':').last.trim()}';
     }
   }
 

@@ -19,6 +19,8 @@ import '../../shared/services/banner_repository.dart';
 import '../../shared/services/review_repository.dart';
 import '../../shared/services/lookup_service.dart';
 import '../../shared/services/highlight_repository.dart';
+import '../../shared/models/discount_model.dart';
+import '../../shared/services/discount_repository.dart';
 import '../../core/widgets/responsive.dart';
 
 class TravelerHomeScreen extends ConsumerStatefulWidget {
@@ -265,6 +267,12 @@ class _TravelerHomeScreenState extends ConsumerState<TravelerHomeScreen> {
                   _selectedDestinationKey = null;
                 }),
               ),
+            ),
+
+          // 🎁 Promotional Discount Banners
+          if (_selectedDestination == null && _searchQuery.isEmpty)
+            SliverToBoxAdapter(
+              child: _DiscountBannerSection(),
             ),
 
           // 🏨 Recommended Services (Favorites / Top)
@@ -2717,13 +2725,9 @@ class _TravelHighlightsSection extends ConsumerWidget {
                 children: [
                   AspectRatio(
                     aspectRatio: 16 / 10,
-                    child: Image.network(
-                      item['image']!,
+                    child: AppNetworkImage(
+                      imageUrl: item['image']!,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        color: Colors.grey[200],
-                        child: const Icon(Icons.error_outline),
-                      ),
                     ),
                   ),
                   Positioned(
@@ -3070,14 +3074,10 @@ void _openQuickPreview(BuildContext context, Service service) {
                     child: PageView.builder(
                       itemCount: images.length,
                       itemBuilder: (context, index) {
-                        return Image.network(
-                          images[index],
+                        return AppNetworkImage(
+                          imageUrl: images[index],
                           fit: BoxFit.cover,
                           width: double.infinity,
-                          errorBuilder: (_, __, ___) => Container(
-                            color: Colors.grey[200],
-                            child: const Icon(Icons.broken_image, size: 48),
-                          ),
                         );
                       },
                     ),
@@ -3258,5 +3258,181 @@ IconData getLookupIcon(String? iconName) {
       return Icons.directions_car;
     default:
       return Icons.category;
+  }
+}
+// 🎁 Promotional Discount Banner Section
+class _DiscountBannerSection extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final discounts = ref.watch(discountRepositoryProvider)
+        .where((d) => d.status == DiscountStatus.active && d.imageUrl != null)
+        .toList();
+
+    if (discounts.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Special Promotions',
+                style: GoogleFonts.poppins(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              if (discounts.length > 1)
+                 Text(
+                  'Slide for more',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: Colors.grey,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 180,
+          child: PageView.builder(
+            itemCount: discounts.length,
+            controller: PageController(viewportFraction: 0.9),
+            itemBuilder: (context, index) {
+              final d = discounts[index];
+              return GestureDetector(
+                onTap: () {
+                  if (d.applicableServiceIds.isNotEmpty) {
+                    context.push('/traveler/service/${d.applicableServiceIds.first}');
+                  }
+                },
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: Stack(
+                      children: [
+                        // Banner Image
+                        AppNetworkImage(
+                          imageUrl: d.imageUrl!,
+                          width: double.infinity,
+                          height: double.infinity,
+                          fit: BoxFit.cover,
+                        ),
+                        // Overlay Gradient
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                              colors: [
+                                Colors.black.withValues(alpha: 0.7),
+                                Colors.transparent,
+                              ],
+                            ),
+                          ),
+                        ),
+                        // Text Content
+                        Padding(
+                          padding: const EdgeInsets.all(20.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  d.badgeText,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                d.title,
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                d.description,
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  fontSize: 12,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: () {
+                                  if (d.applicableServiceIds.length == 1) {
+                                    context.push('/traveler/service/${d.applicableServiceIds.first}');
+                                  } else if (d.applicableServiceIds.length > 1) {
+                                    // Navigate to search with specific service IDs filter
+                                    final ids = d.applicableServiceIds.join(',');
+                                    context.push('/traveler/search?ids=$ids');
+                                  } else {
+                                    // If applies to all by this provider, go to search filtered 
+                                    // by this provider AND ensuring it has a discount
+                                    context.push('/traveler/search?providerId=${d.providerId}&hasDiscount=true');
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  foregroundColor: AppColors.primary,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  elevation: 0,
+                                ),
+                                child: Text(
+                                  d.applicableServiceIds.length > 1 ? 'View Offers' : 'Book Now',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
   }
 }

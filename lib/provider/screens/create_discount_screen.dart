@@ -30,7 +30,6 @@ class _CreateDiscountScreenState extends ConsumerState<CreateDiscountScreen> {
   bool _isPercentage = true;
   DateTime _startDate = DateTime.now();
   DateTime _endDate = DateTime.now().add(const Duration(days: 7));
-  DiscountStatus _status = DiscountStatus.pending;
   String? _selectedImagePath;
   final ImagePicker _picker = ImagePicker();
 
@@ -52,7 +51,6 @@ class _CreateDiscountScreenState extends ConsumerState<CreateDiscountScreen> {
       _isPercentage = widget.discountToEdit!.isPercentage;
       _startDate = widget.discountToEdit!.startDate;
       _endDate = widget.discountToEdit!.endDate;
-      _status = widget.discountToEdit!.status;
       _selectedImagePath = widget.discountToEdit!.imageUrl;
     }
   }
@@ -115,10 +113,25 @@ class _CreateDiscountScreenState extends ConsumerState<CreateDiscountScreen> {
     }
   }
 
-  void _saveDiscount() {
+  Future<void> _saveDiscount() async {
     if (_formKey.currentState!.validate()) {
       final user = ref.read(authProvider);
       if (user == null) return;
+
+      // Automatically determine status based on dates
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final start = DateTime(_startDate.year, _startDate.month, _startDate.day);
+      final end = DateTime(_endDate.year, _endDate.month, _endDate.day, 23, 59, 59);
+
+      DiscountStatus calculatedStatus;
+      if (now.isAfter(end)) {
+        calculatedStatus = DiscountStatus.ended;
+      } else if (now.isAfter(start) || now.isAtSameMomentAs(today)) {
+        calculatedStatus = DiscountStatus.active;
+      } else {
+        calculatedStatus = DiscountStatus.scheduled;
+      }
 
       final discount = Discount(
         id: widget.discountToEdit?.id ?? const Uuid().v4(),
@@ -128,30 +141,43 @@ class _CreateDiscountScreenState extends ConsumerState<CreateDiscountScreen> {
         startDate: _startDate,
         endDate: _endDate,
         applicableServiceIds: widget.discountToEdit?.applicableServiceIds ?? [],
-        status: _status,
+        status: calculatedStatus,
         title: _titleController.text,
         description: _descriptionController.text,
         imageUrl: _selectedImagePath,
         createdAt: widget.discountToEdit?.createdAt ?? DateTime.now(),
       );
 
-      if (widget.discountToEdit != null) {
-        ref.read(discountRepositoryProvider.notifier).updateDiscount(discount);
-      } else {
-        ref.read(discountRepositoryProvider.notifier).addDiscount(discount);
-      }
+      try {
+        if (widget.discountToEdit != null) {
+          await ref.read(discountRepositoryProvider.notifier).updateDiscount(discount);
+        } else {
+          await ref.read(discountRepositoryProvider.notifier).addDiscount(discount);
+        }
 
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            widget.discountToEdit != null
-                ? 'Discount updated successfully'
-                : 'Discount created successfully',
-          ),
-          backgroundColor: Colors.green,
-        ),
-      );
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                widget.discountToEdit != null
+                    ? 'Discount updated successfully'
+                    : 'Discount created successfully',
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
     }
   }
 

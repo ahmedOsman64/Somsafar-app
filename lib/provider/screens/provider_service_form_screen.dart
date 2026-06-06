@@ -49,6 +49,7 @@ class _ProviderServiceFormScreenState
   // Hotel Specific
   late TextEditingController _hotelNameController;
   late TextEditingController _hotelRoomsController;
+  late TextEditingController _hotelMaxGuestsController;
   final List<String> _hotelAmenities = [];
   String? _bedType = 'Double';
   String? _smokingPreference = 'Non-Smoking';
@@ -140,6 +141,7 @@ class _ProviderServiceFormScreenState
     // Hotel
     _hotelNameController = TextEditingController();
     _hotelRoomsController = TextEditingController();
+    _hotelMaxGuestsController = TextEditingController();
     _breakfastPriceController = TextEditingController();
     _airportPickupPriceController = TextEditingController();
     _extraBedPriceController = TextEditingController();
@@ -286,6 +288,8 @@ class _ProviderServiceFormScreenState
       case 'hotels':
         _hotelNameController.text = metadata['hotelName'] ?? '';
         _hotelRoomsController.text = metadata['rooms']?.toString() ?? '';
+        _hotelMaxGuestsController.text =
+            (metadata['max_guests'] ?? metadata['maxGuests'])?.toString() ?? '';
         if (metadata['amenities'] != null) {
           _hotelAmenities.clear();
           _hotelAmenities.addAll(List<String>.from(metadata['amenities']));
@@ -438,6 +442,7 @@ class _ProviderServiceFormScreenState
     _tourImportantInfoController.dispose();
     _hotelNameController.dispose();
     _hotelRoomsController.dispose();
+    _hotelMaxGuestsController.dispose();
     _houseRulesController.dispose();
     _breakfastPriceController.dispose();
     _airportPickupPriceController.dispose();
@@ -603,6 +608,7 @@ class _ProviderServiceFormScreenState
           case 'hotels':
             metadata['hotelName'] = _hotelNameController.text;
             metadata['rooms'] = int.tryParse(_hotelRoomsController.text);
+            metadata['max_guests'] = int.tryParse(_hotelMaxGuestsController.text);
             metadata['amenities'] = _hotelAmenities;
             metadata['bedType'] = _bedType;
             metadata['smokingPreference'] = _smokingPreference;
@@ -725,7 +731,7 @@ class _ProviderServiceFormScreenState
             ),
             extraBedPrice: double.tryParse(_extraBedPriceController.text),
             maxGuests: category.trim().toLowerCase().contains('hotel')
-                ? 2
+                ? (int.tryParse(_hotelMaxGuestsController.text) ?? 2)
                 : (category.trim().toLowerCase().contains('apartment')
                       ? int.tryParse(_aptMaxGuestsController.text)
                       : int.tryParse(_maxTravelersController.text)),
@@ -792,7 +798,7 @@ class _ProviderServiceFormScreenState
             ),
             extraBedPrice: double.tryParse(_extraBedPriceController.text),
             maxGuests: category.trim().toLowerCase().contains('hotel')
-                ? 2
+                ? (int.tryParse(_hotelMaxGuestsController.text) ?? 2)
                 : (category.trim().toLowerCase().contains('apartment')
                       ? int.tryParse(_aptMaxGuestsController.text)
                       : int.tryParse(_maxTravelersController.text)),
@@ -1237,12 +1243,34 @@ class _ProviderServiceFormScreenState
           prefixIcon: const Icon(Icons.hotel),
         ),
         const SizedBox(height: 16),
-        AppTextField(
-          controller: _hotelRoomsController,
-          label: 'Number of Rooms *',
-          hint: 'e.g. 20',
-          keyboardType: TextInputType.number,
-          prefixIcon: const Icon(Icons.meeting_room_outlined),
+        Row(
+          children: [
+            Expanded(
+              child: AppTextField(
+                controller: _hotelRoomsController,
+                label: 'Number of Rooms *',
+                hint: 'e.g. 20',
+                keyboardType: TextInputType.number,
+                prefixIcon: const Icon(Icons.meeting_room_outlined),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: AppTextField(
+                controller: _hotelMaxGuestsController,
+                label: 'Max Guests (per room) *',
+                hint: 'e.g. 2',
+                keyboardType: TextInputType.number,
+                prefixIcon: const Icon(Icons.people_outline),
+                validator: (val) {
+                  if (val == null || val.isEmpty) return 'Required';
+                  final n = int.tryParse(val);
+                  if (n == null || n < 1) return 'Min 1';
+                  return null;
+                },
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 16),
         const Text(

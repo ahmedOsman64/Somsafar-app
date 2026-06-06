@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/services/service_repository.dart';
+import '../../../shared/services/discount_repository.dart';
 
 // Import new modular components
 import 'widgets/search_header_bar.dart';
@@ -12,7 +13,17 @@ import 'widgets/map_view_widget.dart';
 
 class TravelerSearchScreen extends ConsumerStatefulWidget {
   final String? category;
-  const TravelerSearchScreen({super.key, this.category});
+  final String? ids;
+  final String? providerId;
+  final bool? hasDiscount;
+  
+  const TravelerSearchScreen({
+    super.key, 
+    this.category,
+    this.ids,
+    this.providerId,
+    this.hasDiscount,
+  });
 
   @override
   ConsumerState<TravelerSearchScreen> createState() =>
@@ -134,11 +145,37 @@ class _TravelerSearchScreenState extends ConsumerState<TravelerSearchScreen> {
                 false,
           ));
 
+      // Multi-ID filter (from promotional banners)
+      bool matchesIds = true;
+      if (widget.ids != null && widget.ids!.isNotEmpty) {
+        final allowedIds = widget.ids!.split(',');
+        matchesIds = allowedIds.contains(service.id);
+      }
+
+      // Provider filter
+      bool matchesProvider = widget.providerId == null || 
+                            service.providerId == widget.providerId;
+
+      // Discount filter
+      bool matchesDiscountCheck = true;
+      if (widget.hasDiscount == true) {
+        final discounts = ref.read(discountRepositoryProvider);
+        final bestDiscount = DiscountRepository.getBestDiscount(
+          discounts, 
+          service.id, 
+          service.providerId,
+        );
+        matchesDiscountCheck = bestDiscount != null;
+      }
+
       return matchesSearch &&
           matchesPrice &&
           matchesPropertyType &&
           matchesVerified &&
-          matchesAmenities;
+          matchesAmenities &&
+          matchesIds &&
+          matchesProvider &&
+          matchesDiscountCheck;
     }).toList();
 
     // 2. Sort services

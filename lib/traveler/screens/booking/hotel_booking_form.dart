@@ -53,7 +53,7 @@ class _HotelBookingFormState extends ConsumerState<HotelBookingForm>
   final _locationController = TextEditingController();
 
   // Room Preferences
-  BedType _bedType = BedType.double;
+  BedType _bedType = BedType.single;
   SmokingPreference _smokingPreference = SmokingPreference.nonSmoking;
   final _specialRequestsController = TextEditingController();
 
@@ -86,10 +86,10 @@ class _HotelBookingFormState extends ConsumerState<HotelBookingForm>
     final metadata = widget.service.metadata;
     final dynamicBeds = metadata['bed_types_dynamic'] as Map<String, dynamic>?;
     if (dynamicBeds != null) {
-      if (dynamicBeds['double']?['enabled'] == true) {
-        _bedType = BedType.double;
-      } else if (dynamicBeds['single']?['enabled'] == true) {
+      if (dynamicBeds['single']?['enabled'] == true) {
         _bedType = BedType.single;
+      } else if (dynamicBeds['double']?['enabled'] == true) {
+        _bedType = BedType.double;
       } else if (dynamicBeds['twin']?['enabled'] == true) {
         _bedType = BedType.twin;
       }
@@ -195,6 +195,9 @@ class _HotelBookingFormState extends ConsumerState<HotelBookingForm>
 
   Widget _buildStayDetailsStep() {
     final bool datesSelected = _checkInDate != null && _checkOutDate != null;
+    final int? maxPerRoom = widget.service.maxGuests;
+    final int? guestCap = maxPerRoom != null ? _rooms * maxPerRoom : null;
+
     return FadeTransition(
       opacity: _fadeAnimation,
       child: Column(
@@ -227,34 +230,59 @@ class _HotelBookingFormState extends ConsumerState<HotelBookingForm>
               icon: Icons.nights_stay_outlined,
             ),
             const SizedBox(height: 8),
-            const SizedBox(height: 8),
           ],
           const SizedBox(height: 20),
           CounterRow(
             label: 'Guests',
             subtitle: 'Adults & children',
             value: _guests,
+            maxValue: guestCap,
             onDecrement: () => setState(() {
-              _guests--;
+              if (_guests > 1) _guests--;
               _updateBookingSummary();
             }),
             onIncrement: () => setState(() {
-              _guests++;
+              if (guestCap == null || _guests < guestCap) _guests++;
               _updateBookingSummary();
             }),
           ),
+          if (maxPerRoom != null) ...[
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Row(
+                children: [
+                  Icon(Icons.people_outline, size: 14, color: Colors.grey[500]),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Max $maxPerRoom guest${maxPerRoom > 1 ? 's' : ''} per room'
+                    ' · Limit: $guestCap guest${guestCap! > 1 ? 's' : ''}'
+                    ' for $_rooms room${_rooms > 1 ? 's' : ''}',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           CounterRow(
             label: 'Rooms',
             subtitle: 'Number of rooms needed',
             value: _rooms,
             onDecrement: () => setState(() {
-              _rooms--;
+              if (_rooms > 1) {
+                _rooms--;
+                // Auto-clamp guests when rooms decrease
+                if (maxPerRoom != null) {
+                  final newCap = _rooms * maxPerRoom;
+                  if (_guests > newCap) _guests = newCap;
+                }
+              }
               _updateBookingSummary();
             }),
             onIncrement: () => setState(() {
-              // Don't exceed available rooms
-              if (_availableRoomsForDates == null || _rooms < _availableRoomsForDates!) {
+              if (_availableRoomsForDates == null ||
+                  _rooms < _availableRoomsForDates!) {
                 _rooms++;
               }
               _updateBookingSummary();

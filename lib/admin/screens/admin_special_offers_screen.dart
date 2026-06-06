@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../shared/models/special_offer_model.dart';
 import '../../shared/services/special_offer_repository.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/services/storage_service.dart';
 import '../../shared/widgets/app_network_image.dart';
 
 class AdminSpecialOffersScreen extends ConsumerStatefulWidget {
@@ -57,7 +56,7 @@ class _AdminSpecialOffersScreenState
               ClipRRect(
                 borderRadius: BorderRadius.circular(16),
                 child: AppNetworkImage(
-                  imageUrl: StorageService.ensurePublicUrl(offer.imageUrl),
+                  imageUrl: offer.imageUrl,
                   width: double.infinity,
                   height: 200,
                   fit: BoxFit.cover,
@@ -199,7 +198,7 @@ class _OfferListTile extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: AppNetworkImage(
-                imageUrl: StorageService.ensurePublicUrl(offer.imageUrl),
+                imageUrl: offer.imageUrl,
                 width: 80,
                 height: 60,
                 fit: BoxFit.cover,

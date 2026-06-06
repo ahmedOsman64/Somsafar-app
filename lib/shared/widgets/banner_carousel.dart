@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/banner_repository.dart';
 import '../models/banner_model.dart';
-import '../../core/services/storage_service.dart';
 import 'app_network_image.dart';
 
 class BannerCarousel extends ConsumerStatefulWidget {
@@ -127,7 +126,7 @@ class _BannerItem extends StatelessWidget {
       children: [
         // Image
         AppNetworkImage(
-          imageUrl: StorageService.ensurePublicUrl(banner.imageUrl),
+          imageUrl: banner.imageUrl,
           fit: BoxFit.cover,
         ),
 

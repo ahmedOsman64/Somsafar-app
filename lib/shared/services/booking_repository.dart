@@ -8,6 +8,7 @@ import '../models/user_model.dart';
 import 'auth_service.dart';
 import 'service_repository.dart';
 import 'notification_repository.dart';
+import 'user_repository.dart';
 import 'email_service.dart';
 import '../../core/services/supabase_service.dart';
 
@@ -88,6 +89,8 @@ class BookingRepository extends StateNotifier<List<Booking>> {
               if (mounted && currentUpdateId == _lastUpdateId) {
                 state = enrichedBookings;
                 debugPrint('BookingRepository: Enriched ${state.length} bookings with travelers (ID: $currentUpdateId)');
+                _autoCompleteExpiredBookings();
+                _autoManagePendingBookings();
               }
             } catch (e) {
               debugPrint('BookingRepository: Enrichment error: $e');
@@ -198,6 +201,8 @@ class BookingRepository extends StateNotifier<List<Booking>> {
         'BookingRepository: Manual fetch success, got ${combinedData.length} records',
       );
       _updateStateFromRaw(combinedData);
+      _autoCompleteExpiredBookings();
+      _autoManagePendingBookings();
     } catch (e) {
       debugPrint('BookingRepository: Manual fetch error: $e');
     }
@@ -273,23 +278,25 @@ class BookingRepository extends StateNotifier<List<Booking>> {
   }
 
   /// Manually resend the confirmation email with PDF receipt
-  Future<void> resendConfirmationEmail(String id) async {
+  Future<bool> resendConfirmationEmail(String id) async {
     try {
       final bookingIndex = state.indexWhere((b) => b.id == id);
-      if (bookingIndex == -1) return;
+      if (bookingIndex == -1) return false;
 
       final booking = state[bookingIndex];
       
       // Ensure it's confirmed or completed
       if (booking.status != BookingStatus.confirmed && booking.status != BookingStatus.completed) {
         debugPrint('BookingRepository: Cannot send receipt for non-confirmed booking.');
-        return;
+        return false;
       }
 
       debugPrint('BookingRepository: Manually resending email for ${booking.id}...');
       await EmailService.sendBookingConfirmationEmail(booking);
+      return true;
     } catch (e) {
       debugPrint('BookingRepository: Resend email error: $e');
+      return false;
     }
   }
 
@@ -585,6 +592,93 @@ class BookingRepository extends StateNotifier<List<Booking>> {
 
   List<Booking> get pendingBookings =>
       state.where((b) => b.status == BookingStatus.pending).toList();
+
+  /// Automatically transitions confirmed bookings past their check-out date to completed.
+  void _autoCompleteExpiredBookings() {
+    if (!mounted || state.isEmpty) return;
+
+    final now = DateTime.now();
+    final expired = state.where((b) =>
+        b.status == BookingStatus.confirmed &&
+        b.checkOut.isBefore(now)).toList();
+
+    if (expired.isEmpty) return;
+
+    debugPrint('BookingRepository: Auto-completing ${expired.length} expired bookings...');
+    for (final booking in expired) {
+      updateBookingStatus(booking.id, BookingStatus.completed);
+    }
+  }
+
+  /// Manages pending bookings: Auto-alerts admins after 2 mins, Auto-accepts after 3 mins.
+  void _autoManagePendingBookings() {
+    if (!mounted || state.isEmpty) return;
+
+    final now = DateTime.now();
+
+    for (final booking in state) {
+      if (booking.status == BookingStatus.pending) {
+        final age = now.difference(booking.date);
+
+        // 1. Auto-Accept after 3 minutes
+        if (age.inMinutes >= 3) {
+          debugPrint('BookingRepository: Auto-accepting booking ${booking.id} after 3 mins of inactivity.');
+          updateBookingStatus(booking.id, BookingStatus.confirmed);
+        }
+        // 2. Admin Alert after 2 minutes
+        else if (age.inMinutes >= 2 && booking.metadata['admin_notified'] != true) {
+          _notifyAdminsOfStaleBooking(booking);
+        }
+      }
+    }
+  }
+
+  Future<void> _notifyAdminsOfStaleBooking(Booking booking) async {
+    try {
+      final allUsers = _ref?.read(userProvider) ?? [];
+      final admins = allUsers.where((u) => u.role == UserRole.admin).toList();
+
+      if (admins.isEmpty) {
+        debugPrint('BookingRepository: No admins found to alert for booking ${booking.id}');
+        return;
+      }
+
+      // Find provider name for the message
+      final provider = allUsers.firstWhere(
+        (u) => (u.providerId ?? u.id) == booking.providerId,
+        orElse: () => User(id: booking.providerId, name: 'Provider', email: '', password: '', role: UserRole.provider),
+      );
+
+      final message = 'Provider ${provider.name}\'s service "${booking.serviceTitle}" '
+          'has been booked but not accepted yet. Please follow up with the provider.';
+
+      final notifSvc = _ref?.read(notificationProvider.notifier);
+      if (notifSvc == null) return;
+
+      debugPrint('BookingRepository: Sending stale booking alert to ${admins.length} admins.');
+
+      for (final admin in admins) {
+        await notifSvc.addNotification(
+          userId: admin.id,
+          title: 'Pending Booking Alert',
+          message: message,
+          type: NotificationType.booking,
+          data: {'bookingId': booking.id, 'isStaleAlert': true},
+        );
+      }
+
+      // Mark as notified persistently
+      final updatedMetadata = {...booking.metadata, 'admin_notified': true};
+      await SupabaseConfig.client
+          .from('bookings')
+          .update({'metadata': updatedMetadata})
+          .eq('id', booking.id);
+          
+      // Local state will be updated via the stream
+    } catch (e) {
+      debugPrint('Error notifying admins of stale booking: $e');
+    }
+  }
 }
 
 final bookingProvider = StateNotifierProvider<BookingRepository, List<Booking>>(

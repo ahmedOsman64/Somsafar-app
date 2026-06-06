@@ -208,8 +208,11 @@ class _ApartmentBookingFormState extends ConsumerState<ApartmentBookingForm>
           const SizedBox(height: 20),
           CounterRow(
             label: 'Guests',
-            subtitle: 'Number of people staying',
+            subtitle: 'Max capacity: ${widget.service.maxGuests ?? widget.service.metadata['max_guests'] ?? widget.service.metadata['maxGuests'] ?? 'N/A'} guests',
             value: _guests,
+            maxValue: widget.service.maxGuests ?? 
+                int.tryParse(widget.service.metadata['max_guests']?.toString() ?? '') ?? 
+                int.tryParse(widget.service.metadata['maxGuests']?.toString() ?? '') ?? 10,
             onDecrement: () => setState(() {
               _guests--;
               _updateBookingSummary();
@@ -709,6 +712,8 @@ class _ApartmentBookingFormState extends ConsumerState<ApartmentBookingForm>
             guests: bookingData.guests,
             rooms: 1,
             totalPrice: _bookingSummary!.totalPrice,
+            taxes: _bookingSummary!.taxes,
+            extras: _bookingSummary!.extras,
             contactName: bookingData.fullName,
             contactEmail: bookingData.email,
             contactPhone: bookingData.phone,

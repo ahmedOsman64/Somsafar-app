@@ -32,5 +32,5 @@ SomSafar was created to be the primary platform for discovering and booking tour
 3.  **Rebranding:** Updated categories like "Tourism" and improved region discovery.
 
 ---
-*Created by Ahmed Osman* 👨‍💻
+*Created by Somsafar Team* 👨‍💻
 *Last Updated: May 2026*
