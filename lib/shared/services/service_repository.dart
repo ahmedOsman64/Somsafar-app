@@ -9,6 +9,8 @@ import 'user_repository.dart';
 import 'lookup_service.dart';
 import 'system_activity_repository.dart';
 import 'notification_repository.dart';
+import 'booking_repository.dart';
+import '../models/booking_model.dart';
 import '../models/notification_model.dart';
 import '../../core/services/supabase_service.dart';
 
@@ -199,6 +201,42 @@ class ServiceRepository extends StateNotifier<List<Service>> {
     if (user == null) throw Exception('Authentication required');
     if (user.role != UserRole.admin && serviceToDelete.providerId != (user.providerId ?? user.id)) {
       throw Exception('Security Alert: Unauthorized attempt to delete service owned by another provider.');
+    }
+
+    // Check for active bookings
+    final bookings = _ref?.read(bookingProvider) ?? [];
+    final activeBookings = bookings.where((b) => 
+      b.serviceId == id && 
+      (b.status == BookingStatus.pending || b.status == BookingStatus.confirmed)
+    ).toList();
+
+    if (activeBookings.isNotEmpty) {
+      // Mark for deferred deletion
+      try {
+        final updatedService = serviceToDelete.copyWith(
+          status: ServiceStatus.inactive,
+          metadata: {
+            ...serviceToDelete.metadata,
+            'pending_deletion': true,
+          },
+        );
+        
+        await updateService(updatedService);
+        
+        // Log Activity
+        _ref?.read(activityProvider.notifier).logServiceUpdate(
+          serviceToDelete.title,
+          'Marked for deletion (deferred due to active bookings)',
+          serviceToDelete.providerId,
+        );
+        
+        // Special error to notify UI
+        throw Exception('PENDING_DELETION');
+      } catch (e) {
+        if (e.toString().contains('PENDING_DELETION')) rethrow;
+        debugPrint('Error marking service for deferred deletion: $e');
+        rethrow;
+      }
     }
 
     try {

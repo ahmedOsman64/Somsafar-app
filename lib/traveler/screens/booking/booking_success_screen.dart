@@ -124,7 +124,7 @@ class _BookingSuccessScreenState extends State<BookingSuccessScreen>
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'Your booking has been submitted successfully. Please wait 2-3 minutes while we verify your request.',
+                        'Your booking has been submitted successfully. Please wait up to 1 hour while we verify your request.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 15,

@@ -11,7 +11,17 @@ class AppTheme {
         primary: AppColors.primary,
         secondary: AppColors.secondary,
         surface: AppColors.surface,
-        // background: AppColors.background, // Deprecated, use colorScheme.surface if possible or just ignore as surface covers it
+        onSurface: AppColors.dark,
+        onPrimary: Colors.white,
+        onSecondary: Colors.white,
+      ),
+      canvasColor: Colors.white,
+      dropdownMenuTheme: DropdownMenuThemeData(
+        textStyle: const TextStyle(color: AppColors.dark, fontSize: 16),
+        menuStyle: MenuStyle(
+          backgroundColor: WidgetStateProperty.all(Colors.white),
+          elevation: WidgetStateProperty.all(8),
+        ),
       ),
       scaffoldBackgroundColor: AppColors.background,
       fontFamily: GoogleFonts.poppins().fontFamily,
@@ -40,8 +50,17 @@ class AppTheme {
           fontWeight: FontWeight.w600,
           color: AppColors.dark,
         ),
+        titleMedium: const TextStyle(
+          fontWeight: FontWeight.w500,
+          color: AppColors.dark,
+        ),
+        titleSmall: const TextStyle(
+          fontWeight: FontWeight.w500,
+          color: AppColors.dark,
+        ),
         bodyLarge: const TextStyle(color: AppColors.dark),
         bodyMedium: const TextStyle(color: AppColors.dark),
+        bodySmall: const TextStyle(color: AppColors.dark),
       ),
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.primary,
@@ -99,6 +118,17 @@ class AppTheme {
         primary: AppColors.primary,
         secondary: AppColors.secondary,
         surface: AppColors.surfaceDark,
+        onSurface: Colors.white,
+        onPrimary: Colors.white,
+        onSecondary: Colors.white,
+      ),
+      canvasColor: AppColors.surfaceDark,
+      dropdownMenuTheme: DropdownMenuThemeData(
+        textStyle: const TextStyle(color: Colors.white, fontSize: 16),
+        menuStyle: MenuStyle(
+          backgroundColor: WidgetStateProperty.all(AppColors.surfaceDark),
+          elevation: WidgetStateProperty.all(8),
+        ),
       ),
       scaffoldBackgroundColor: AppColors.backgroundDark,
       fontFamily: GoogleFonts.poppins().fontFamily,
@@ -128,8 +158,17 @@ class AppTheme {
               fontWeight: FontWeight.w600,
               color: Colors.white,
             ),
+            titleMedium: const TextStyle(
+              fontWeight: FontWeight.w500,
+              color: Colors.white,
+            ),
+            titleSmall: const TextStyle(
+              fontWeight: FontWeight.w500,
+              color: Colors.white,
+            ),
             bodyLarge: const TextStyle(color: Colors.white70),
             bodyMedium: const TextStyle(color: Colors.white70),
+            bodySmall: const TextStyle(color: Colors.white70),
           ),
       cardTheme: CardThemeData(
         elevation: 0,

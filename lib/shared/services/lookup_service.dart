@@ -360,137 +360,136 @@ class LookupService {
   }
 }
 
-// Riverpod Providers for common lookups using Realtime Streams
-final categoriesProvider = StreamProvider<List<LookupItem>>((ref) {
-  return SupabaseConfig.client
+// Riverpod Providers for common lookups using reliable Futures
+final categoriesProvider = FutureProvider<List<LookupItem>>((ref) async {
+  final data = await SupabaseConfig.client
       .from('lookups')
-      .stream(primaryKey: ['id'])
+      .select()
       .eq('category', 'category')
-      .order('label')
-      .map(
-        (data) => data
-            .where((json) => json['is_active'] == true)
-            .map((json) => LookupItem.fromJson(json))
-            .toList(),
-      );
+      .order('label');
+  
+  return data
+      .where((json) => json['is_active'] == true)
+      .map((json) => LookupItem.fromJson(json))
+      .toList();
 });
 
-final regionsProvider = StreamProvider<List<LookupItem>>((ref) {
-  return SupabaseConfig.client
+final regionsProvider = FutureProvider<List<LookupItem>>((ref) async {
+  final data = await SupabaseConfig.client
       .from('lookups')
-      .stream(primaryKey: ['id'])
-      .eq('category', 'region')
-      .map((data) {
-        final List<LookupItem> items = data
-            .where((json) => json['is_active'] == true)
-            .map((json) => LookupItem.fromJson(json))
-            .toList();
+      .select()
+      .eq('category', 'region');
 
-        // We want to ensure unique labels and keys, prioritizing the ones with icons
-        final Map<String, LookupItem> uniqueRegions = {};
+  final List<LookupItem> items = data
+      .where((json) => json['is_active'] == true)
+      .map((json) => LookupItem.fromJson(json))
+      .toList();
 
-        for (final item in items) {
-          String normalizedKey = item.key.toLowerCase().trim();
-          // Normalize synonyms to canonical keys
-          if (normalizedKey == 'banadir') normalizedKey = 'banaadir';
-          if (normalizedKey == 'hiran') normalizedKey = 'hiiraan';
-          if (normalizedKey == 'bakol') normalizedKey = 'bakool';
-          if (normalizedKey == 'shabeellaha_hoose') normalizedKey = 'lower_shabelle';
-          if (normalizedKey == 'shabeellaha_dhexe') normalizedKey = 'middle_shabelle';
-          if (normalizedKey == 'jubbada_hoose') normalizedKey = 'lower_juba';
-          if (normalizedKey == 'jubbada_dhexe') normalizedKey = 'middle_juba';
+  // We want to ensure unique labels and keys, prioritizing the ones with icons
+  final Map<String, LookupItem> uniqueRegions = {};
 
-          final existing = uniqueRegions[normalizedKey];
-          bool shouldReplace = existing == null;
-          if (existing != null) {
-            bool currentHasIcon =
-                item.icon != null &&
-                item.icon != 'map' &&
-                item.icon!.isNotEmpty;
-            bool existingHasIcon =
-                existing.icon != null &&
-                existing.icon != 'map' &&
-                existing.icon!.isNotEmpty;
-            if (currentHasIcon && !existingHasIcon) {
-              shouldReplace = true;
-            }
-          }
+  for (final item in items) {
+    String normalizedKey = item.key.toLowerCase().trim();
+    // Normalize synonyms to canonical keys
+    if (normalizedKey == 'banadir') normalizedKey = 'banaadir';
+    if (normalizedKey == 'hiran') normalizedKey = 'hiiraan';
+    if (normalizedKey == 'bakol') normalizedKey = 'bakool';
+    if (normalizedKey == 'shabeellaha_hoose') normalizedKey = 'lower_shabelle';
+    if (normalizedKey == 'shabeellaha_dhexe') normalizedKey = 'middle_shabelle';
+    if (normalizedKey == 'jubbada_hoose') normalizedKey = 'lower_juba';
+    if (normalizedKey == 'jubbada_dhexe') normalizedKey = 'middle_juba';
 
-          if (shouldReplace) {
-            uniqueRegions[normalizedKey] = item;
-          }
-        }
+    final existing = uniqueRegions[normalizedKey];
+    bool shouldReplace = existing == null;
+    if (existing != null) {
+      bool currentHasIcon =
+          item.icon != null &&
+          item.icon != 'map' &&
+          item.icon!.isNotEmpty;
+      bool existingHasIcon =
+          existing.icon != null &&
+          existing.icon != 'map' &&
+          existing.icon!.isNotEmpty;
+      if (currentHasIcon && !existingHasIcon) {
+        shouldReplace = true;
+      }
+    }
 
-        return uniqueRegions.values.toList()
-          ..sort((a, b) => a.label.compareTo(b.label));
-      });
+    if (shouldReplace) {
+      uniqueRegions[normalizedKey] = item;
+    }
+  }
+
+  return uniqueRegions.values.toList()
+    ..sort((a, b) => a.label.compareTo(b.label));
 });
 
-final amenitiesHotelProvider = StreamProvider<List<LookupItem>>((ref) {
-  return SupabaseConfig.client
+final amenitiesHotelProvider = FutureProvider<List<LookupItem>>((ref) async {
+  final data = await SupabaseConfig.client
       .from('lookups')
-      .stream(primaryKey: ['id'])
+      .select()
       .eq('category', 'amenity_hotel')
-      .order('label')
-      .map(
-        (data) => data
-            .where((json) => json['is_active'] == true)
-            .map((json) => LookupItem.fromJson(json))
-            .toList(),
-      );
+      .order('label');
+  
+  return data
+      .where((json) => json['is_active'] == true)
+      .map((json) => LookupItem.fromJson(json))
+      .toList();
 });
 
-final amenitiesApartmentProvider = StreamProvider<List<LookupItem>>((ref) {
-  return SupabaseConfig.client
+final amenitiesApartmentProvider = FutureProvider<List<LookupItem>>((ref) async {
+  final data = await SupabaseConfig.client
       .from('lookups')
-      .stream(primaryKey: ['id'])
+      .select()
       .eq('category', 'amenity_apt')
-      .order('label')
-      .map(
-        (data) => data
-            .where((json) => json['is_active'] == true)
-            .map((json) => LookupItem.fromJson(json))
-            .toList(),
-      );
+      .order('label');
+  
+  return data
+      .where((json) => json['is_active'] == true)
+      .map((json) => LookupItem.fromJson(json))
+      .toList();
 });
 
-final languagesProvider = StreamProvider<List<LookupItem>>((ref) {
-  return SupabaseConfig.client
+final languagesProvider = FutureProvider<List<LookupItem>>((ref) async {
+  final data = await SupabaseConfig.client
       .from('lookups')
-      .stream(primaryKey: ['id'])
+      .select()
       .eq('category', 'language')
-      .order('label')
-      .map(
-        (data) => data
-            .where((json) => json['is_active'] == true)
-            .map((json) => LookupItem.fromJson(json))
-            .toList(),
-      );
+      .order('label');
+  
+  return data
+      .where((json) => json['is_active'] == true)
+      .map((json) => LookupItem.fromJson(json))
+      .toList();
 });
 
-final lookupServicesProvider = StreamProvider<List<LookupItem>>((ref) {
-  return SupabaseConfig.client
+final lookupServicesProvider = FutureProvider<List<LookupItem>>((ref) async {
+  final data = await SupabaseConfig.client
       .from('lookups')
-      .stream(primaryKey: ['id'])
+      .select()
       .eq('category', 'service')
-      .order('label')
-      .map(
-        (data) => data
-            .where((json) => json['is_active'] == true)
-            .map((json) => LookupItem.fromJson(json))
-            .toList(),
-      );
+      .order('label');
+  
+  return data
+      .where((json) => json['is_active'] == true)
+      .map((json) => LookupItem.fromJson(json))
+      .toList();
 });
 
-final travelPackagesProvider = StreamProvider<List<LookupItem>>((ref) {
-  return SupabaseConfig.client
-      .from('travel_packages')
-      .stream(primaryKey: ['id'])
-      .order('name')
-      .map(
-        (data) => data
-            .where((json) => json['is_active'] == true)
-            .map((json) => LookupItem.fromJson(json))
-            .toList(),
-      );
+final travelPackagesProvider = FutureProvider<List<LookupItem>>((ref) async {
+  try {
+    final data = await SupabaseConfig.client
+        .from('travel_packages')
+        .select()
+        .order('name');
+
+    return data
+        .where((json) => json['is_active'] == true)
+        .map((json) => LookupItem.fromJson(json))
+        .toList();
+  } catch (e) {
+    debugPrint('travel_packages table not found or error: $e');
+    return [];
+  }
 });
+

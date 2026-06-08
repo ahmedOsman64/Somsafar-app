@@ -159,6 +159,9 @@ class BookingRepository extends StateNotifier<List<Booking>> {
               .toList() ??
           [],
       metadata: res['metadata'] as Map<String, dynamic>? ?? {},
+      confirmedAt: (res['metadata'] as Map?)?['confirmed_at'] != null
+          ? DateTime.parse(res['metadata']['confirmed_at'])
+          : null,
     );
   }
 
@@ -223,9 +226,18 @@ class BookingRepository extends StateNotifier<List<Booking>> {
           if (b.id == id) b.copyWith(status: status) else b,
       ];
 
+      final updates = <String, dynamic>{'status': status.name};
+      
+      // Record confirmation time for performance scoring
+      if (status == BookingStatus.confirmed && (prevStatus == BookingStatus.pending)) {
+        final confirmedAt = DateTime.now();
+        final updatedMeta = {...booking.metadata, 'confirmed_at': confirmedAt.toIso8601String()};
+        updates['metadata'] = updatedMeta;
+      }
+
       await SupabaseConfig.client
           .from('bookings')
-          .update({'status': status.name})
+          .update(updates)
           .eq('id', id);
 
       // --- AUTOMATIC SERVICE UPDATE LOGIC ---
@@ -269,6 +281,11 @@ class BookingRepository extends StateNotifier<List<Booking>> {
             type: NotificationType.booking,
             data: {'bookingId': id},
           );
+
+      // --- DEFERRED SERVICE CLEANUP ---
+      if (status == BookingStatus.completed || status == BookingStatus.cancelled) {
+        await _checkAndCleanupService(booking.serviceId);
+      }
     } catch (e) {
       debugPrint('Update booking status error: $e');
       state = previousBookings;
@@ -426,6 +443,37 @@ class BookingRepository extends StateNotifier<List<Booking>> {
       }
     }
     debugPrint('All services synchronized successfully (date-aware).');
+  }
+
+  /// Checks if a service is marked for deletion and deletes it if there are no more active bookings.
+  Future<void> _checkAndCleanupService(String serviceId) async {
+    try {
+      final services = _ref?.read(serviceProvider);
+      if (services == null) return;
+      
+      final serviceIndex = services.indexWhere((s) => s.id == serviceId);
+      if (serviceIndex == -1) return;
+      
+      final service = services[serviceIndex];
+      
+      // Check if it's marked for deletion
+      if (service.metadata['pending_deletion'] == true) {
+        // Check if there are any other active bookings
+        final hasActiveBookings = state.any((b) => 
+          b.serviceId == serviceId && 
+          (b.status == BookingStatus.pending || b.status == BookingStatus.confirmed)
+        );
+        
+        if (!hasActiveBookings) {
+          debugPrint('BookingRepository: Last active booking for ${service.title} finished. Deleting service...');
+          // Trigger actual deletion. Since we checked hasActiveBookings above, 
+          // deleteService will proceed with permanent deletion.
+          await _ref?.read(serviceProvider.notifier).deleteService(serviceId);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error during deferred service cleanup: $e');
+    }
   }
 
   /// Returns how many rooms/units are available for [serviceId] during [checkIn]–[checkOut].
@@ -610,7 +658,7 @@ class BookingRepository extends StateNotifier<List<Booking>> {
     }
   }
 
-  /// Manages pending bookings: Auto-alerts admins after 2 mins, Auto-accepts after 3 mins.
+  /// Manages pending bookings: Auto-alerts admins after 50 mins, Auto-accepts after 1 hour (60 mins).
   void _autoManagePendingBookings() {
     if (!mounted || state.isEmpty) return;
 
@@ -620,13 +668,13 @@ class BookingRepository extends StateNotifier<List<Booking>> {
       if (booking.status == BookingStatus.pending) {
         final age = now.difference(booking.date);
 
-        // 1. Auto-Accept after 3 minutes
-        if (age.inMinutes >= 3) {
-          debugPrint('BookingRepository: Auto-accepting booking ${booking.id} after 3 mins of inactivity.');
+        // 1. Auto-Accept after 60 minutes (1 hour)
+        if (age.inMinutes >= 60) {
+          debugPrint('BookingRepository: Auto-accepting booking ${booking.id} after 1 hour of inactivity.');
           updateBookingStatus(booking.id, BookingStatus.confirmed);
         }
-        // 2. Admin Alert after 2 minutes
-        else if (age.inMinutes >= 2 && booking.metadata['admin_notified'] != true) {
+        // 2. Admin Alert after 50 minutes
+        else if (age.inMinutes >= 50 && booking.metadata['admin_notified'] != true) {
           _notifyAdminsOfStaleBooking(booking);
         }
       }

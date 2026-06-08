@@ -265,6 +265,7 @@ class AuthService extends ChangeNotifier {
       location: res['location'],
       profileImage: res['profile_image'],
       metadata: metadata,
+      publicEmail: metadata['public_email']?.toString(),
       paymentAccounts: paymentAccounts,
       createdAt: res['created_at'] != null
           ? DateTime.parse(res['created_at'])
@@ -731,6 +732,7 @@ class AuthService extends ChangeNotifier {
     TravelerType? travelerType,
     String? location,
     Gender? gender,
+    String? publicEmail,
     Map<String, dynamic>? metadata,
   }) async {
     if (state == null) return 'No user logged in';
@@ -742,6 +744,7 @@ class AuthService extends ChangeNotifier {
         ...existingMeta,
         if (metadata != null) ...metadata,
         if (gender != null) 'gender': gender.name,
+        if (publicEmail != null) 'public_email': publicEmail,
       };
 
       final updates = {
@@ -753,7 +756,7 @@ class AuthService extends ChangeNotifier {
         if (profileImage != null) 'profile_image': profileImage,
         if (travelerType != null) 'traveler_type': travelerType.name,
         // Only include metadata in the update if there's something to update
-        if (gender != null || metadata != null) 'metadata': updatedMeta,
+        if (gender != null || metadata != null || publicEmail != null) 'metadata': updatedMeta,
         'updated_at': DateTime.now().toIso8601String(),
       };
 
@@ -772,6 +775,7 @@ class AuthService extends ChangeNotifier {
         profileImage: profileImage,
         travelerType: travelerType,
         gender: gender ?? state!.gender,
+        publicEmail: publicEmail ?? state!.publicEmail,
         metadata: updatedMeta,
         updatedAt: DateTime.now(),
       );

@@ -292,14 +292,21 @@ class _RevenueProgressCard extends ConsumerWidget {
             child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
-            onPressed: () {
-              if (!formKey.currentState!.validate()) return;
-              final value = double.parse(controller.text.replaceAll(',', ''));
-              // Close the dialog FIRST, then update state to avoid
-              // _dependents.isEmpty assertion when notifyListeners fires
-              // while the dialog's BuildContext is being torn down.
-              Navigator.pop(ctx);
-              notifier.setTarget(value);
+            onPressed: () async {
+              if (formKey.currentState?.validate() ?? false) {
+                final value = double.tryParse(controller.text.replaceAll(',', ''));
+                if (value != null) {
+                  // 1. Dismiss the dialog immediately
+                  Navigator.of(ctx).pop();
+                  
+                  // 2. Delay the state update slightly to allow the dialog animation 
+                  // to complete and its BuildContext to be torn down before 
+                  // triggering a rebuild of the dashboard.
+                  Future.delayed(const Duration(milliseconds: 200), () {
+                    notifier.setTarget(value);
+                  });
+                }
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,

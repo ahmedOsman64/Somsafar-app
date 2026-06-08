@@ -15,7 +15,6 @@ import '../../../shared/services/system_settings_repository.dart';
 import '../../../shared/services/special_offer_repository.dart';
 import '../../../shared/services/discount_repository.dart';
 
-
 class TourBookingForm extends ConsumerStatefulWidget {
   final Service service;
   final TourPackage initialPackage;
@@ -106,7 +105,9 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
     _package = widget.initialPackage;
 
     // Set initial package from service metadata if available (fallback)
-    final packageStr = widget.service.metadata['package']?.toString().toLowerCase();
+    final packageStr = widget.service.metadata['package']
+        ?.toString()
+        .toLowerCase();
     if (packageStr != null) {
       for (final pkg in TourPackage.values) {
         if (pkg.name.toLowerCase() == packageStr) {
@@ -137,14 +138,17 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
     final metadata = widget.service.metadata;
     if (metadata.isNotEmpty) {
       if (metadata['package'] == 'jumma') {
-        _preferredLocation = metadata['preferredLocation'] ?? _preferredLocation;
+        _preferredLocation =
+            metadata['preferredLocation'] ?? _preferredLocation;
         _destinationController.text = _preferredLocation; // Added
         _jummaTransport = metadata['jummaTransport'] ?? _jummaTransport;
-        _accommodationType = metadata['accommodationType'] ?? _accommodationType;
+        _accommodationType =
+            metadata['accommodationType'] ?? _accommodationType;
         _includeLunch = false;
       } else if (metadata['package'] == 'eid') {
         _eidType = metadata['eidType'] ?? _eidType;
-        _destinationController.text = metadata['destination'] ?? 'Eid Destination'; // Added
+        _destinationController.text =
+            metadata['destination'] ?? 'Eid Destination'; // Added
         _numberOfDays = metadata['numberOfDays'] ?? 3;
         _eidTransport = metadata['eidTransport'] ?? _eidTransport;
         _hotelRating = metadata['hotelRating'] ?? _hotelRating;
@@ -164,10 +168,14 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
   DateTime _getNextFriday() {
     DateTime now = DateTime.now();
     int daysUntilFriday = (DateTime.friday - now.weekday + 7) % 7;
-    // If today is Friday, the user might want this Friday or the next. 
+    // If today is Friday, the user might want this Friday or the next.
     // Usually, tours are booked at least a day in advance.
-    if (daysUntilFriday == 0) daysUntilFriday = 7; 
-    return DateTime(now.year, now.month, now.day).add(Duration(days: daysUntilFriday));
+    if (daysUntilFriday == 0) daysUntilFriday = 7;
+    return DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).add(Duration(days: daysUntilFriday));
   }
 
   DateTime _getEidDate() {
@@ -232,11 +240,14 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
           childTravelers: _childrenCount,
           infantTravelers: _infantsCount,
           location: _locationController.text, // Added
-          preferredLocation: _destinationController.text, // Use destination controller
+          preferredLocation:
+              _destinationController.text, // Use destination controller
           transportOption: _jummaTransport,
           accommodationType: _accommodationType,
           includeLunch: _includeLunch,
-          specialInformation: _specialInformationController.text.isNotEmpty ? _specialInformationController.text : null,
+          specialInformation: _specialInformationController.text.isNotEmpty
+              ? _specialInformationController.text
+              : null,
         );
       } else if (_package == TourPackage.eid) {
         bookingData = EidBookingData(
@@ -255,8 +266,12 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
           hotelRating: _hotelRating,
           activities: _selectedActivities,
           foodPackage: _foodPackage,
-          childSpecificNeeds: _childSpecificNeedsController.text.isNotEmpty ? _childSpecificNeedsController.text : null,
-          specialInformation: _specialInformationController.text.isNotEmpty ? _specialInformationController.text : null,
+          childSpecificNeeds: _childSpecificNeedsController.text.isNotEmpty
+              ? _childSpecificNeedsController.text
+              : null,
+          specialInformation: _specialInformationController.text.isNotEmpty
+              ? _specialInformationController.text
+              : null,
           travelers: _adultsCount + _childrenCount, // Only paying travelers
           adultTravelers: _adultsCount,
           childTravelers: _childrenCount,
@@ -280,7 +295,9 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
           preferredServices: _preferredServices,
           numberOfDays: _numberOfDays,
           notes: _specialInstructionsController.text,
-          specialInformation: _specialInformationController.text.isNotEmpty ? _specialInformationController.text : null,
+          specialInformation: _specialInformationController.text.isNotEmpty
+              ? _specialInformationController.text
+              : null,
         );
       } else {
         bookingData = TourBookingData(
@@ -301,7 +318,9 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
           mealPreference: _mealPreference,
           pickupLocation: _pickupLocationController.text,
           numberOfDays: _numberOfDays,
-          specialInformation: _specialInformationController.text.isNotEmpty ? _specialInformationController.text : null,
+          specialInformation: _specialInformationController.text.isNotEmpty
+              ? _specialInformationController.text
+              : null,
         );
       }
 
@@ -333,7 +352,6 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
     }
   }
 
-
   // ── Step 0: Package Specific Details ────────────────────────────────────
   Widget _buildTourDetailsStep() {
     final packages = ref.watch(travelPackagesProvider).valueOrNull ?? [];
@@ -342,10 +360,14 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
       orElse: () => LookupItem(key: _package.name, label: _package.name),
     );
     final multiplier = selectedPkg.multiplier ?? 1.0;
-    
+
     // Apply multiplier to displayed prices
-    final adultPrice = (widget.service.adultPrice ?? widget.service.price) * multiplier;
-    final childPrice = (widget.service.childPrice ?? (widget.service.adultPrice ?? widget.service.price) * 0.5) * multiplier;
+    final adultPrice =
+        (widget.service.adultPrice ?? widget.service.price) * multiplier;
+    final childPrice =
+        (widget.service.childPrice ??
+            (widget.service.adultPrice ?? widget.service.price) * 0.5) *
+        multiplier;
 
     return FadeTransition(
       opacity: _fadeAnimation,
@@ -386,8 +408,11 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
                           color: Colors.white.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(Icons.sell_outlined,
-                            color: Colors.white, size: 18),
+                        child: const Icon(
+                          Icons.sell_outlined,
+                          color: Colors.white,
+                          size: 18,
+                        ),
                       ),
                       const SizedBox(width: 10),
                       const Text(
@@ -429,15 +454,20 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
                   const SizedBox(height: 12),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.info_outline,
-                            color: Colors.white70, size: 14),
+                        const Icon(
+                          Icons.info_outline,
+                          color: Colors.white70,
+                          size: 14,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -455,21 +485,28 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
               ),
             ),
           ),
-          // ─────────────────────────────────────────────────────────────
 
+          // ─────────────────────────────────────────────────────────────
           DatePickerTile(
             label: _package == TourPackage.custom ? 'Start Date' : 'Tour Date',
             value: _tourDate != null
                 ? DateFormat('EEE, MMM d, yyyy').format(_tourDate!)
                 : null,
-            onTap: (_package == TourPackage.jumma || _package == TourPackage.eid) ? null : () => _selectTourDate(),
+            onTap:
+                (_package == TourPackage.jumma || _package == TourPackage.eid)
+                ? null
+                : () => _selectTourDate(),
           ),
           if (_package == TourPackage.jumma || _package == TourPackage.eid)
             Padding(
               padding: const EdgeInsets.only(top: 8, left: 12),
               child: Text(
                 'Note: Date is automatically selected for this package.',
-                style: TextStyle(color: AppColors.primary, fontSize: 12, fontStyle: FontStyle.italic),
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             ),
           if (_package == TourPackage.custom) ...[
@@ -494,13 +531,19 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
           ],
           const SizedBox(height: 24),
           if (_package == TourPackage.jumma)
-            _buildPackageSpecificSection('Juma Package Details', _buildJummaFields()),
+            _buildPackageSpecificSection(
+              'Juma Package Details',
+              _buildJummaFields(),
+            ),
           if (_package == TourPackage.eid)
-            _buildPackageSpecificSection('${_formatPackageName(_package, multiplier)} Details', _buildEidFields()),
-          
+            _buildPackageSpecificSection(
+              '${_formatPackageName(_package, multiplier)} Details',
+              _buildEidFields(),
+            ),
+
           _buildPackageSpecificSection(
-            '${_formatPackageName(_package, multiplier)} Preferences', 
-            _buildCustomFields()
+            '${_formatPackageName(_package, multiplier)} Preferences',
+            _buildCustomFields(),
           ),
           const SizedBox(height: 24),
           CounterRow(
@@ -514,17 +557,23 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
               }
             }),
             onIncrement: () => setState(() {
-              final metadataTravelers = widget.service.metadata['maxTravelers'] != null 
-                  ? int.tryParse(widget.service.metadata['maxTravelers'].toString()) 
+              final metadataTravelers =
+                  widget.service.metadata['maxTravelers'] != null
+                  ? int.tryParse(
+                      widget.service.metadata['maxTravelers'].toString(),
+                    )
                   : null;
               final maxTravelers = metadataTravelers ?? 100;
 
-              if (_adultsCount + _childrenCount + _infantsCount < maxTravelers) {
+              if (_adultsCount + _childrenCount + _infantsCount <
+                  maxTravelers) {
                 _adultsCount++;
                 _updateBookingSummary();
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Maximum travelers reached for this tour.')),
+                  const SnackBar(
+                    content: Text('Maximum travelers reached for this tour.'),
+                  ),
                 );
               }
             }),
@@ -541,17 +590,23 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
               }
             }),
             onIncrement: () => setState(() {
-              final metadataTravelers = widget.service.metadata['maxTravelers'] != null 
-                  ? int.tryParse(widget.service.metadata['maxTravelers'].toString()) 
+              final metadataTravelers =
+                  widget.service.metadata['maxTravelers'] != null
+                  ? int.tryParse(
+                      widget.service.metadata['maxTravelers'].toString(),
+                    )
                   : null;
               final maxTravelers = metadataTravelers ?? 100;
 
-              if (_adultsCount + _childrenCount + _infantsCount < maxTravelers) {
+              if (_adultsCount + _childrenCount + _infantsCount <
+                  maxTravelers) {
                 _childrenCount++;
                 _updateBookingSummary();
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Maximum travelers reached for this tour.')),
+                  const SnackBar(
+                    content: Text('Maximum travelers reached for this tour.'),
+                  ),
                 );
               }
             }),
@@ -568,17 +623,23 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
               }
             }),
             onIncrement: () => setState(() {
-              final metadataTravelers = widget.service.metadata['maxTravelers'] != null 
-                  ? int.tryParse(widget.service.metadata['maxTravelers'].toString()) 
+              final metadataTravelers =
+                  widget.service.metadata['maxTravelers'] != null
+                  ? int.tryParse(
+                      widget.service.metadata['maxTravelers'].toString(),
+                    )
                   : null;
               final maxTravelers = metadataTravelers ?? 100;
 
-              if (_adultsCount + _childrenCount + _infantsCount < maxTravelers) {
+              if (_adultsCount + _childrenCount + _infantsCount <
+                  maxTravelers) {
                 _infantsCount++;
                 _updateBookingSummary();
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Maximum travelers reached for this tour.')),
+                  const SnackBar(
+                    content: Text('Maximum travelers reached for this tour.'),
+                  ),
                 );
               }
             }),
@@ -625,13 +686,29 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildInfoTile('Location', _preferredLocation, Icons.location_on_outlined),
+        _buildInfoTile(
+          'Location',
+          _preferredLocation,
+          Icons.location_on_outlined,
+        ),
         const SizedBox(height: 12),
-        _buildInfoTile('Transport', _jummaTransport, Icons.directions_bus_outlined),
+        _buildInfoTile(
+          'Transport',
+          _jummaTransport,
+          Icons.directions_bus_outlined,
+        ),
         const SizedBox(height: 12),
-        _buildInfoTile('Accommodation', _accommodationType, Icons.hotel_outlined),
+        _buildInfoTile(
+          'Accommodation',
+          _accommodationType,
+          Icons.hotel_outlined,
+        ),
         const SizedBox(height: 12),
-        _buildInfoTile('Lunch Included', _includeLunch ? 'Yes' : 'No', Icons.restaurant_outlined),
+        _buildInfoTile(
+          'Lunch Included',
+          _includeLunch ? 'Yes' : 'No',
+          Icons.restaurant_outlined,
+        ),
       ],
     );
   }
@@ -642,11 +719,21 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
       children: [
         _buildInfoTile('Package Type', _eidType, Icons.card_giftcard_outlined),
         const SizedBox(height: 12),
-        _buildInfoTile('Destination', _destinationController.text.isNotEmpty ? _destinationController.text : 'Fixed Destination', Icons.map_outlined),
+        _buildInfoTile(
+          'Destination',
+          _destinationController.text.isNotEmpty
+              ? _destinationController.text
+              : 'Fixed Destination',
+          Icons.map_outlined,
+        ),
         const SizedBox(height: 12),
         _buildInfoTile('Duration', '$_numberOfDays Days', Icons.timer_outlined),
         const SizedBox(height: 12),
-        _buildInfoTile('Transport', _eidTransport, Icons.directions_bus_outlined),
+        _buildInfoTile(
+          'Transport',
+          _eidTransport,
+          Icons.directions_bus_outlined,
+        ),
         const SizedBox(height: 12),
         _buildInfoTile('Food Package', _foodPackage, Icons.restaurant_outlined),
         const Divider(height: 32),
@@ -676,30 +763,40 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
         ),
         const SizedBox(height: 16),
         if (_package == TourPackage.custom) ...[
-          const Text('Preferred Services', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          const Text(
+            'Preferred Services',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          ),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: ['Guide', 'Private Transport', 'Photographer', 'VIP Access', 'Translator'].map((service) {
-              final isSelected = _preferredServices.contains(service);
-              return FilterChip(
-                label: Text(service),
-                selected: isSelected,
-                onSelected: (selected) {
-                  setState(() {
-                    if (selected) {
-                      _preferredServices.add(service);
-                    } else {
-                      _preferredServices.remove(service);
-                    }
-                    _updateBookingSummary();
-                  });
-                },
-                selectedColor: AppColors.primary.withValues(alpha: 0.2),
-                checkmarkColor: AppColors.primary,
-              );
-            }).toList(),
+            children:
+                [
+                  'Guide',
+                  'Private Transport',
+                  'Photographer',
+                  'VIP Access',
+                  'Translator',
+                ].map((service) {
+                  final isSelected = _preferredServices.contains(service);
+                  return FilterChip(
+                    label: Text(service),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      setState(() {
+                        if (selected) {
+                          _preferredServices.add(service);
+                        } else {
+                          _preferredServices.remove(service);
+                        }
+                        _updateBookingSummary();
+                      });
+                    },
+                    selectedColor: AppColors.primary.withValues(alpha: 0.2),
+                    checkmarkColor: AppColors.primary,
+                  );
+                }).toList(),
           ),
           const SizedBox(height: 16),
         ],
@@ -762,11 +859,16 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        Text(
+          label,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+        ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
           initialValue: value,
-          items: items.map((i) => DropdownMenuItem(value: i, child: Text(i))).toList(),
+          items: items
+              .map((i) => DropdownMenuItem(value: i, child: Text(i)))
+              .toList(),
           onChanged: onChanged,
           decoration: InputDecoration(
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -777,7 +879,6 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
       ],
     );
   }
-
 
   // ── Step 1: Traveler(s) Info ───────────────────────────────────────────
   Widget _buildTravelerInfoStep() {
@@ -823,7 +924,11 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
             children: [
               const Text(
                 'Additional Travelers',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primary),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
               ),
               TextButton.icon(
                 onPressed: _addTraveler,
@@ -844,7 +949,13 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
             Center(
               child: Padding(
                 padding: const EdgeInsets.all(20),
-                child: Text('No additional travelers added', style: TextStyle(color: Colors.grey[500], fontStyle: FontStyle.italic)),
+                child: Text(
+                  'No additional travelers added',
+                  style: TextStyle(
+                    color: Colors.grey[500],
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
               ),
             ),
         ],
@@ -866,9 +977,15 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Traveler ${index + 2}', style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(
+                'Traveler ${index + 2}',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
               IconButton(
-                icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                icon: const Icon(
+                  Icons.remove_circle_outline,
+                  color: Colors.red,
+                ),
                 onPressed: () => _removeTraveler(index),
               ),
             ],
@@ -893,9 +1010,12 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
               Expanded(
                 child: _buildDropdownField(
                   label: 'Gender',
-                  value: controllers['gender']!.text.isEmpty ? 'Male' : controllers['gender']!.text,
+                  value: controllers['gender']!.text.isEmpty
+                      ? 'Male'
+                      : controllers['gender']!.text,
                   items: ['Male', 'Female', 'Other'],
-                  onChanged: (v) => setState(() => controllers['gender']!.text = v!),
+                  onChanged: (v) =>
+                      setState(() => controllers['gender']!.text = v!),
                 ),
               ),
             ],
@@ -945,8 +1065,9 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
             initialValue: _languageGuide,
             decoration: InputDecoration(
               prefixIcon: const Icon(Icons.translate, color: AppColors.primary),
-              border:
-                  OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               filled: true,
               fillColor: Colors.grey[50],
             ),
@@ -969,9 +1090,13 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
           DropdownButtonFormField<MealPreference>(
             initialValue: _mealPreference,
             decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.restaurant, color: AppColors.primary),
-              border:
-                  OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              prefixIcon: const Icon(
+                Icons.restaurant,
+                color: AppColors.primary,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               filled: true,
               fillColor: Colors.grey[50],
             ),
@@ -1163,8 +1288,10 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
         ),
         filled: true,
         fillColor: Colors.grey[50],
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
       ),
     );
   }
@@ -1193,7 +1320,6 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
         return 'Custom Package';
     }
   }
-
 
   String _formatLanguageName(LanguageGuide lang) {
     switch (lang) {
@@ -1312,11 +1438,13 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
       ];
 
       for (var t in _additionalTravelers) {
-        travelersList.add(TravelerDetail(
-          name: t['name']!.text,
-          age: int.tryParse(t['age']!.text) ?? 20,
-          gender: t['gender']!.text,
-        ));
+        travelersList.add(
+          TravelerDetail(
+            name: t['name']!.text,
+            age: int.tryParse(t['age']!.text) ?? 20,
+            gender: t['gender']!.text,
+          ),
+        );
       }
 
       final metadata = <String, dynamic>{
@@ -1474,10 +1602,7 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
         ),
         Text(
           'Tour Package Category',
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey[600],
-          ),
+          style: TextStyle(fontSize: 14, color: Colors.grey[600]),
         ),
         const SizedBox(height: 24),
 
@@ -1494,7 +1619,8 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
         Row(
           children: TourPackage.values.map((pkg) {
             final isSelected = _package == pkg;
-            final packages = ref.watch(travelPackagesProvider).valueOrNull ?? [];
+            final packages =
+                ref.watch(travelPackagesProvider).valueOrNull ?? [];
             final pkgInfo = packages.firstWhere(
               (p) => p.key.toLowerCase() == pkg.name.toLowerCase(),
               orElse: () => LookupItem(key: pkg.name, label: pkg.name),
@@ -1519,7 +1645,9 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
                   ),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   decoration: BoxDecoration(
-                    color: isSelected ? AppColors.primary.withValues(alpha: 0.05) : Colors.white,
+                    color: isSelected
+                        ? AppColors.primary.withValues(alpha: 0.05)
+                        : Colors.white,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: isSelected ? AppColors.primary : Colors.grey[300]!,
@@ -1530,7 +1658,9 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
                     children: [
                       Icon(
                         _getPackageIcon(pkg),
-                        color: isSelected ? AppColors.primary : Colors.grey[600],
+                        color: isSelected
+                            ? AppColors.primary
+                            : Colors.grey[600],
                         size: 24,
                       ),
                       const SizedBox(height: 6),
@@ -1538,8 +1668,12 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
                         pkgInfo.label,
                         style: TextStyle(
                           fontSize: 12,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          color: isSelected ? AppColors.primary : Colors.grey[600],
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          color: isSelected
+                              ? AppColors.primary
+                              : Colors.grey[600],
                         ),
                         textAlign: TextAlign.center,
                       ),

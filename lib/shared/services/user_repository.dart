@@ -155,6 +155,7 @@ class UserRepository extends StateNotifier<List<User>> {
         phone: res['phone']?.toString(),
         location: res['location']?.toString(),
         metadata: metadata,
+        publicEmail: metadata['public_email']?.toString(),
         paymentAccounts: paymentAccounts,
         lastSessionId: res['last_session_id']?.toString(),
         failedAttempts: (res['failed_attempts'] as num?)?.toInt() ?? 0,

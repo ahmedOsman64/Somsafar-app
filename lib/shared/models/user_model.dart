@@ -30,6 +30,7 @@ class User {
   final DateTime? dateOfBirth; // User's birth date
 
   final Gender? gender; // User's gender
+  final String? publicEmail; // Business email for customers to see after booking
   final String? lastSessionId; // For concurrent session control
   final int failedAttempts; // For brute force protection
 
@@ -56,6 +57,7 @@ class User {
     this.dateOfBirth,
 
     this.gender,
+    this.publicEmail,
     this.lastSessionId,
     this.failedAttempts = 0,
     this.metadata = const {},
@@ -85,6 +87,8 @@ class User {
     DateTime? dateOfBirth,
 
     Gender? gender,
+    String? publicEmail,
+    bool clearPublicEmail = false,
     String? lastSessionId,
     int? failedAttempts,
     Map<String, dynamic>? metadata,
@@ -111,6 +115,7 @@ class User {
       dateOfBirth: dateOfBirth ?? this.dateOfBirth,
 
       gender: gender ?? this.gender,
+      publicEmail: clearPublicEmail ? null : (publicEmail ?? this.publicEmail),
       lastSessionId: lastSessionId ?? this.lastSessionId,
       failedAttempts: failedAttempts ?? this.failedAttempts,
       metadata: metadata ?? this.metadata,

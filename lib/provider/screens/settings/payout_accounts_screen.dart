@@ -7,6 +7,7 @@ import '../../../shared/services/user_repository.dart';
 import '../../../shared/services/system_activity_repository.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/confirmation_dialog.dart';
+import '../../../shared/widgets/form_widgets.dart';
 
 class PayoutAccountsScreen extends ConsumerStatefulWidget {
   const PayoutAccountsScreen({super.key});
@@ -194,12 +195,15 @@ class _PayoutAccountsScreenState extends ConsumerState<PayoutAccountsScreen> {
               children: [
                 Row(
                   children: [
-                    Text(
-                      account.providerName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Color(0xFF0D3B66),
+                    Flexible(
+                      child: Text(
+                        account.providerName,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Color(0xFF0D3B66),
+                        ),
                       ),
                     ),
                     if (account.isDefault) ...[
@@ -228,10 +232,12 @@ class _PayoutAccountsScreenState extends ConsumerState<PayoutAccountsScreen> {
                 const SizedBox(height: 4),
                 Text(
                   'Acc: ${account.accountNumber}',
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: Colors.grey[600], fontSize: 13),
                 ),
                 Text(
                   account.holderName,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: Colors.grey[400], fontSize: 11),
                 ),
               ],
@@ -423,128 +429,127 @@ class _AddPaymentAccountSheetState
         right: 24,
         top: 24,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                widget.initialAccount != null
-                    ? 'Edit Receiving Method'
-                    : 'Add Receiving Method',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF0D3B66),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  widget.initialAccount != null
+                      ? 'Edit Receiving Method'
+                      : 'Add Receiving Method',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0D3B66),
+                  ),
                 ),
-              ),
-              if (widget.initialAccount != null)
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close),
-                ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'Account Type',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey,
+                if (widget.initialAccount != null)
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+              ],
             ),
-          ),
-          Row(
-            children: [
-              Expanded(
-                child: ChoiceChip(
-                  label: const Text('Mobile'),
-                  selected: _type == PaymentAccountType.mobileMoney,
-                  onSelected: (v) {
-                    if (v) {
-                      setState(() {
-                        _type = PaymentAccountType.mobileMoney;
-                      });
-                    }
-                  },
-                ),
+            const SizedBox(height: 24),
+            const Text(
+              'Account Type',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ChoiceChip(
-                  label: const Text('Bank'),
-                  selected: _type == PaymentAccountType.bank,
-                  onSelected: (v) {
-                    if (v) {
-                      setState(() {
-                        _type = PaymentAccountType.bank;
-                      });
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ChoiceChip(
-                  label: const Text('Card'),
-                  selected: _type == PaymentAccountType.card,
-                  onSelected: (v) {
-                    if (v) {
-                      setState(() {
-                        _type = PaymentAccountType.card;
-                      });
-                    }
-                  },
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            initialValue: _provider,
-            decoration: const InputDecoration(labelText: 'Provider Name'),
-            items: currentItems
-                .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                .toList(),
-            onChanged: (v) => setState(() => _provider = v!),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _holderController,
-            decoration: const InputDecoration(
-              labelText: 'Account Holder Name',
-              hintText: 'Full name on account',
             ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _numberController,
-            decoration: const InputDecoration(
-              labelText: 'Account / Phone Number',
-              hintText: 'Enter account digits',
-            ),
-            keyboardType: TextInputType.number,
-          ),
-          const SizedBox(height: 32),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _save,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.secondary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: ChoiceChip(
+                    label: const Text('Mobile'),
+                    selected: _type == PaymentAccountType.mobileMoney,
+                    onSelected: (v) {
+                      if (v) {
+                        setState(() {
+                          _type = PaymentAccountType.mobileMoney;
+                        });
+                      }
+                    },
+                  ),
                 ),
-              ),
-              child: const Text('Save Account'),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ChoiceChip(
+                    label: const Text('Bank'),
+                    selected: _type == PaymentAccountType.bank,
+                    onSelected: (v) {
+                      if (v) {
+                        setState(() {
+                          _type = PaymentAccountType.bank;
+                        });
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ChoiceChip(
+                    label: const Text('Card'),
+                    selected: _type == PaymentAccountType.card,
+                    onSelected: (v) {
+                      if (v) {
+                        setState(() {
+                          _type = PaymentAccountType.card;
+                        });
+                      }
+                    },
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 24),
-        ],
+            const SizedBox(height: 16),
+            AppDropdown<String>(
+              label: 'Provider Name',
+              value: _provider,
+              items: currentItems
+                  .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                  .toList(),
+              onChanged: (v) => setState(() => _provider = v!),
+            ),
+            const SizedBox(height: 16),
+            AppTextField(
+              controller: _holderController,
+              label: 'Account Holder Name',
+              hint: 'Full name on account',
+            ),
+            const SizedBox(height: 16),
+            AppTextField(
+              controller: _numberController,
+              label: 'Account / Phone Number',
+              hint: 'Enter account digits',
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _save,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.secondary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: const Text('Save Account'),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
       ),
     );
   }

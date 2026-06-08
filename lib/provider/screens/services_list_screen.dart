@@ -463,8 +463,20 @@ class _ServicePopupMenu extends StatelessWidget {
             );
             return;
           }
+          if (service.metadata['pending_deletion'] == true) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Cannot edit service marked for deletion')),
+            );
+            return;
+          }
           context.push('/provider/services/edit/${service.id}');
         } else if (value == 'toggle') {
+          if (service.metadata['pending_deletion'] == true) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Cannot activate/deactivate service marked for deletion')),
+            );
+            return;
+          }
           final isActivating = service.status != ServiceStatus.active;
           final actionVerb = isActivating ? 'Activate' : 'Deactivate';
 
@@ -517,19 +529,35 @@ class _ServicePopupMenu extends StatelessWidget {
           _showDeleteConfirm(context, ref, service);
         }
       },
-      itemBuilder: (context) => [
-        const PopupMenuItem(value: 'edit', child: Text('Edit')),
-        PopupMenuItem(
-          value: 'toggle',
-          child: Text(
-            service.status == ServiceStatus.active ? 'Deactivate' : 'Activate',
+      itemBuilder: (context) {
+        final isPendingDeletion = service.metadata['pending_deletion'] == true;
+        
+        return [
+          PopupMenuItem(
+            value: 'edit', 
+            enabled: !isPendingDeletion,
+            child: Text(
+              'Edit',
+              style: TextStyle(color: isPendingDeletion ? Colors.grey : null),
+            ),
           ),
-        ),
-        const PopupMenuItem(
-          value: 'delete',
-          child: Text('Delete', style: TextStyle(color: Colors.red)),
-        ),
-      ],
+          PopupMenuItem(
+            value: 'toggle',
+            enabled: !isPendingDeletion,
+            child: Text(
+              service.status == ServiceStatus.active ? 'Deactivate' : 'Activate',
+              style: TextStyle(color: isPendingDeletion ? Colors.grey : null),
+            ),
+          ),
+          PopupMenuItem(
+            value: 'delete',
+            child: Text(
+              isPendingDeletion ? 'Pending Deletion' : 'Delete', 
+              style: TextStyle(color: isPendingDeletion ? Colors.orange : Colors.red),
+            ),
+          ),
+        ];
+      },
     );
   }
 
@@ -560,13 +588,28 @@ class _ServicePopupMenu extends StatelessWidget {
         }
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Delete failed: $e'),
-              backgroundColor: Colors.red,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+          final isPendingDeletion = e.toString().contains('PENDING_DELETION');
+          
+          if (isPendingDeletion) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Service has active bookings. It will be hidden from new customers and deleted automatically once bookings are completed.',
+                ),
+                backgroundColor: AppColors.secondary,
+                duration: Duration(seconds: 5),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Delete failed: $e'),
+                backgroundColor: Colors.red,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
         }
       } finally {
         onLoading(false);

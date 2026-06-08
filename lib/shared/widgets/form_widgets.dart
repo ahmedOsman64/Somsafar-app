@@ -14,6 +14,7 @@ class AppTextField extends StatefulWidget {
   final bool obscureText;
   final int? maxLength;
   final VoidCallback? onTap;
+  final void Function(String)? onChanged;
 
   const AppTextField({
     super.key,
@@ -29,6 +30,7 @@ class AppTextField extends StatefulWidget {
     this.obscureText = false,
     this.maxLength,
     this.onTap,
+    this.onChanged,
   });
 
   @override
@@ -53,7 +55,7 @@ class _AppTextFieldState extends State<AppTextField> {
           widget.label,
           style: TextStyle(
             fontWeight: FontWeight.w600,
-            fontSize: 14,
+            fontSize: 16,
             color: Theme.of(context).brightness == Brightness.dark
                 ? Colors.white
                 : AppColors.dark,
@@ -69,6 +71,8 @@ class _AppTextFieldState extends State<AppTextField> {
           readOnly: widget.readOnly,
           obscureText: _isObscured,
           onTap: widget.onTap,
+          onChanged: widget.onChanged,
+          style: const TextStyle(fontSize: 16),
           decoration: InputDecoration(
             hintText: widget.hint,
             prefixIcon: widget.prefixIcon,
@@ -81,7 +85,10 @@ class _AppTextFieldState extends State<AppTextField> {
                     onPressed: () => setState(() => _isObscured = !_isObscured),
                   )
                 : widget.suffixIcon,
-            contentPadding: const EdgeInsets.all(16),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 12,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: AppColors.grey),
@@ -144,7 +151,7 @@ class AppDropdown<T> extends StatelessWidget {
           label,
           style: TextStyle(
             fontWeight: FontWeight.w600,
-            fontSize: 14,
+            fontSize: 16,
             color: Theme.of(context).brightness == Brightness.dark
                 ? Colors.white
                 : AppColors.dark,
@@ -153,14 +160,47 @@ class AppDropdown<T> extends StatelessWidget {
         const SizedBox(height: 8),
         DropdownButtonFormField<T>(
           initialValue: uniqueItems.any((i) => i.value == value) ? value : null,
-          items: uniqueItems,
+          items: uniqueItems.map((item) {
+            return DropdownMenuItem<T>(
+              value: item.value,
+              child: item.child is Text
+                  ? Text(
+                      (item.child as Text).data ?? '',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white
+                            : AppColors.dark,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    )
+                  : item.child,
+            );
+          }).toList(),
+          style: TextStyle(
+            fontSize: 16,
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white
+                : AppColors.dark,
+          ),
           onChanged: onChanged,
           validator: validator,
-          hint: hint != null ? Text(hint!) : null,
+          hint: hint != null
+              ? Text(
+                  hint!,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white70
+                        : Colors.black54,
+                  ),
+                )
+              : null,
+          isExpanded: true,
           decoration: InputDecoration(
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
-              vertical: 16,
+              vertical: 12,
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),

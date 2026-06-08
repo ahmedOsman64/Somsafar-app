@@ -4,10 +4,10 @@ import '../../core/theme/app_colors.dart';
 import '../../shared/services/settings_repository.dart';
 import '../../shared/services/auth_service.dart';
 import 'settings/payout_accounts_screen.dart';
-import '../../shared/widgets/mfa_setup_dialog.dart';
+
 import 'settings/transaction_history_screen.dart';
 import 'settings/manage_helpers_screen.dart';
-import 'settings/provider_pricing_settings_screen.dart';
+
 
 class ProviderSettingsScreen extends ConsumerWidget {
   const ProviderSettingsScreen({super.key});
@@ -89,78 +89,10 @@ class ProviderSettingsScreen extends ConsumerWidget {
                 },
               ),
             ]),
-            const SizedBox(height: 24),
-            _buildSection('Business & Pricing', [
-              _buildNavigationTile(
-                context,
-                'Service Pricing',
-                'Manage default fees for your listings',
-                Icons.attach_money,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const ProviderPricingSettingsScreen(),
-                    ),
-                  );
-                },
-              ),
-            ]),
+
             const SizedBox(height: 24),
             _buildSection('Security', [
-              _buildSwitchTile(
-                'Two-Factor Authentication',
-                'Add an extra layer of security',
-                Icons.security_outlined,
-                ref.watch(authServiceProvider).isMFAEnabled,
-                (v) async {
-                  final auth = ref.read(authServiceProvider);
-                  if (v) {
-                    try {
-                      final enrollment = await auth.enrollTOTP();
-                      if (!context.mounted) return;
-                      
-                      final success = await showDialog<bool>(
-                        context: context,
-                        barrierDismissible: false,
-                        builder: (context) => MFASetupDialog(
-                          qrUri: enrollment.totp!.uri,
-                          secret: enrollment.totp!.secret,
-                          factorId: enrollment.id,
-                        ),
-                      );
 
-                      if (success == true) {
-                        notifier.update2FA(true);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Two-Factor Authentication enabled successfully'),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
-                      }
-                    } catch (e) {
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Failed to set up 2FA: $e'), backgroundColor: Colors.red),
-                      );
-                    }
-                  } else {
-                    final error = await auth.unenrollMFA();
-                    if (!context.mounted) return;
-                    if (error == null) {
-                      notifier.update2FA(false);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Two-Factor Authentication disabled')),
-                      );
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Failed to disable 2FA: $error'), backgroundColor: Colors.red),
-                      );
-                    }
-                  }
-                },
-              ),
               _buildNavigationTile(
                 context,
                 'Change Password',

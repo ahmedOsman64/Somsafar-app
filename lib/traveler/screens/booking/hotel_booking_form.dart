@@ -254,11 +254,13 @@ class _HotelBookingFormState extends ConsumerState<HotelBookingForm>
                 children: [
                   Icon(Icons.people_outline, size: 14, color: Colors.grey[500]),
                   const SizedBox(width: 6),
-                  Text(
-                    'Max $maxPerRoom guest${maxPerRoom > 1 ? 's' : ''} per room'
-                    ' · Limit: $guestCap guest${guestCap! > 1 ? 's' : ''}'
-                    ' for $_rooms room${_rooms > 1 ? 's' : ''}',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  Expanded(
+                    child: Text(
+                      'Max $maxPerRoom guest${maxPerRoom > 1 ? 's' : ''} per room'
+                      ' · Limit: $guestCap guest${guestCap! > 1 ? 's' : ''}'
+                      ' for $_rooms room${_rooms > 1 ? 's' : ''}',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
                   ),
                 ],
               ),

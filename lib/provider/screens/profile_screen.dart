@@ -25,9 +25,11 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
   late TextEditingController _phoneController;
   late TextEditingController _locationController;
   late TextEditingController _emailController;
+  late TextEditingController _publicEmailController;
   late TextEditingController _providerIdController;
   bool _isSaving = false;
   bool _isUploading = false;
+  bool _isEditMode = false;
   final ImagePicker _picker = ImagePicker();
 
   @override
@@ -35,13 +37,18 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
     super.initState();
     final user = ref.read(authProvider);
     _nameController = TextEditingController(text: user?.name ?? '');
-    
+
     // Gracefully handle 'ENCRYPTED' placeholder from database
-    final displayPhone = (user?.phone == 'ENCRYPTED') ? '' : (user?.phone ?? '');
+    final displayPhone = (user?.phone == 'ENCRYPTED')
+        ? ''
+        : (user?.phone ?? '');
     _phoneController = TextEditingController(text: displayPhone);
-    
+
     _locationController = TextEditingController(text: user?.location ?? '');
     _emailController = TextEditingController(text: user?.email ?? '');
+    _publicEmailController = TextEditingController(
+      text: user?.publicEmail ?? '',
+    );
     _providerIdController = TextEditingController(
       text: user?.providerId ?? user?.id ?? '',
     );
@@ -53,6 +60,7 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
     _phoneController.dispose();
     _locationController.dispose();
     _emailController.dispose();
+    _publicEmailController.dispose();
     _providerIdController.dispose();
     super.dispose();
   }
@@ -62,10 +70,13 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
     if (user != null) {
       setState(() => _isSaving = true);
       try {
-        final error = await ref.read(authServiceProvider).updateProfile(
+        final error = await ref
+            .read(authServiceProvider)
+            .updateProfile(
               name: _nameController.text,
               phone: _phoneController.text,
               location: _locationController.text,
+              publicEmail: _publicEmailController.text,
             );
 
         if (!mounted) return;
@@ -76,7 +87,9 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
               content: Text('Error: $error'),
               backgroundColor: Colors.red,
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           );
         } else {
@@ -91,7 +104,9 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
               ),
               backgroundColor: Colors.green,
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           );
         }
@@ -118,9 +133,9 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
       );
 
       if (imageUrl != null) {
-        final error = await ref.read(authServiceProvider).updateProfile(
-              profileImage: imageUrl,
-            );
+        final error = await ref
+            .read(authServiceProvider)
+            .updateProfile(profileImage: imageUrl);
 
         if (!mounted) return;
 
@@ -136,9 +151,9 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Upload failed: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }
@@ -165,9 +180,9 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
       final updatedMeta = Map<String, dynamic>.from(user.metadata);
       updatedMeta['is_verified'] = true;
 
-      final error = await ref.read(authServiceProvider).updateProfile(
-            metadata: updatedMeta,
-          );
+      final error = await ref
+          .read(authServiceProvider)
+          .updateProfile(metadata: updatedMeta);
 
       if (!mounted) return;
 
@@ -202,15 +217,58 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
     final reviews = ref.watch(reviewProvider);
     final providerKey = user.providerId ?? user.id;
 
-    final providerBookings = allBookings
-        .where((b) =>
-            b.providerId == providerKey &&
-            (b.status == BookingStatus.confirmed ||
-                b.status == BookingStatus.completed))
+    final providerAllBookings = allBookings
+        .where((b) => b.providerId == providerKey)
         .toList();
 
+    double acceptanceRate = 1.0;
+    double speedScore = 100.0;
+
+    final confirmedBookings = providerAllBookings
+        .where(
+          (b) =>
+              b.status == BookingStatus.confirmed ||
+              b.status == BookingStatus.completed,
+        )
+        .toList();
+
+    if (providerAllBookings.isNotEmpty) {
+      final decidedBookings = providerAllBookings
+          .where((b) => b.status != BookingStatus.pending)
+          .toList();
+
+      if (decidedBookings.isNotEmpty) {
+        acceptanceRate = confirmedBookings.length / decidedBookings.length;
+      }
+
+      // Calculate Average Speed Score
+      if (confirmedBookings.isNotEmpty) {
+        double totalSpeedPoints = 0;
+        int speedCount = 0;
+
+        for (final b in confirmedBookings) {
+          if (b.confirmedAt != null) {
+            final diff = b.confirmedAt!.difference(b.date).inMinutes;
+            if (diff <= 5) {
+              totalSpeedPoints += 100;
+            } else if (diff <= 15) {
+              totalSpeedPoints += 85;
+            } else if (diff <= 30) {
+              totalSpeedPoints += 70;
+            } else if (diff <= 60) {
+              totalSpeedPoints += 50;
+            } else {
+              totalSpeedPoints += 30;
+            }
+            speedCount++;
+          }
+        }
+        if (speedCount > 0) speedScore = totalSpeedPoints / speedCount;
+      }
+    }
+
     double totalEarnings = 0;
-    for (var b in providerBookings) {
+    for (var b in confirmedBookings) {
       totalEarnings += b.totalPrice;
     }
 
@@ -219,8 +277,20 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
       avgRating =
           reviews.map((r) => r.rating).reduce((a, b) => a + b) / reviews.length;
     }
-    final performanceScore =
-        reviews.isEmpty ? '98%' : '${(avgRating * 20).toStringAsFixed(0)}%';
+
+    double finalPerformance;
+    if (reviews.isNotEmpty) {
+      // 50% Rating, 25% Acceptance, 25% Speed
+      finalPerformance =
+          ((avgRating * 20) * 0.5) +
+          ((acceptanceRate * 100) * 0.25) +
+          (speedScore * 0.25);
+    } else {
+      // If no reviews: 50% Acceptance, 50% Speed
+      finalPerformance = ((acceptanceRate * 100) * 0.5) + (speedScore * 0.5);
+    }
+
+    final performanceScore = '${finalPerformance.toStringAsFixed(0)}%';
 
     String joinedDate = '—';
     if (user.createdAt != null) {
@@ -309,7 +379,9 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
             children: [
               // Avatar
               GestureDetector(
-                onTap: _isUploading ? null : _pickProfileImage,
+                onTap: (_isUploading || !_isEditMode)
+                    ? null
+                    : _pickProfileImage,
                 child: Stack(
                   alignment: Alignment.bottomRight,
                   children: [
@@ -328,30 +400,43 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
                       child: CircleAvatar(
                         radius: 52,
                         backgroundColor: Colors.white.withValues(alpha: 0.15),
-                        backgroundImage: user.profileImage != null &&
+                        backgroundImage:
+                            user.profileImage != null &&
                                 user.profileImage!.isNotEmpty
                             ? NetworkImage(
-                                StorageService.ensurePublicUrl(user.profileImage!))
+                                StorageService.ensurePublicUrl(
+                                  user.profileImage!,
+                                ),
+                              )
                             : null,
                         child: _isUploading
-                            ? const CircularProgressIndicator(color: Colors.white)
+                            ? const CircularProgressIndicator(
+                                color: Colors.white,
+                              )
                             : (user.profileImage == null ||
-                                    user.profileImage!.isEmpty)
-                                ? const Icon(Icons.person,
-                                    size: 52, color: Colors.white)
-                                : null,
+                                  user.profileImage!.isEmpty)
+                            ? const Icon(
+                                Icons.person,
+                                size: 52,
+                                color: Colors.white,
+                              )
+                            : null,
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.all(7),
-                      decoration: BoxDecoration(
-                        color: AppColors.secondary,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
+                    if (_isEditMode)
+                      Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                          color: AppColors.secondary,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child: const Icon(
+                          Icons.camera_alt,
+                          color: Colors.white,
+                          size: 14,
+                        ),
                       ),
-                      child: const Icon(Icons.camera_alt,
-                          color: Colors.white, size: 14),
-                    ),
                   ],
                 ),
               ),
@@ -371,18 +456,24 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
                   filled: true,
                   fillColor: Colors.transparent,
                   hintText: 'Enter name',
-                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+                  hintStyle: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.5),
+                  ),
                 ),
+                readOnly: !_isEditMode,
               ),
               const SizedBox(height: 6),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.secondary.withValues(alpha: 0.25),
                   borderRadius: BorderRadius.circular(20),
-                  border:
-                      Border.all(color: AppColors.secondary.withValues(alpha: 0.5)),
+                  border: Border.all(
+                    color: AppColors.secondary.withValues(alpha: 0.5),
+                  ),
                 ),
                 child: Text(
                   user.role.name.toUpperCase(),
@@ -402,7 +493,11 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
   }
 
   Widget _buildStatChip(
-      IconData icon, String label, String value, Color color) {
+    IconData icon,
+    String label,
+    String value,
+    Color color,
+  ) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
@@ -466,13 +561,49 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Account Details',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF0D3B66),
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Account Details',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0D3B66),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: () {
+                  if (_isEditMode) {
+                    _saveProfile();
+                  }
+                  setState(() => _isEditMode = !_isEditMode);
+                },
+                icon: Icon(
+                  _isEditMode
+                      ? Icons.check_circle_outline
+                      : Icons.edit_outlined,
+                  size: 18,
+                  color: _isEditMode ? Colors.green : AppColors.secondary,
+                ),
+                label: Text(
+                  _isEditMode ? 'Done' : 'Edit',
+                  style: TextStyle(
+                    color: _isEditMode ? Colors.green : AppColors.secondary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  backgroundColor:
+                      (_isEditMode ? Colors.green : AppColors.secondary)
+                          .withValues(alpha: 0.1),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 20),
           _buildInfoField(
@@ -484,9 +615,18 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
           ),
           _buildDivider(),
           _buildInfoField(
+            Icons.business_rounded,
+            'Public Business Email',
+            _publicEmailController,
+            readOnly: !_isEditMode,
+            color: const Color(0xFFF43F5E), // Rose color
+          ),
+          _buildDivider(),
+          _buildInfoField(
             Icons.phone_rounded,
             'Phone Number',
             _phoneController,
+            readOnly: !_isEditMode,
             color: const Color(0xFF3B82F6),
           ),
           _buildDivider(),
@@ -494,6 +634,7 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
             Icons.location_on_rounded,
             'Business Location',
             _locationController,
+            readOnly: !_isEditMode,
             color: const Color(0xFF22C55E),
           ),
           _buildDivider(),
@@ -510,9 +651,9 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
   }
 
   Widget _buildDivider() => const Padding(
-        padding: EdgeInsets.symmetric(vertical: 12),
-        child: Divider(height: 1, color: Color(0xFFF1F5F9)),
-      );
+    padding: EdgeInsets.symmetric(vertical: 12),
+    child: Divider(height: 1, color: Color(0xFFF1F5F9)),
+  );
 
   Widget _buildInfoField(
     IconData icon,
@@ -540,7 +681,10 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
               Text(
                 label,
                 style: const TextStyle(
-                    fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500),
+                  fontSize: 11,
+                  color: Colors.grey,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               const SizedBox(height: 2),
               TextField(
@@ -560,7 +704,7 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
             ],
           ),
         ),
-        if (!readOnly)
+        if (!readOnly && _isEditMode)
           Icon(Icons.edit, size: 16, color: Colors.grey.shade400),
       ],
     );
@@ -569,15 +713,6 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
   Widget _buildActionCards(BuildContext context) {
     return Column(
       children: [
-        _buildActionTile(
-          context,
-          icon: Icons.save_rounded,
-          title: 'Save Changes',
-          subtitle: 'Update your profile information',
-          color: const Color(0xFF0D3B66),
-          isLoading: _isSaving,
-          onTap: _saveProfile,
-        ),
         if (ref.watch(authProvider)?.isVerified == false) ...[
           const SizedBox(height: 12),
           _buildActionTile(
@@ -682,14 +817,16 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style:
-                        TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded,
-                color: Colors.grey.shade300, size: 22),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: Colors.grey.shade300,
+              size: 22,
+            ),
           ],
         ),
       ),

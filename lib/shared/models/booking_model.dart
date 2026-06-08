@@ -25,6 +25,7 @@ class Booking {
   final Map<String, dynamic> metadata; // For package-specific details
   BookingStatus status;
   BookingPaymentStatus paymentStatus;
+  final DateTime? confirmedAt;
 
   Booking({
     required this.id,
@@ -49,6 +50,7 @@ class Booking {
     this.metadata = const {},
     required this.status,
     this.paymentStatus = BookingPaymentStatus.pending,
+    this.confirmedAt,
   });
 
   Color get statusColor {
@@ -90,6 +92,7 @@ class Booking {
     Map<String, dynamic>? metadata,
     BookingStatus? status,
     BookingPaymentStatus? paymentStatus,
+    DateTime? confirmedAt,
   }) {
     return Booking(
       id: id ?? this.id,
@@ -114,6 +117,7 @@ class Booking {
       metadata: metadata ?? this.metadata,
       status: status ?? this.status,
       paymentStatus: paymentStatus ?? this.paymentStatus,
+      confirmedAt: confirmedAt ?? this.confirmedAt,
     );
   }
 }

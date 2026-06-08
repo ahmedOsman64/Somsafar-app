@@ -10,7 +10,6 @@ import '../../shared/widgets/confirmation_dialog.dart';
 import '../../shared/services/service_repository.dart';
 import '../../shared/models/user_model.dart';
 
-
 class ProviderBookingsScreen extends ConsumerWidget {
   const ProviderBookingsScreen({super.key});
 
@@ -45,9 +44,22 @@ class ProviderBookingsScreen extends ConsumerWidget {
           foregroundColor: Colors.white,
           bottom: TabBar(
             tabs: [
-              _buildTab('Pending', bookings.where((b) => b.status == BookingStatus.pending).length),
-              _buildTab('Confirmed', bookings.where((b) => b.status == BookingStatus.confirmed).length),
-              _buildTab('Completed', bookings.where((b) => b.status == BookingStatus.completed).length),
+              _buildTab(
+                'Pending',
+                bookings.where((b) => b.status == BookingStatus.pending).length,
+              ),
+              _buildTab(
+                'Confirmed',
+                bookings
+                    .where((b) => b.status == BookingStatus.confirmed)
+                    .length,
+              ),
+              _buildTab(
+                'Completed',
+                bookings
+                    .where((b) => b.status == BookingStatus.completed)
+                    .length,
+              ),
             ],
             indicatorColor: Colors.white,
             labelColor: Colors.white,
@@ -61,9 +73,24 @@ class ProviderBookingsScreen extends ConsumerWidget {
             Expanded(
               child: TabBarView(
                 children: [
-                  _buildBookingList(context, ref, bookings, BookingStatus.pending),
-                  _buildBookingList(context, ref, bookings, BookingStatus.confirmed),
-                  _buildBookingList(context, ref, bookings, BookingStatus.completed),
+                  _buildBookingList(
+                    context,
+                    ref,
+                    bookings,
+                    BookingStatus.pending,
+                  ),
+                  _buildBookingList(
+                    context,
+                    ref,
+                    bookings,
+                    BookingStatus.confirmed,
+                  ),
+                  _buildBookingList(
+                    context,
+                    ref,
+                    bookings,
+                    BookingStatus.completed,
+                  ),
                 ],
               ),
             ),
@@ -98,9 +125,14 @@ class ProviderBookingsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildBookingList(BuildContext context, WidgetRef ref, List<Booking> allBookings, BookingStatus status) {
+  Widget _buildBookingList(
+    BuildContext context,
+    WidgetRef ref,
+    List<Booking> allBookings,
+    BookingStatus status,
+  ) {
     final bookings = allBookings.where((b) => b.status == status).toList();
-    
+
     // Sort logic
     bookings.sort((a, b) => b.date.compareTo(a.date)); // Newest first
 
@@ -133,7 +165,7 @@ class ProviderBookingsScreen extends ConsumerWidget {
 
     final services = ref.watch(filteredServicesProvider);
     final bookings = ref.watch(filteredBookingsProvider);
-    
+
     // Get today at midnight for comparison
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -143,34 +175,36 @@ class ProviderBookingsScreen extends ConsumerWidget {
 
     for (final s in services) {
       final category = s.category.toLowerCase();
-      
+
       if (category.contains('hotel')) {
         totalUnits += (s.metadata['rooms'] as num?)?.toInt() ?? 1;
-        
+
         // Dynamic Calculation: Count rooms from confirmed stays covering today
-        final activeStaysRooms = bookings.where((b) {
-          if (b.serviceId != s.id) return false;
-          if (b.status != BookingStatus.confirmed) return false;
-          
-          // Check if stay overlaps with today (stay starts on/before today AND ends after today)
-          final startsOnOrBeforeToday = !b.checkIn.isAfter(today);
-          final endsAfterToday = b.checkOut.isAfter(today);
-          
-          return startsOnOrBeforeToday && endsAfterToday;
-        }).fold<int>(0, (sum, b) => sum + b.rooms);
-        
+        final activeStaysRooms = bookings
+            .where((b) {
+              if (b.serviceId != s.id) return false;
+              if (b.status != BookingStatus.confirmed) return false;
+
+              // Check if stay overlaps with today (stay starts on/before today AND ends after today)
+              final startsOnOrBeforeToday = !b.checkIn.isAfter(today);
+              final endsAfterToday = b.checkOut.isAfter(today);
+
+              return startsOnOrBeforeToday && endsAfterToday;
+            })
+            .fold<int>(0, (sum, b) => sum + b.rooms);
+
         bookedUnits += activeStaysRooms;
       } else if (category.contains('apartment') || category.contains('home')) {
         totalUnits += 1;
-        
+
         // Dynamic Calculation: Check if there's a confirmed stay covering today
         final isOccupied = bookings.any((b) {
           if (b.serviceId != s.id) return false;
           if (b.status != BookingStatus.confirmed) return false;
-          
+
           final startsOnOrBeforeToday = !b.checkIn.isAfter(today);
           final endsAfterToday = b.checkOut.isAfter(today);
-          
+
           return startsOnOrBeforeToday && endsAfterToday;
         });
 
@@ -211,7 +245,9 @@ class ProviderBookingsScreen extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(
-                  type == ProviderType.hotel ? Icons.bedtime_outlined : Icons.apartment_rounded,
+                  type == ProviderType.hotel
+                      ? Icons.bedtime_outlined
+                      : Icons.apartment_rounded,
                   color: Colors.white,
                   size: 28,
                 ),
@@ -222,7 +258,9 @@ class ProviderBookingsScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      type == ProviderType.hotel ? 'Room Occupancy' : 'Property Availability',
+                      type == ProviderType.hotel
+                          ? 'Room Occupancy'
+                          : 'Property Availability',
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.7),
                         fontSize: 13,
@@ -257,7 +295,9 @@ class ProviderBookingsScreen extends ConsumerWidget {
                 ),
               ),
               FractionallySizedBox(
-                widthFactor: totalUnits > 0 ? (bookedUnits / totalUnits).clamp(0.0, 1.0) : 0,
+                widthFactor: totalUnits > 0
+                    ? (bookedUnits / totalUnits).clamp(0.0, 1.0)
+                    : 0,
                 child: Container(
                   height: 10,
                   decoration: BoxDecoration(
@@ -279,7 +319,10 @@ class ProviderBookingsScreen extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
@@ -583,13 +626,21 @@ class _BookingCard extends StatelessWidget {
                   duration: Duration(seconds: 1),
                 ),
               );
-              final success = await ref.read(bookingProvider.notifier).resendConfirmationEmail(booking.id);
+              final success = await ref
+                  .read(bookingProvider.notifier)
+                  .resendConfirmationEmail(booking.id);
               if (context.mounted) {
                 ScaffoldMessenger.of(context).hideCurrentSnackBar();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(success ? 'Receipt email sent successfully!' : 'Failed to send email. Check credentials.'),
-                    backgroundColor: success ? AppColors.success : AppColors.error,
+                    content: Text(
+                      success
+                          ? 'Receipt email sent successfully!'
+                          : 'Failed to send email. Check credentials.',
+                    ),
+                    backgroundColor: success
+                        ? AppColors.success
+                        : AppColors.error,
                   ),
                 );
               }
@@ -609,7 +660,10 @@ class _BookingCard extends StatelessWidget {
                 ),
               );
             },
-            icon: const Icon(Icons.chat_bubble_outline, color: AppColors.primary),
+            icon: const Icon(
+              Icons.chat_bubble_outline,
+              color: AppColors.primary,
+            ),
             tooltip: 'Chat with Traveler',
           ),
         ],
@@ -691,10 +745,7 @@ class _BookingCard extends StatelessWidget {
                 'Subtotal',
                 '\$${(booking.totalPrice - booking.taxes).toStringAsFixed(2)}',
               ),
-              _buildInfoRow(
-                'Tax',
-                '\$${booking.taxes.toStringAsFixed(2)}',
-              ),
+              _buildInfoRow('Tax', '\$${booking.taxes.toStringAsFixed(2)}'),
               _buildInfoRow(
                 'Total Price',
                 '\$${booking.totalPrice.toStringAsFixed(2)}',
@@ -752,8 +803,9 @@ class _BookingCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
-        crossAxisAlignment:
-            isLong ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+        crossAxisAlignment: isLong
+            ? CrossAxisAlignment.start
+            : CrossAxisAlignment.center,
         children: [
           SizedBox(
             width: 110, // Increased width slightly
@@ -805,7 +857,9 @@ class _BookingCard extends StatelessWidget {
         themeColor = AppColors.success;
         break;
       case BookingStatus.cancelled:
-        actionNoun = booking.status == BookingStatus.pending ? 'Reject' : 'Cancel';
+        actionNoun = booking.status == BookingStatus.pending
+            ? 'Reject'
+            : 'Cancel';
         themeColor = AppColors.error;
         break;
       case BookingStatus.completed:

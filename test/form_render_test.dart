@@ -15,12 +15,12 @@ void main() {
       ProviderScope(
         overrides: [
           authProvider.overrideWithValue(User(id: '1', email: 'test@test.com', name: 'Test', role: UserRole.provider, password: '', providerType: ProviderType.tour)),
-          categoriesProvider.overrideWith((ref) => Stream.value([LookupItem(key: 'tour', label: 'Tour')])),
-          regionsProvider.overrideWith((ref) => Stream.value([LookupItem(key: 'banadir', label: 'Banaadir')])),
-          amenitiesHotelProvider.overrideWith((ref) => Stream.value([LookupItem(key: 'wifi', label: 'WiFi')])),
-          amenitiesApartmentProvider.overrideWith((ref) => Stream.value([LookupItem(key: 'kitchen', label: 'Kitchen')])),
-          languagesProvider.overrideWith((ref) => Stream.value([LookupItem(key: 'en', label: 'English')])),
-          lookupServicesProvider.overrideWith((ref) => Stream.value([LookupItem(key: 'guide', label: 'Guide')])),
+          categoriesProvider.overrideWith((ref) => Future.value([LookupItem(key: 'tour', label: 'Tour')])),
+          regionsProvider.overrideWith((ref) => Future.value([LookupItem(key: 'banadir', label: 'Banaadir')])),
+          amenitiesHotelProvider.overrideWith((ref) => Future.value([LookupItem(key: 'wifi', label: 'WiFi')])),
+          amenitiesApartmentProvider.overrideWith((ref) => Future.value([LookupItem(key: 'kitchen', label: 'Kitchen')])),
+          languagesProvider.overrideWith((ref) => Future.value([LookupItem(key: 'en', label: 'English')])),
+          lookupServicesProvider.overrideWith((ref) => Future.value([LookupItem(key: 'guide', label: 'Guide')])),
         ],
         child: const MaterialApp(
           home: ProviderServiceFormScreen(),
@@ -52,11 +52,11 @@ void main() {
         ProviderScope(
           overrides: [
             authProvider.overrideWithValue(User(id: '1', email: 'test@test.com', name: 'Test', role: UserRole.traveler, password: '')),
-            regionsProvider.overrideWith((ref) => Stream.value([LookupItem(key: 'banadir', label: 'Banaadir')])),
-            amenitiesHotelProvider.overrideWith((ref) => Stream.value([LookupItem(key: 'wifi', label: 'WiFi')])),
-            amenitiesApartmentProvider.overrideWith((ref) => Stream.value([LookupItem(key: 'kitchen', label: 'Kitchen')])),
-            languagesProvider.overrideWith((ref) => Stream.value([LookupItem(key: 'en', label: 'English')])),
-            lookupServicesProvider.overrideWith((ref) => Stream.value([LookupItem(key: 'guide', label: 'Guide')])),
+            regionsProvider.overrideWith((ref) => Future.value([LookupItem(key: 'banadir', label: 'Banaadir')])),
+            amenitiesHotelProvider.overrideWith((ref) => Future.value([LookupItem(key: 'wifi', label: 'WiFi')])),
+            amenitiesApartmentProvider.overrideWith((ref) => Future.value([LookupItem(key: 'kitchen', label: 'Kitchen')])),
+            languagesProvider.overrideWith((ref) => Future.value([LookupItem(key: 'en', label: 'English')])),
+            lookupServicesProvider.overrideWith((ref) => Future.value([LookupItem(key: 'guide', label: 'Guide')])),
           ],
           child: MaterialApp(
             home: Scaffold(

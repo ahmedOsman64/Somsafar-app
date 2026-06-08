@@ -47,10 +47,11 @@ class _ProviderServiceFormScreenState
   String _pricingType = 'nightly';
 
   // Hotel Specific
-  late TextEditingController _hotelNameController;
   late TextEditingController _hotelRoomsController;
   late TextEditingController _hotelMaxGuestsController;
   final List<String> _hotelAmenities = [];
+  final List<String> _hotelCustomAmenities = [];
+  final List<String> _aptCustomAmenities = [];
   String? _bedType = 'Double';
   String? _smokingPreference = 'Non-Smoking';
   bool _breakfastIncluded = false;
@@ -139,7 +140,6 @@ class _ProviderServiceFormScreenState
     _descriptionController = TextEditingController();
 
     // Hotel
-    _hotelNameController = TextEditingController();
     _hotelRoomsController = TextEditingController();
     _hotelMaxGuestsController = TextEditingController();
     _breakfastPriceController = TextEditingController();
@@ -286,7 +286,6 @@ class _ProviderServiceFormScreenState
     switch (catLower) {
       case 'hotel':
       case 'hotels':
-        _hotelNameController.text = metadata['hotelName'] ?? '';
         _hotelRoomsController.text = metadata['rooms']?.toString() ?? '';
         _hotelMaxGuestsController.text =
             (metadata['max_guests'] ?? metadata['maxGuests'])?.toString() ?? '';
@@ -426,6 +425,41 @@ class _ProviderServiceFormScreenState
     }
   }
 
+  String? _getRoomsValidationError() {
+    final totalRooms = int.tryParse(_hotelRoomsController.text) ?? 0;
+    int bedRooms = 0;
+    if (_singleBedEnabled) {
+      bedRooms += int.tryParse(_singleRoomsController.text) ?? 0;
+    }
+    if (_doubleBedEnabled) {
+      bedRooms += int.tryParse(_doubleRoomsController.text) ?? 0;
+    }
+    if (_twinBedEnabled) {
+      bedRooms += int.tryParse(_twinRoomsController.text) ?? 0;
+    }
+
+    if (bedRooms > totalRooms) {
+      return 'Total beds ($bedRooms) exceed hotel rooms ($totalRooms)';
+    }
+    return null;
+  }
+
+  String _getDynamicTitleLabel() {
+    final cat = _selectedCategory?.toLowerCase() ?? '';
+    if (cat.contains('hotel')) return 'Hotel Name *';
+    if (cat.contains('apartment')) return 'Apartment Name *';
+    if (cat.contains('tour')) return 'Tour Title *';
+    return 'Service Name *';
+  }
+
+  String _getDynamicTitleHint() {
+    final cat = _selectedCategory?.toLowerCase() ?? '';
+    if (cat.contains('hotel')) return 'Enter hotel name';
+    if (cat.contains('apartment')) return 'Enter apartment name';
+    if (cat.contains('tour')) return 'Enter tour title';
+    return 'Enter name for your service';
+  }
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -440,7 +474,6 @@ class _ProviderServiceFormScreenState
     _tourExclusionsController.dispose();
     _tourItineraryController.dispose();
     _tourImportantInfoController.dispose();
-    _hotelNameController.dispose();
     _hotelRoomsController.dispose();
     _hotelMaxGuestsController.dispose();
     _houseRulesController.dispose();
@@ -606,10 +639,12 @@ class _ProviderServiceFormScreenState
         switch (category.toLowerCase()) {
           case 'hotel':
           case 'hotels':
-            metadata['hotelName'] = _hotelNameController.text;
+            metadata['hotelName'] = _titleController.text;
             metadata['rooms'] = int.tryParse(_hotelRoomsController.text);
-            metadata['max_guests'] = int.tryParse(_hotelMaxGuestsController.text);
-            metadata['amenities'] = _hotelAmenities;
+            metadata['max_guests'] = int.tryParse(
+              _hotelMaxGuestsController.text,
+            );
+            metadata['amenities'] = [..._hotelAmenities, ..._hotelCustomAmenities];
             metadata['bedType'] = _bedType;
             metadata['smokingPreference'] = _smokingPreference;
             metadata['breakfastIncluded'] = _breakfastIncluded;
@@ -648,7 +683,7 @@ class _ProviderServiceFormScreenState
             metadata['parking'] = _hasParking;
             metadata['cleaningAvailable'] = _cleaningAvailable;
             metadata['houseRules'] = _houseRulesController.text;
-            metadata['amenities'] = _aptAmenities;
+            metadata['amenities'] = [..._aptAmenities, ..._aptCustomAmenities];
             break;
           case 'tour':
           case 'tours':
@@ -721,9 +756,9 @@ class _ProviderServiceFormScreenState
             images: finalImageUrls,
             metadata: metadata,
             amenities: category.trim().toLowerCase().contains('hotel')
-                ? List<String>.from(_hotelAmenities)
+                ? [..._hotelAmenities, ..._hotelCustomAmenities]
                 : (category.trim().toLowerCase().contains('apartment')
-                      ? List<String>.from(_aptAmenities)
+                      ? [..._aptAmenities, ..._aptCustomAmenities]
                       : null),
             breakfastPrice: double.tryParse(_breakfastPriceController.text),
             airportPickupPrice: double.tryParse(
@@ -788,9 +823,9 @@ class _ProviderServiceFormScreenState
             images: finalImageUrls,
             metadata: metadata,
             amenities: category.trim().toLowerCase().contains('hotel')
-                ? List<String>.from(_hotelAmenities)
+                ? [..._hotelAmenities, ..._hotelCustomAmenities]
                 : (category.trim().toLowerCase().contains('apartment')
-                      ? List<String>.from(_aptAmenities)
+                      ? [..._aptAmenities, ..._aptCustomAmenities]
                       : null),
             breakfastPrice: double.tryParse(_breakfastPriceController.text),
             airportPickupPrice: double.tryParse(
@@ -1102,10 +1137,10 @@ class _ProviderServiceFormScreenState
         const SizedBox(height: 16),
         AppTextField(
           controller: _titleController,
-          label: 'Service Title *',
-          hint: 'enter title for your service',
+          label: _getDynamicTitleLabel(),
+          hint: _getDynamicTitleHint(),
           validator: (val) =>
-              val == null || val.isEmpty ? 'Title is required' : null,
+              val == null || val.isEmpty ? 'Field is required' : null,
           prefixIcon: const Icon(Icons.title),
         ),
         const SizedBox(height: 16),
@@ -1236,13 +1271,6 @@ class _ProviderServiceFormScreenState
       children: [
         _buildSectionTitle('Hotel Details'),
         const SizedBox(height: 16),
-        AppTextField(
-          controller: _hotelNameController,
-          label: 'Hotel Name *',
-          hint: 'Enter hotel name',
-          prefixIcon: const Icon(Icons.hotel),
-        ),
-        const SizedBox(height: 16),
         Row(
           children: [
             Expanded(
@@ -1252,6 +1280,13 @@ class _ProviderServiceFormScreenState
                 hint: 'e.g. 20',
                 keyboardType: TextInputType.number,
                 prefixIcon: const Icon(Icons.meeting_room_outlined),
+                validator: (val) {
+                  if (val == null || val.isEmpty) return 'Required';
+                  final n = int.tryParse(val);
+                  if (n == null || n < 1) return 'Min 1';
+                  return _getRoomsValidationError();
+                },
+                onChanged: (_) => _formKey.currentState?.validate(),
               ),
             ),
             const SizedBox(width: 16),
@@ -1278,67 +1313,73 @@ class _ProviderServiceFormScreenState
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
-        Row(
+        Column(
           children: [
-            Expanded(
-              child: Column(
+            SwitchListTile(
+              title: const Text('Single Bed'),
+              value: _singleBedEnabled,
+              onChanged: (val) {
+                setState(() => _singleBedEnabled = val);
+                _formKey.currentState?.validate();
+              },
+              dense: false,
+              contentPadding: EdgeInsets.zero,
+            ),
+            if (_singleBedEnabled)
+              AppTextField(
+                controller: _singleRoomsController,
+                label: 'Number of Rooms',
+                hint: '5',
+                keyboardType: TextInputType.number,
+                prefixIcon: const Icon(Icons.meeting_room_outlined),
+                validator: (val) {
+                  if (!_singleBedEnabled) return null;
+                  if (val == null || val.isEmpty) return 'Required';
+                  return _getRoomsValidationError();
+                },
+                onChanged: (_) => _formKey.currentState?.validate(),
+              ),
+            const SizedBox(height: 16),
+            SwitchListTile(
+              title: const Text('Double Bed'),
+              value: _doubleBedEnabled,
+              onChanged: (val) {
+                setState(() => _doubleBedEnabled = val);
+                _formKey.currentState?.validate();
+              },
+              dense: false,
+              contentPadding: EdgeInsets.zero,
+            ),
+            if (_doubleBedEnabled)
+              Row(
                 children: [
-                  SwitchListTile(
-                    title: const Text('Single Bed'),
-                    value: _singleBedEnabled,
-                    onChanged: (val) => setState(() => _singleBedEnabled = val),
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
+                  Expanded(
+                    child: AppTextField(
+                      controller: _doubleBedPriceController,
+                      label: 'Price +',
+                      hint: '10.00',
+                      keyboardType: TextInputType.number,
+                      prefixIcon: const Icon(Icons.attach_money),
+                    ),
                   ),
-                  if (_singleBedEnabled)
-                    AppTextField(
-                      controller: _singleRoomsController,
-                      label: 'Number of Rooms',
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: AppTextField(
+                      controller: _doubleRoomsController,
+                      label: 'Count',
                       hint: '5',
                       keyboardType: TextInputType.number,
                       prefixIcon: const Icon(Icons.meeting_room_outlined),
+                      validator: (val) {
+                        if (!_doubleBedEnabled) return null;
+                        if (val == null || val.isEmpty) return 'Required';
+                        return _getRoomsValidationError();
+                      },
+                      onChanged: (_) => _formKey.currentState?.validate(),
                     ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                children: [
-                  SwitchListTile(
-                    title: const Text('Double Bed'),
-                    value: _doubleBedEnabled,
-                    onChanged: (val) => setState(() => _doubleBedEnabled = val),
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
                   ),
-                  if (_doubleBedEnabled)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: AppTextField(
-                            controller: _doubleBedPriceController,
-                            label: 'Price +',
-                            hint: '10.00',
-                            keyboardType: TextInputType.number,
-                            prefixIcon: const Icon(Icons.attach_money),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: AppTextField(
-                            controller: _doubleRoomsController,
-                            label: 'Count',
-                            hint: '5',
-                            keyboardType: TextInputType.number,
-                            prefixIcon: const Icon(Icons.meeting_room_outlined),
-                          ),
-                        ),
-                      ],
-                    ),
                 ],
               ),
-            ),
           ],
         ),
         const SizedBox(height: 8),
@@ -1350,8 +1391,11 @@ class _ProviderServiceFormScreenState
                   SwitchListTile(
                     title: const Text('Twin Beds'),
                     value: _twinBedEnabled,
-                    onChanged: (val) => setState(() => _twinBedEnabled = val),
-                    dense: true,
+                    onChanged: (val) {
+                      setState(() => _twinBedEnabled = val);
+                      _formKey.currentState?.validate();
+                    },
+                    dense: false,
                     contentPadding: EdgeInsets.zero,
                   ),
                   if (_twinBedEnabled)
@@ -1366,7 +1410,7 @@ class _ProviderServiceFormScreenState
                             prefixIcon: const Icon(Icons.attach_money),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 16),
                         Expanded(
                           child: AppTextField(
                             controller: _twinRoomsController,
@@ -1374,6 +1418,12 @@ class _ProviderServiceFormScreenState
                             hint: '5',
                             keyboardType: TextInputType.number,
                             prefixIcon: const Icon(Icons.meeting_room_outlined),
+                            validator: (val) {
+                              if (!_twinBedEnabled) return null;
+                              if (val == null || val.isEmpty) return 'Required';
+                              return _getRoomsValidationError();
+                            },
+                            onChanged: (_) => _formKey.currentState?.validate(),
                           ),
                         ),
                       ],
@@ -1381,71 +1431,55 @@ class _ProviderServiceFormScreenState
                 ],
               ),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: AppDropdown<String>(
-                label: 'Smoking *',
-                value: _smokingPreference,
-                items: ['Non-Smoking', 'Smoking', 'Any']
-                    .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-                    .toList(),
-                onChanged: (val) => setState(() => _smokingPreference = val),
-              ),
-            ),
           ],
         ),
         const SizedBox(height: 16),
-        Row(
+        AppDropdown<String>(
+          label: 'Smoking *',
+          value: _smokingPreference,
+          items: ['Non-Smoking', 'Smoking', 'Any']
+              .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+              .toList(),
+          onChanged: (val) => setState(() => _smokingPreference = val),
+        ),
+        const SizedBox(height: 16),
+        Column(
           children: [
-            Expanded(
-              child: Column(
-                children: [
-                  SwitchListTile(
-                    title: const Text('Breakfast'),
-                    value: _breakfastIncluded,
-                    onChanged: (val) =>
-                        setState(() => _breakfastIncluded = val),
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  if (_breakfastIncluded)
-                    AppTextField(
-                      controller: _breakfastPriceController,
-                      label: 'Qiimaha Quraacda (Breakfast Price) *',
-                      hint: '15.00',
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      prefixIcon: const Icon(Icons.attach_money),
-                    ),
-                ],
-              ),
+            SwitchListTile(
+              title: const Text('Breakfast'),
+              value: _breakfastIncluded,
+              onChanged: (val) => setState(() => _breakfastIncluded = val),
+              dense: false,
+              contentPadding: EdgeInsets.zero,
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                children: [
-                  SwitchListTile(
-                    title: const Text('Airport Pickup'),
-                    value: _airportPickup,
-                    onChanged: (val) => setState(() => _airportPickup = val),
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  if (_airportPickup)
-                    AppTextField(
-                      controller: _airportPickupPriceController,
-                      label:
-                          'Qiimaha Kasoo Qaadista Gegada (Airport Pickup Fee) *',
-                      hint: '25.00',
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      prefixIcon: const Icon(Icons.attach_money),
-                    ),
-                ],
+            if (_breakfastIncluded)
+              AppTextField(
+                controller: _breakfastPriceController,
+                label: 'Qiimaha Quraacda (Breakfast Price) *',
+                hint: '15.00',
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                prefixIcon: const Icon(Icons.attach_money),
               ),
+            const SizedBox(height: 16),
+            SwitchListTile(
+              title: const Text('Airport Pickup'),
+              value: _airportPickup,
+              onChanged: (val) => setState(() => _airportPickup = val),
+              dense: false,
+              contentPadding: EdgeInsets.zero,
             ),
+            if (_airportPickup)
+              AppTextField(
+                controller: _airportPickupPriceController,
+                label: 'Qiimaha Kasoo Qaadista Gegada (Airport Pickup Fee) *',
+                hint: '25.00',
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                prefixIcon: const Icon(Icons.attach_money),
+              ),
           ],
         ),
         const SizedBox(height: 8),
@@ -1458,7 +1492,7 @@ class _ProviderServiceFormScreenState
               ),
               value: _extraBedAvailable,
               onChanged: (val) => setState(() => _extraBedAvailable = val),
-              dense: true,
+              dense: false,
               contentPadding: EdgeInsets.zero,
             ),
             if (_extraBedAvailable)
@@ -1482,25 +1516,44 @@ class _ProviderServiceFormScreenState
               data: (items) => Wrap(
                 spacing: 8,
                 runSpacing: 0,
-                children: items.map((item) {
-                  final amenity = item.label;
-                  final isAdded = _hotelAmenities.contains(amenity);
-                  return FilterChip(
+                children: [
+                  ...items.map((item) {
+                    final amenity = item.label;
+                    final isAdded = _hotelAmenities.contains(amenity);
+                    return FilterChip(
+                      label: Text(amenity),
+                      selected: isAdded,
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            _hotelAmenities.add(amenity);
+                          } else {
+                            _hotelAmenities.remove(amenity);
+                          }
+                        });
+                      },
+                      selectedColor: AppColors.primary.withAlpha(50),
+                      checkmarkColor: AppColors.primary,
+                    );
+                  }),
+                  ..._hotelCustomAmenities.map((amenity) => Chip(
                     label: Text(amenity),
-                    selected: isAdded,
-                    onSelected: (selected) {
-                      setState(() {
-                        if (selected) {
-                          _hotelAmenities.add(amenity);
-                        } else {
-                          _hotelAmenities.remove(amenity);
-                        }
-                      });
-                    },
-                    selectedColor: AppColors.primary.withAlpha(50),
-                    checkmarkColor: AppColors.primary,
-                  );
-                }).toList(),
+                    backgroundColor: AppColors.primary.withAlpha(30),
+                    labelStyle: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
+                    deleteIcon: const Icon(Icons.close, size: 16, color: AppColors.primary),
+                    onDeleted: () => setState(() => _hotelCustomAmenities.remove(amenity)),
+                  )),
+                  ActionChip(
+                    avatar: const Icon(Icons.add, size: 18, color: AppColors.primary),
+                    label: const Text('Add', style: TextStyle(color: AppColors.primary)),
+                    backgroundColor: AppColors.primary.withAlpha(15),
+                    side: const BorderSide(color: AppColors.primary, width: 1),
+                    onPressed: () => _showAddCustomAmenityDialog(
+                      context,
+                      onAdd: (val) => setState(() => _hotelCustomAmenities.add(val)),
+                    ),
+                  ),
+                ],
               ),
               loading: () => const LinearProgressIndicator(),
               error: (e, _) => const Text('Error loading amenities'),
@@ -1774,25 +1827,44 @@ class _ProviderServiceFormScreenState
               data: (items) => Wrap(
                 spacing: 8,
                 runSpacing: 0,
-                children: items.map((item) {
-                  final amenity = item.label;
-                  final isAdded = _aptAmenities.contains(amenity);
-                  return FilterChip(
+                children: [
+                  ...items.map((item) {
+                    final amenity = item.label;
+                    final isAdded = _aptAmenities.contains(amenity);
+                    return FilterChip(
+                      label: Text(amenity),
+                      selected: isAdded,
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            _aptAmenities.add(amenity);
+                          } else {
+                            _aptAmenities.remove(amenity);
+                          }
+                        });
+                      },
+                      selectedColor: AppColors.primary.withAlpha(50),
+                      checkmarkColor: AppColors.primary,
+                    );
+                  }),
+                  ..._aptCustomAmenities.map((amenity) => Chip(
                     label: Text(amenity),
-                    selected: isAdded,
-                    onSelected: (selected) {
-                      setState(() {
-                        if (selected) {
-                          _aptAmenities.add(amenity);
-                        } else {
-                          _aptAmenities.remove(amenity);
-                        }
-                      });
-                    },
-                    selectedColor: AppColors.primary.withAlpha(50),
-                    checkmarkColor: AppColors.primary,
-                  );
-                }).toList(),
+                    backgroundColor: AppColors.primary.withAlpha(30),
+                    labelStyle: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
+                    deleteIcon: const Icon(Icons.close, size: 16, color: AppColors.primary),
+                    onDeleted: () => setState(() => _aptCustomAmenities.remove(amenity)),
+                  )),
+                  ActionChip(
+                    avatar: const Icon(Icons.add, size: 18, color: AppColors.primary),
+                    label: const Text('Add', style: TextStyle(color: AppColors.primary)),
+                    backgroundColor: AppColors.primary.withAlpha(15),
+                    side: const BorderSide(color: AppColors.primary, width: 1),
+                    onPressed: () => _showAddCustomAmenityDialog(
+                      context,
+                      onAdd: (val) => setState(() => _aptCustomAmenities.add(val)),
+                    ),
+                  ),
+                ],
               ),
               loading: () => const LinearProgressIndicator(),
               error: (e, _) => const Text('Error loading amenities'),
@@ -2157,15 +2229,18 @@ class _ProviderServiceFormScreenState
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSectionTitle('Service Images'),
-                const Text(
-                  'Add up to 20 high-quality images.',
-                  style: TextStyle(color: Colors.grey, fontSize: 13),
-                ),
-              ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSectionTitle('Service Images'),
+                  const Text(
+                    'Add up to 20 high-quality images.',
+                    style: TextStyle(color: Colors.grey, fontSize: 13),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
             if (_images.isNotEmpty)
               TextButton.icon(
@@ -2277,6 +2352,63 @@ class _ProviderServiceFormScreenState
     );
   }
 
+  void _showAddCustomAmenityDialog(
+    BuildContext context, {
+    required void Function(String) onAdd,
+  }) {
+    final controller = TextEditingController();
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Add Custom Amenity',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          decoration: InputDecoration(
+            hintText: 'e.g. Rooftop, Hot Tub, EV Charging...',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            prefixIcon: const Icon(Icons.star_border_rounded),
+          ),
+          onSubmitted: (val) {
+            final trimmed = val.trim();
+            if (trimmed.isNotEmpty) {
+              onAdd(trimmed);
+              Navigator.of(ctx).pop();
+            }
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onPressed: () {
+              final trimmed = controller.text.trim();
+              if (trimmed.isNotEmpty) {
+                onAdd(trimmed);
+                Navigator.of(ctx).pop();
+              }
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSectionTitle(String title) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2288,6 +2420,8 @@ class _ProviderServiceFormScreenState
             fontWeight: FontWeight.bold,
             color: AppColors.primary,
           ),
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
         ),
         const Divider(),
       ],
@@ -2332,10 +2466,9 @@ class _ProviderServiceFormScreenState
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount:
-            4, // 4 columns for a cleaner look when many images are added
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
+        crossAxisCount: 4,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
         childAspectRatio: 1,
       ),
       itemCount: _images.length + (_images.length < 20 ? 1 : 0),
@@ -2345,15 +2478,15 @@ class _ProviderServiceFormScreenState
           return InkWell(
             onTap: _pickImage,
             hoverColor: AppColors.primary.withAlpha(20),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(15),
             child: Container(
               decoration: BoxDecoration(
                 border: Border.all(
                   color: AppColors.primary.withAlpha(100),
                   style: BorderStyle.solid,
-                  width: 2,
+                  width: 1.5,
                 ),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(15),
                 color: AppColors.primary.withAlpha(10),
               ),
               child: const Center(
@@ -2363,16 +2496,17 @@ class _ProviderServiceFormScreenState
                     Icon(
                       Icons.add_photo_alternate_rounded,
                       color: AppColors.primary,
-                      size: 32,
+                      size: 24,
                     ),
-                    SizedBox(height: 8),
+                    SizedBox(height: 4),
                     Text(
-                      'Add Image',
+                      'Add',
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: FontWeight.bold,
                         color: AppColors.primary,
                       ),
+                      textAlign: TextAlign.center,
                     ),
                   ],
                 ),
@@ -2397,7 +2531,7 @@ class _ProviderServiceFormScreenState
             fit: StackFit.expand,
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(15),
                 child: item is String
                     ? AppNetworkImage(
                         imageUrl: item,
@@ -2418,7 +2552,7 @@ class _ProviderServiceFormScreenState
               Positioned.fill(
                 child: Container(
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(15),
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
@@ -2489,7 +2623,7 @@ class _ProviderServiceFormScreenState
                   child: Container(
                     decoration: BoxDecoration(
                       color: Colors.black45,
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(15),
                     ),
                     child: const Center(
                       child: CircularProgressIndicator(

@@ -1,17 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../../shared/services/receipt_pdf_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/models/booking_model.dart';
+import '../../../shared/models/user_model.dart';
 
-class BookingDetailScreen extends StatelessWidget {
+import '../../../shared/services/user_repository.dart';
+
+class BookingDetailScreen extends ConsumerWidget {
   final Booking booking;
 
   const BookingDetailScreen({super.key, required this.booking});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Fetch provider to get public email
+    final users = ref.watch(userProvider);
+    final provider = users.cast<User?>().firstWhere(
+      (u) => u?.id == booking.providerId,
+      orElse: () => null,
+    );
+    final publicEmail = provider?.publicEmail;
     final metadata = booking.metadata;
     final type =
         metadata['serviceType']?.toString().toLowerCase() ??
@@ -66,11 +77,15 @@ class BookingDetailScreen extends StatelessWidget {
             _buildInfoRow('Name', booking.travelerName),
             _buildInfoRow(
               'Phone',
-              booking.contactPhone.isEmpty ? 'Not provided' : booking.contactPhone,
+              booking.contactPhone.isEmpty
+                  ? 'Not provided'
+                  : booking.contactPhone,
             ),
             _buildInfoRow(
               'Email',
-              booking.contactEmail.isEmpty ? 'Not provided' : booking.contactEmail,
+              booking.contactEmail.isEmpty
+                  ? 'Not provided'
+                  : booking.contactEmail,
             ),
 
             const Divider(height: 32),
@@ -79,7 +94,9 @@ class BookingDetailScreen extends StatelessWidget {
             _buildSectionTitle('Booking Details'),
             if (isTour) ...[
               _buildInfoRow(
-                booking.checkIn == booking.checkOut ? 'Tour Date' : 'Start Date',
+                booking.checkIn == booking.checkOut
+                    ? 'Tour Date'
+                    : 'Start Date',
                 DateFormat('MMM dd, yyyy').format(booking.checkIn),
               ),
               if (booking.checkIn != booking.checkOut)
@@ -121,7 +138,8 @@ class BookingDetailScreen extends StatelessWidget {
             if ((isHotel || isApartment) && booking.rooms > 0)
               _buildInfoRow('Rooms/Units', '${booking.rooms} Rooms'),
 
-            if (booking.specialRequests != null && booking.specialRequests!.isNotEmpty)
+            if (booking.specialRequests != null &&
+                booking.specialRequests!.isNotEmpty)
               _buildInfoRow(
                 'Special Requests',
                 booking.specialRequests!,
@@ -130,16 +148,25 @@ class BookingDetailScreen extends StatelessWidget {
 
             const Divider(height: 32),
 
+            // Provider Contact (Visible only if booking is made)
+            if (publicEmail != null && publicEmail.isNotEmpty) ...[
+              _buildSectionTitle('Provider Contact'),
+              _buildInfoRow(
+                'Business Email',
+                publicEmail,
+                color: const Color(0xFFF43F5E),
+                isBold: true,
+              ),
+              const Divider(height: 32),
+            ],
+
             // Payment Information
             _buildSectionTitle('Payment Information'),
             _buildInfoRow(
               'Subtotal',
               '\$${(booking.totalPrice - booking.taxes).toStringAsFixed(2)}',
             ),
-            _buildInfoRow(
-              'Tax',
-              '\$${booking.taxes.toStringAsFixed(2)}',
-            ),
+            _buildInfoRow('Tax', '\$${booking.taxes.toStringAsFixed(2)}'),
             _buildInfoRow(
               'Total Price',
               '\$${booking.totalPrice.toStringAsFixed(2)}',
@@ -161,7 +188,8 @@ class BookingDetailScreen extends StatelessWidget {
                       booking.paymentMethod == 'PaymentMethod.payLater')
                   ? 'PAY AT ARRIVAL'
                   : booking.paymentStatus.name.toUpperCase(),
-              color: (booking.paymentMethod == 'payLater' ||
+              color:
+                  (booking.paymentMethod == 'payLater' ||
                       booking.paymentMethod == 'PaymentMethod.payLater')
                   ? Colors.orange
                   : AppColors.success,
@@ -239,7 +267,9 @@ class BookingDetailScreen extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
-        crossAxisAlignment: isLong ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+        crossAxisAlignment: isLong
+            ? CrossAxisAlignment.start
+            : CrossAxisAlignment.center,
         children: [
           SizedBox(
             width: 100,
@@ -273,18 +303,29 @@ class BookingDetailScreen extends StatelessWidget {
   }
 
   String _buildTravelerBreakdown(Booking booking) {
-    final adults = booking.metadata['adultsCount'] ?? booking.metadata['adult_travelers'];
-    final children = booking.metadata['childrenCount'] ?? booking.metadata['child_travelers'];
-    final infants = booking.metadata['infantsCount'] ?? booking.metadata['infant_travelers'];
+    final adults =
+        booking.metadata['adultsCount'] ?? booking.metadata['adult_travelers'];
+    final children =
+        booking.metadata['childrenCount'] ??
+        booking.metadata['child_travelers'];
+    final infants =
+        booking.metadata['infantsCount'] ??
+        booking.metadata['infant_travelers'];
 
     if (adults == null && children == null && infants == null) {
       return '${booking.guests} Persons';
     }
 
     final parts = <String>[];
-    if (adults != null && adults > 0) parts.add('$adults Adult${adults > 1 ? 's' : ''}');
-    if (children != null && children > 0) parts.add('$children Child${children > 1 ? 'ren' : ''}');
-    if (infants != null && infants > 0) parts.add('$infants Infant${infants > 1 ? 's' : ''}');
+    if (adults != null && adults > 0) {
+      parts.add('$adults Adult${adults > 1 ? 's' : ''}');
+    }
+    if (children != null && children > 0) {
+      parts.add('$children Child${children > 1 ? 'ren' : ''}');
+    }
+    if (infants != null && infants > 0) {
+      parts.add('$infants Infant${infants > 1 ? 's' : ''}');
+    }
 
     return parts.isEmpty ? '${booking.guests} Persons' : parts.join(', ');
   }
@@ -297,9 +338,17 @@ class BookingDetailScreen extends StatelessWidget {
 
     final title = booking.serviceTitle.toLowerCase();
     if (title.contains('tour') || title.contains('tourism')) return 'tour';
-    if (title.contains('car') || title.contains('vehicle') || title.contains('rent')) return 'vehicle';
-    if (title.contains('apartment') || title.contains('home')) return 'apartment';
-    if (title.contains('hotel') || title.contains('resort')) return 'hotel';
+    if (title.contains('car') ||
+        title.contains('vehicle') ||
+        title.contains('rent')) {
+      return 'vehicle';
+    }
+    if (title.contains('apartment') || title.contains('home')) {
+      return 'apartment';
+    }
+    if (title.contains('hotel') || title.contains('resort')) {
+      return 'hotel';
+    }
 
     return 'hotel'; // Default
   }
