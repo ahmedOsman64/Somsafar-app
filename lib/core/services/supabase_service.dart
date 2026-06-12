@@ -36,8 +36,11 @@ class SupabaseConfig {
     final supabaseAnonKey = anonKey;
 
     if (supabaseUrl.isEmpty || !supabaseUrl.startsWith('http')) {
-      debugPrint('Error: Invalid Supabase URL: "$supabaseUrl". Initialization aborted.');
-      return;
+      throw Exception('Invalid Supabase URL: "$supabaseUrl". Check your .env file or database settings.');
+    }
+
+    if (supabaseAnonKey.isEmpty) {
+      throw Exception('Supabase Anon Key is missing. Check your .env file.');
     }
 
     // Check if already initialized
@@ -49,6 +52,7 @@ class SupabaseConfig {
       // Not initialized, continue
     }
 
+    debugPrint('Initializing Supabase with URL: $supabaseUrl');
     await Supabase.initialize(
       url: supabaseUrl,
       publishableKey: supabaseAnonKey,
@@ -58,5 +62,12 @@ class SupabaseConfig {
     );
   }
 
-  static SupabaseClient get client => Supabase.instance.client;
+  static SupabaseClient get client {
+    try {
+      return Supabase.instance.client;
+    } catch (e) {
+      debugPrint('SupabaseClient Access Error: $e');
+      throw StateError('Supabase has not been initialized. Ensure SupabaseConfig.initialize() is called and awaited in main().');
+    }
+  }
 }

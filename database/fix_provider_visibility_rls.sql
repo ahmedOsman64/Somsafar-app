@@ -14,7 +14,7 @@ USING (
   auth.uid() = id 
   OR role = 'provider' 
   OR role = 'provider_helper'
-  OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
+  OR public.is_admin()
 );
 
 -- 3. Ensure the 'admin' has full access regardless (already exists but good as safety)
@@ -22,9 +22,9 @@ DROP POLICY IF EXISTS "Admin has full access to users." ON public.users;
 CREATE POLICY "Admin has full access to users." ON public.users
 FOR ALL TO authenticated
 USING (
-  (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
-  OR 
   (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
+  OR 
+  public.is_admin()
 );
 
 -- 4. Enable Realtime for the users table

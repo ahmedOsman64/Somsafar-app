@@ -138,6 +138,29 @@ class _TravelerProfileScreenState extends ConsumerState<TravelerProfileScreen> {
                         ),
                         const SizedBox(height: 24),
                         DangerZoneSection(key: _dangerZoneKey),
+                        const SizedBox(height: 48),
+                        Center(
+                          child: Column(
+                            children: [
+                              Text(
+                                'SomSafar v1.0.0+4',
+                                style: TextStyle(
+                                  color: Colors.grey[400],
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'All rights reserved © 2026',
+                                style: TextStyle(
+                                  color: Colors.grey[300],
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                         const SizedBox(height: 100), // Space for bottom padding
                       ],
                     ),

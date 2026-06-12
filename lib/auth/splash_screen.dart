@@ -188,7 +188,22 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
             ),
           ),
 
-          // Version removed
+          // Version
+          const Positioned(
+            bottom: 30,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Text(
+                'Version 1.0.0+4',
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );

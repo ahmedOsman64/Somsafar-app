@@ -10,7 +10,7 @@ USING (
   auth.uid() = id 
   OR role = 'provider' 
   OR role = 'provider_helper'
-  OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
+  OR public.is_admin()
 );
 
 -- 2. BOOKINGS: Only the traveler who booked or the provider of the service can see the booking.
@@ -26,7 +26,7 @@ FOR SELECT USING (auth.uid() = provider_id);
 
 CREATE POLICY "Helpers view own bookings" ON public.bookings 
 FOR SELECT USING (
-  provider_id::text = (auth.jwt() -> 'user_metadata' ->> 'provider_id')
+  provider_id::text = (SELECT provider_id FROM public.users WHERE id = auth.uid()) OR public.is_admin()
 );
 
 -- 3. PAYMENTS: Strictly limit to the buyer or the seller.
@@ -47,8 +47,9 @@ FOR SELECT USING (
 
 CREATE POLICY "Helpers view own payments" ON public.payments 
 FOR SELECT USING (
-  provider_id = (auth.jwt() -> 'user_metadata' ->> 'provider_id') OR
-  EXISTS (SELECT 1 FROM public.bookings WHERE id = booking_id AND provider_id::text = (auth.jwt() -> 'user_metadata' ->> 'provider_id'))
+  provider_id = (SELECT provider_id FROM public.users WHERE id = auth.uid()) OR
+  EXISTS (SELECT 1 FROM public.bookings WHERE id = booking_id AND provider_id::text = (SELECT provider_id FROM public.users WHERE id = auth.uid())) OR
+  public.is_admin()
 );
 
 -- 4. CHATS: Strictly limit to those involved in the booking.

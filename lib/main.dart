@@ -22,21 +22,60 @@ class _MyHttpOverrides extends HttpOverrides {
 }
 
 void main() async {
+  // MUST be called first, before runZonedGuarded or any async work
+  WidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = _MyHttpOverrides();
+
+  // Configure Google Fonts to always allow runtime fetching
+  GoogleFonts.config.allowRuntimeFetching = true;
+
+  // Initialize Supabase BEFORE entering the zone and BEFORE runApp
+  // This prevents the LateInitializationError / "Supabase has not been initialized" race condition
+  bool initSuccess = false;
+  try {
+    await SupabaseConfig.initialize();
+    initSuccess = true;
+    debugPrint('main(): Supabase initialized successfully.');
+  } catch (e) {
+    debugPrint('main(): CRITICAL - Supabase initialization failed: $e');
+  }
+
+  if (!initSuccess) {
+    runApp(MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, color: Colors.red, size: 64),
+                const SizedBox(height: 16),
+                const Text(
+                  'Initialisation Failed',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Please check your internet connection and try again.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () => main(),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ));
+    return;
+  }
+
   runZonedGuarded(
     () async {
-      WidgetsFlutterBinding.ensureInitialized();
-
-      // Configure Google Fonts to always allow runtime fetching
-      GoogleFonts.config.allowRuntimeFetching = true;
-
-      // Initialize Supabase
-      try {
-        await SupabaseConfig.initialize();
-      } catch (e) {
-        debugPrint('Critical: Supabase initialization failed: $e');
-      }
-
       // Seed missing lookup data in background (essential categories, regions, etc.)
       unawaited(
         LookupService.seedMissingLookups().catchError((e) {

@@ -115,37 +115,41 @@ class AuthService extends ChangeNotifier {
   }
 
   void _initAuthStateListener() {
-    SupabaseConfig.client.auth.onAuthStateChange.listen((data) async {
-      final sb.Session? session = data.session;
-      final event = data.event;
+    try {
+      SupabaseConfig.client.auth.onAuthStateChange.listen((data) async {
+        final sb.Session? session = data.session;
+        final event = data.event;
 
-      debugPrint('DEBUG: AUTH EVENT: $event, User: ${session?.user.id}');
+        debugPrint('DEBUG: AUTH EVENT: $event, User: ${session?.user.id}');
 
-      if (session != null) {
-        await _fetchAndSetProfile(session);
-        // Force logout if the user is suspended or blocked
-        if (_state != null &&
-            (_state!.status == UserStatus.blocked ||
-                _state!.status == UserStatus.suspended)) {
-          debugPrint(
-            'DEBUG: Account is not active (status: ${_state!.status.name}), forcing logout.',
-          );
-          await SupabaseConfig.client.auth.signOut();
-          if (mounted) state = null;
+        if (session != null) {
+          await _fetchAndSetProfile(session);
+          // Force logout if the user is suspended or blocked
+          if (_state != null &&
+              (_state!.status == UserStatus.blocked ||
+                  _state!.status == UserStatus.suspended)) {
+            debugPrint(
+              'DEBUG: Account is not active (status: ${_state!.status.name}), forcing logout.',
+            );
+            await SupabaseConfig.client.auth.signOut();
+            if (mounted) state = null;
+          } else {
+            // Start monitoring for concurrent sessions
+            _startSessionMonitoring(session.user.id, session.accessToken);
+          }
         } else {
-          // Start monitoring for concurrent sessions
-          _startSessionMonitoring(session.user.id, session.accessToken);
+          _stopSessionMonitoring();
+          if (mounted) state = null;
         }
-      } else {
-        _stopSessionMonitoring();
-        if (mounted) state = null;
-      }
 
-      if (!_initialized) {
-        _initialized = true;
-        notifyListeners();
-      }
-    });
+        if (!_initialized) {
+          _initialized = true;
+          notifyListeners();
+        }
+      });
+    } catch (e) {
+      debugPrint('AuthService: Failed to initialize auth state listener: $e');
+    }
   }
 
   Future<void> _fetchAndSetProfile(sb.Session session) async {

@@ -156,32 +156,16 @@ ALTER TABLE public.system_activities ENABLE ROW LEVEL SECURITY;
 -- The key is that this function MUST NOT query public.users when called from a public.users RLS policy.
 CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS boolean AS $$
-DECLARE
-  _role text;
 BEGIN
-  -- 1. Bypass for service_role (always first)
-  IF (current_setting('role', true) = 'service_role') THEN
-    RETURN true;
-  END IF;
-
-  -- 2. Check JWT metadata first (Fastest, avoids table lookup)
-  _role := (auth.jwt() -> 'user_metadata' ->> 'role');
-  IF (_role = 'admin') THEN
-    RETURN true;
-  END IF;
-
-  _role := (auth.jwt() -> 'app_metadata' ->> 'role');
-  IF (_role = 'admin') THEN
-    RETURN true;
-  END IF;
-
-  -- 3. Fallback: Direct table check (ONLY if not recursing)
-  -- To prevent recursion, we only do this if we are NOT currently evaluating a policy on public.users
-  -- However, since PL/pgSQL doesn't easily know the call stack, we use a custom GUC or just keep it simple.
-  -- LATEST STRATEGY: RLS policies on 'users' will NOT use this function.
+  -- Service role (Super Admin) always has access
+  IF (current_setting('role', true) = 'service_role') THEN RETURN true; END IF;
   
+  -- Check app_metadata (set by system, not user-editable)
+  IF (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin' THEN RETURN true; END IF;
+  
+  -- Check public.users table (source of truth)
   RETURN EXISTS (
-    SELECT 1 FROM public.users
+    SELECT 1 FROM public.users 
     WHERE id = auth.uid() 
     AND role = 'admin' 
     AND status = 'active'
@@ -205,9 +189,9 @@ CREATE POLICY "Users can update own profile." ON public.users FOR UPDATE USING (
 DROP POLICY IF EXISTS "Admin has full access to users." ON public.users;
 CREATE POLICY "Admin has full access to users." ON public.users FOR ALL TO authenticated 
 USING (
-  (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
-  OR 
   (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
+  OR 
+  public.is_admin()
 );
 
 -- Travelers & Helpers can view provider profiles to see business/payment info
@@ -226,8 +210,8 @@ USING (
 DROP POLICY IF EXISTS "Helpers view their provider" ON public.users;
 CREATE POLICY "Helpers view their provider" ON public.users FOR SELECT TO authenticated 
 USING (
-  (id::text = (auth.jwt() -> 'user_metadata' ->> 'provider_id')) OR
-  (role = 'provider_helper' AND provider_id = (auth.jwt() -> 'user_metadata' ->> 'provider_id'))
+  id::text = (SELECT provider_id FROM public.users WHERE id = auth.uid()) OR
+  (role = 'provider' AND id::text = (SELECT provider_id FROM public.users WHERE id = auth.uid()))
 );
 
 -- === SERVICES ===
@@ -543,22 +527,17 @@ USING (provider_id::text = (auth.jwt() -> 'user_metadata' ->> 'provider_id'));
 
 -- Bookings
 CREATE POLICY "Helpers can view provider bookings" ON public.bookings FOR SELECT TO authenticated 
-USING (provider_id::text = (auth.jwt() -> 'user_metadata' ->> 'provider_id'));
-
-CREATE POLICY "Helpers can manage provider bookings" ON public.bookings FOR ALL TO authenticated 
-USING (provider_id::text = (auth.jwt() -> 'user_metadata' ->> 'provider_id'));
+USING (provider_id::text = (SELECT provider_id FROM public.users WHERE id = auth.uid()) OR public.is_admin());
 
 -- Chats
 CREATE POLICY "Helpers can view provider chats" ON public.chats FOR SELECT TO authenticated 
-USING (EXISTS (SELECT 1 FROM public.bookings WHERE id = booking_id AND provider_id::text = (auth.jwt() -> 'user_metadata' ->> 'provider_id')));
-
-CREATE POLICY "Helpers can send provider chats" ON public.chats FOR INSERT TO authenticated 
-WITH CHECK (EXISTS (SELECT 1 FROM public.bookings WHERE id = booking_id AND provider_id::text = (auth.jwt() -> 'user_metadata' ->> 'provider_id')) AND auth.uid() = sender_id);
+USING (EXISTS (SELECT 1 FROM public.bookings WHERE id = booking_id AND (provider_id::text = (SELECT provider_id FROM public.users WHERE id = auth.uid()) OR public.is_admin())));
 
 -- Payments
 DROP POLICY IF EXISTS "Helpers can view provider payments" ON public.payments;
 CREATE POLICY "Helpers can view provider payments" ON public.payments FOR SELECT TO authenticated 
 USING (
-  provider_id = (auth.jwt() -> 'user_metadata' ->> 'provider_id') OR
-  EXISTS (SELECT 1 FROM public.bookings WHERE id = booking_id AND provider_id::text = (auth.jwt() -> 'user_metadata' ->> 'provider_id'))
+  provider_id = (SELECT provider_id FROM public.users WHERE id = auth.uid()) OR
+  EXISTS (SELECT 1 FROM public.bookings WHERE id = booking_id AND provider_id::text = (SELECT provider_id FROM public.users WHERE id = auth.uid())) OR
+  public.is_admin()
 );
