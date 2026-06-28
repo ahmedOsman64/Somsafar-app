@@ -64,7 +64,33 @@ class SupportSection extends ConsumerWidget {
           () {
             showDialog(
               context: context,
-              builder: (context) => LiveChatDialog(ref: ref),
+              builder: (context) => const LiveChatDialog(),
+            );
+          },
+        ),
+        _buildSupportItem(
+          context,
+          Icons.info_outline,
+          'About SomSafar',
+          'Learn more about our platform',
+          Colors.orange,
+          () {
+            showDialog(
+              context: context,
+              builder: (context) => const AboutSomSafarDialog(),
+            );
+          },
+        ),
+        _buildSupportItem(
+          context,
+          Icons.privacy_tip_outlined,
+          'Privacy Policy',
+          'How we handle your data',
+          Colors.teal,
+          () {
+            showDialog(
+              context: context,
+              builder: (context) => const PrivacyPolicyDialog(),
             );
           },
         ),
@@ -270,6 +296,22 @@ class _FAQDialogState extends State<FAQDialog> {
       'question': 'How do I verify my profile?',
       'answer': 'To verify your profile, go to your profile settings and complete all the required fields, including uploading a profile picture and verifying your phone number.'
     },
+    {
+      'question': 'How do refunds work?',
+      'answer': 'Refunds are processed back to your original payment method (e.g. EVC Plus, Sahal, or card) within 2-3 business days after a cancellation is approved.'
+    },
+    {
+      'question': 'What if the operator cancels my booking?',
+      'answer': 'If a provider cancels your booking, you will receive a full 100% refund immediately, and our support team will help you find an alternative.'
+    },
+    {
+      'question': 'Is my payment data secure?',
+      'answer': 'Yes. We use industry-standard encryption protocols and secure mobile money integrations to ensure your data and transactions are completely protected.'
+    },
+    {
+      'question': 'Can I change my booking dates?',
+      'answer': 'Yes, you can request date modifications by contacting our customer support team or by reaching out to the provider directly through the app.'
+    },
   ];
 
   String _searchQuery = '';
@@ -348,61 +390,123 @@ class _FAQDialogState extends State<FAQDialog> {
   }
 }
 
-class LiveChatDialog extends StatefulWidget {
-  final WidgetRef ref;
-  const LiveChatDialog({super.key, required this.ref});
+class LiveChatDialog extends ConsumerStatefulWidget {
+  const LiveChatDialog({super.key});
 
   @override
-  State<LiveChatDialog> createState() => _LiveChatDialogState();
+  ConsumerState<LiveChatDialog> createState() => _LiveChatDialogState();
 }
 
-class _LiveChatDialogState extends State<LiveChatDialog> {
+class _LiveChatDialogState extends ConsumerState<LiveChatDialog> {
   final _msgCtrl = TextEditingController();
-  final List<Map<String, dynamic>> _messages = [
-    {
-      'text': 'Hi! How can we help you today?',
-      'isMe': false,
-      'time': DateTime.now(),
-    },
-  ];
   bool _isTyping = false;
+
+  @override
+  void dispose() {
+    _msgCtrl.dispose();
+    super.dispose();
+  }
 
   void _sendMessage() {
     if (_msgCtrl.text.trim().isEmpty) return;
 
     final text = _msgCtrl.text.trim();
-    setState(() {
-      _messages.add({'text': text, 'isMe': true, 'time': DateTime.now()});
-      _msgCtrl.clear();
-      _isTyping = true;
-    });
+    _msgCtrl.clear();
 
-    final user = widget.ref.read(authProvider);
-    widget.ref.read(supportProvider.notifier).createTicket(
-      userId: user?.id ?? 'guest',
-      userName: user?.name ?? 'Guest',
-      userEmail: user?.email ?? '',
-      type: TicketType.liveChat,
-      message: text,
-      priority: TicketPriority.medium,
-    );
+    final user = ref.read(authProvider);
+    final tickets = ref.read(supportProvider);
+    final userId = user?.id ?? 'guest';
 
+    // Find any active live chat ticket
+    SupportTicket? activeTicket;
+    try {
+      activeTicket = tickets.firstWhere(
+        (t) => t.userId == userId && t.type == TicketType.liveChat && t.status != TicketStatus.closed,
+      );
+    } catch (_) {
+      // Not found
+    }
+
+    if (activeTicket != null) {
+      // Append to existing ticket
+      ref.read(supportProvider.notifier).addMessage(activeTicket.id, text, isAdmin: false);
+    } else {
+      // Create a new ticket
+      ref.read(supportProvider.notifier).createTicket(
+        userId: userId,
+        userName: user?.name ?? 'Guest',
+        userEmail: user?.email ?? '',
+        type: TicketType.liveChat,
+        message: text,
+        priority: TicketPriority.medium,
+      );
+    }
+
+    // Simulate typing indicator for support agent
+    setState(() => _isTyping = true);
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {
-        setState(() {
-          _isTyping = false;
-          _messages.add({
-            'text': 'Thanks for your message! Our team has been notified and will get back to you shortly in your "My Tickets" section.',
-            'isMe': false,
-            'time': DateTime.now(),
-          });
-        });
+        setState(() => _isTyping = false);
+        // Automatically append welcome reply to the ticket
+        if (activeTicket != null) {
+          ref.read(supportProvider.notifier).addMessage(
+            activeTicket.id,
+            'Thanks for your message! Our team has been notified and will get back to you shortly.',
+            isAdmin: true,
+          );
+        } else {
+          // If we just created the ticket, let's find it (or wait for stream) and reply
+          final updatedTickets = ref.read(supportProvider);
+          try {
+            final newTicket = updatedTickets.firstWhere(
+              (t) => t.userId == userId && t.type == TicketType.liveChat && t.status != TicketStatus.closed,
+            );
+            ref.read(supportProvider.notifier).addMessage(
+              newTicket.id,
+              'Thanks for your message! Our team has been notified and will get back to you shortly.',
+              isAdmin: true,
+            );
+          } catch (_) {
+            // Ignore if not loaded yet
+          }
+        }
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(authProvider);
+    final tickets = ref.watch(supportProvider);
+    final userId = user?.id ?? 'guest';
+
+    // Find the active live chat ticket
+    SupportTicket? activeTicket;
+    try {
+      activeTicket = tickets.firstWhere(
+        (t) => t.userId == userId && t.type == TicketType.liveChat && t.status != TicketStatus.closed,
+      );
+    } catch (_) {
+      // Not found
+    }
+
+    // Build list of messages to show
+    final List<Map<String, dynamic>> displayMessages = [
+      {
+        'text': 'Hi! How can we help you today?',
+        'isMe': false,
+      },
+    ];
+
+    if (activeTicket != null) {
+      for (final msg in activeTicket.messages) {
+        displayMessages.add({
+          'text': msg.text,
+          'isMe': !msg.isAdmin,
+        });
+      }
+    }
+
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       titlePadding: EdgeInsets.zero,
@@ -435,9 +539,9 @@ class _LiveChatDialogState extends State<LiveChatDialog> {
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.all(16),
-                itemCount: _messages.length,
+                itemCount: displayMessages.length,
                 itemBuilder: (context, index) {
-                  final msg = _messages[index];
+                  final msg = displayMessages[index];
                   final isMe = msg['isMe'] as bool;
                   return Align(
                     alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
@@ -788,6 +892,275 @@ class TicketThreadDialog extends StatelessWidget {
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('Close', style: TextStyle(color: Colors.grey)),
+        ),
+      ],
+    );
+  }
+}
+
+class AboutSomSafarDialog extends StatelessWidget {
+  const AboutSomSafarDialog({super.key});
+
+  Widget _buildFeatureItem({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String desc,
+    required bool isDark,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: iconColor.withAlpha(25),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: iconColor, size: 20),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : const Color(0xFF1E293B),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                desc,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+      elevation: 8,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header Image / Logo Card
+              Container(
+                padding: const EdgeInsets.only(top: 32, bottom: 16),
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Image.asset(
+                      'assets/images/logo.png',
+                      height: 60,
+                      width: 60,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+              ),
+              const Text(
+                'SomSafar',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Somalia\'s Premier Travel Companion',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isDark ? Colors.white70 : Colors.black54,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                child: Column(
+                  children: [
+                    Text(
+                      'SomSafar is your ultimate travel guide and booking gateway, built to deliver a world-class travel experience across Somalia. Explore, book, and journey with ease, comfort, and absolute peace of mind.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        height: 1.5,
+                        color: isDark ? Colors.white70 : Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    // Divider
+                    Container(
+                      height: 1,
+                      color: isDark ? Colors.white10 : Colors.black12,
+                    ),
+                    const SizedBox(height: 20),
+                    // Features
+                    _buildFeatureItem(
+                      icon: Icons.verified_user_outlined,
+                      iconColor: Colors.green,
+                      title: 'Verified Partners',
+                      desc: 'Fully vetted hotels, apartments, and tours.',
+                      isDark: isDark,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildFeatureItem(
+                      icon: Icons.speed_outlined,
+                      iconColor: Colors.blue,
+                      title: 'Instant Bookings',
+                      desc: 'Confirm your spot instantly with zero delays.',
+                      isDark: isDark,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildFeatureItem(
+                      icon: Icons.support_agent_outlined,
+                      iconColor: Colors.orange,
+                      title: '24/7 Local Support',
+                      desc: 'We are here to assist you at every step of the way.',
+                      isDark: isDark,
+                    ),
+                  ],
+                ),
+              ),
+              // Footer & Version
+              Container(
+                padding: const EdgeInsets.all(20),
+                color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Version 1.0.0+4 from Zust',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white54 : Colors.black54,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text('Close'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class PrivacyPolicyDialog extends StatelessWidget {
+  const PrivacyPolicyDialog({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.teal.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.privacy_tip_outlined, color: Colors.teal, size: 20),
+          ),
+          const SizedBox(width: 12),
+          const Text('Privacy Policy', style: TextStyle(fontWeight: FontWeight.bold)),
+        ],
+      ),
+      content: const SizedBox(
+        width: 450,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Effective Date: June 13, 2026',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
+              ),
+              SizedBox(height: 16),
+              Text(
+                '1. Data Collection',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'We collect information you provide directly to us when you create an account, make a booking, or communicate with our support team.',
+                style: TextStyle(fontSize: 13, height: 1.4),
+              ),
+              SizedBox(height: 12),
+              Text(
+                '2. Use of Information',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'Your information is used to process bookings, provide support, and improve our services. We do not sell your personal data to third parties.',
+                style: TextStyle(fontSize: 13, height: 1.4),
+              ),
+              SizedBox(height: 12),
+              Text(
+                '3. Security',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'We implement industry-standard security measures to protect your data from unauthorized access or disclosure.',
+                style: TextStyle(fontSize: 13, height: 1.4),
+              ),
+              SizedBox(height: 12),
+              Text(
+                'For more detailed information, please visit our website at somsafar.com/privacy',
+                style: TextStyle(fontSize: 13, fontStyle: FontStyle.italic, color: AppColors.primary),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('I Understand'),
         ),
       ],
     );

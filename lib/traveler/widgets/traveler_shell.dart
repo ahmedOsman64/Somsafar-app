@@ -81,20 +81,14 @@ class _TravelerShellState extends State<TravelerShell> with SingleTickerProvider
     return GestureDetector(
       onTap: () => _onItemTapped(index),
       behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
+      child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withAlpha(20) : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               isSelected ? selectedIcon : unselectedIcon,
-              color: isSelected ? AppColors.primary : AppColors.grey,
+              color: AppColors.grey,
               size: 26,
             ),
             const SizedBox(height: 4),
@@ -102,8 +96,8 @@ class _TravelerShellState extends State<TravelerShell> with SingleTickerProvider
               label,
               style: TextStyle(
                 fontSize: 12,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? AppColors.primary : AppColors.grey,
+                fontWeight: FontWeight.w500,
+                color: AppColors.grey,
               ),
             ),
           ],

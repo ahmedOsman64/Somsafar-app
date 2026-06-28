@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -13,6 +14,7 @@ import '../../../shared/services/user_repository.dart';
 import '../../../shared/models/user_model.dart';
 import '../../../shared/models/payment_account_model.dart';
 import 'booking_success_screen.dart';
+import '../../../shared/widgets/status_dialogs.dart';
 
 class EnhancedPaymentScreen extends ConsumerStatefulWidget {
   final String serviceId;
@@ -26,6 +28,7 @@ class EnhancedPaymentScreen extends ConsumerStatefulWidget {
   final double totalPrice;
   final double basePrice;
   final double taxes;
+  final double discount;
   final Map<String, dynamic> extras;
   final String contactName;
   final String contactEmail;
@@ -49,6 +52,7 @@ class EnhancedPaymentScreen extends ConsumerStatefulWidget {
     required this.totalPrice,
     required this.basePrice,
     this.taxes = 0.0,
+    this.discount = 0.0,
     this.extras = const {},
     required this.contactName,
     required this.contactEmail,
@@ -70,7 +74,7 @@ class EnhancedPaymentScreen extends ConsumerStatefulWidget {
 class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
     with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  PaymentMethod _selectedMethod = PaymentMethod.card;
+  PaymentMethod _selectedMethod = PaymentMethod.payLater;
   bool _isProcessing = false;
   String? _errorMessage;
   bool _acceptHouseRules = false;
@@ -87,7 +91,8 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
   final _billingCountryController = TextEditingController(text: 'Somalia');
 
   // Mobile Money
-  String? _mobileProvider; // Let's keep it null initially so we can set it dynamically
+  String?
+  _mobileProvider; // Let's keep it null initially so we can set it dynamically
   final _mobileNumberController = TextEditingController();
   final _transactionReferenceController = TextEditingController();
 
@@ -105,7 +110,8 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
   void initState() {
     super.initState();
     _cardholderNameController.text = widget.contactName;
-    _mobileNumberController.text = widget.contactPhone; // Pre-fill from booking form
+    _mobileNumberController.text =
+        widget.contactPhone; // Pre-fill from booking form
     _acceptHouseRules = widget.acceptHouseRules;
     _acceptRentalTerms = widget.acceptRentalTerms;
 
@@ -136,6 +142,8 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
     super.dispose();
   }
 
+
+
   void _changeMethod(PaymentMethod method) {
     _animController.reset();
     setState(() {
@@ -147,72 +155,76 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
 
   @override
   Widget build(BuildContext context) {
-    final allUsers = ref.watch(userProvider);
-    final provider = allUsers.firstWhere(
-      (u) => u.id == widget.providerId || u.providerId == widget.providerId,
-      orElse: () => User(
-        id: widget.providerId,
-        name: 'Provider',
-        email: '',
-        password: '',
-        role: UserRole.provider,
+    // Use providerDetailProvider (direct Supabase fetch) to bypass RLS stream
+    // limitations — this ensures payment accounts are always loaded.
+    final providerAsync = ref.watch(providerDetailProvider(widget.providerId));
+
+    return providerAsync.when(
+      loading: () => Scaffold(
+        backgroundColor: AppColors.background,
+        body: Column(
+          children: [
+            _buildHeader(),
+            const Expanded(child: Center(child: CircularProgressIndicator())),
+          ],
+        ),
       ),
+      error: (e, _) => Scaffold(
+        backgroundColor: AppColors.background,
+        body: Column(
+          children: [
+            _buildHeader(),
+            Expanded(child: Center(child: Text('Error loading provider: $e'))),
+          ],
+        ),
+      ),
+      data: (providerData) {
+        final provider =
+            providerData ??
+            User(
+              id: widget.providerId,
+              name: 'Provider',
+              email: '',
+              password: '',
+              role: UserRole.provider,
+            );
+
+        final hasMobileMoney = true; // Always enabled globally
+        final hasCard = true; // Enabled globally via Waafi Pay Live
+        final hasBank = false; // Disabled bank transfers completely
+
+        final bool payLaterEnabled =
+            provider.metadata['pay_later_enabled'] ?? true;
+
+        // Safety: If Pay Later is selected but disabled, switch to first available method
+        if (_selectedMethod == PaymentMethod.payLater && !payLaterEnabled) {
+          _selectedMethod = PaymentMethod.mobileMoney;
+        }
+
+        // Initialize mobile provider from actual accounts
+        final mobileAccounts = provider.paymentAccounts
+            .where((a) => a.type == PaymentAccountType.mobileMoney)
+            .toList();
+        if (_mobileProvider == null ||
+            !mobileAccounts.any(
+              (a) => a.providerName == _mobileProvider,
+            )) {
+          _mobileProvider = mobileAccounts.isNotEmpty
+              ? mobileAccounts.first.providerName
+              : 'Hormuud EVC Plus';
+        }
+
+        return _buildScaffold(provider, hasCard, hasMobileMoney, hasBank);
+      },
     );
+  }
 
-    final hasMobileMoney = provider.paymentAccounts.any((a) => a.type == PaymentAccountType.mobileMoney);
-    final hasCard = provider.paymentAccounts.any((a) => a.type == PaymentAccountType.card);
-    final hasBank = provider.paymentAccounts.any((a) => a.type == PaymentAccountType.bank);
-    final payLaterEnabled = provider.metadata['pay_later_enabled'] ?? true;
-
-    // Ensure selected method is valid
-    if (_selectedMethod == PaymentMethod.mobileMoney && !hasMobileMoney) {
-      if (hasBank) {
-        _selectedMethod = PaymentMethod.bank;
-      } else if (hasCard) {
-        _selectedMethod = PaymentMethod.card;
-      } else if (widget.serviceType != ServiceType.tour && payLaterEnabled) {
-        _selectedMethod = PaymentMethod.payLater;
-      }
-    } else if (_selectedMethod == PaymentMethod.card && !hasCard) {
-      if (hasMobileMoney) {
-        _selectedMethod = PaymentMethod.mobileMoney;
-      } else if (hasBank) {
-        _selectedMethod = PaymentMethod.bank;
-      } else if (widget.serviceType != ServiceType.tour && payLaterEnabled) {
-        _selectedMethod = PaymentMethod.payLater;
-      }
-    } else if (_selectedMethod == PaymentMethod.bank && !hasBank) {
-       if (hasMobileMoney) {
-        _selectedMethod = PaymentMethod.mobileMoney;
-      } else if (hasCard) {
-        _selectedMethod = PaymentMethod.card;
-      } else if (widget.serviceType != ServiceType.tour && payLaterEnabled) {
-        _selectedMethod = PaymentMethod.payLater;
-      }
-    } else if (_selectedMethod == PaymentMethod.payLater && !payLaterEnabled) {
-      if (hasMobileMoney) {
-        _selectedMethod = PaymentMethod.mobileMoney;
-      } else if (hasBank) {
-        _selectedMethod = PaymentMethod.bank;
-      } else if (hasCard) {
-        _selectedMethod = PaymentMethod.card;
-      }
-    }
-
-    // --- NEW: INITIALIZE MOBILE PROVIDER FROM ACTUAL ACCOUNTS ---
-    final mobileAccounts = provider.paymentAccounts.where((a) => a.type == PaymentAccountType.mobileMoney).toList();
-    if (hasMobileMoney && (_mobileProvider == null || !mobileAccounts.any((a) => a.providerName == _mobileProvider))) {
-      // Default to the first mobile money account
-      _mobileProvider = mobileAccounts.first.providerName;
-    }
-
-    // --- NEW: INITIALIZE BANK PROVIDER FROM ACTUAL ACCOUNTS ---
-    final bankAccounts = provider.paymentAccounts.where((a) => a.type == PaymentAccountType.bank).toList();
-    if (hasBank && (_bankProvider == null || !bankAccounts.any((a) => a.providerName == _bankProvider))) {
-      // Default to the first bank account
-      _bankProvider = bankAccounts.first.providerName;
-    }
-
+  Widget _buildScaffold(
+    User provider,
+    bool hasCard,
+    bool hasMobileMoney,
+    bool hasBank,
+  ) {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: _isProcessing
@@ -231,7 +243,12 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
                         const SizedBox(height: 24),
 
                         // Payment Method Selection
-                        _buildPaymentMethodSelection(provider, hasCard, hasMobileMoney, hasBank),
+                        _buildPaymentMethodSelection(
+                          provider,
+                          hasCard,
+                          hasMobileMoney,
+                          hasBank,
+                        ),
                         const SizedBox(height: 20),
 
                         // Payment Form
@@ -247,11 +264,12 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
                           _buildAgreementsSection(),
                         ],
 
-                        // Error
+                        // Security Notice
                         if (_errorMessage != null) ...[
                           const SizedBox(height: 12),
                           _buildErrorBanner(_errorMessage!),
                         ],
+                        
                         const SizedBox(height: 12),
 
                         // Security Notice
@@ -439,6 +457,12 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
                           : '+\$${(e.value as double).toStringAsFixed(2)}',
                     ),
                   ),
+                  if (widget.discount > 0)
+                    _buildSummaryRow(
+                      '🏷 Discount',
+                      '-\$${widget.discount.toStringAsFixed(2)}',
+                      isDiscount: true,
+                    ),
                   if (widget.taxes > 0)
                     _buildSummaryRow(
                       'Taxes & Fees',
@@ -547,7 +571,11 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
     );
   }
 
-  Widget _buildSummaryRow(String label, String value) {
+  Widget _buildSummaryRow(
+    String label,
+    String value, {
+    bool isDiscount = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
@@ -558,7 +586,9 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
             child: Text(
               label,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.75),
+                color: isDiscount
+                    ? const Color(0xFF86EFAC) // green tint for discount
+                    : Colors.white.withValues(alpha: 0.75),
                 fontSize: 13,
               ),
             ),
@@ -566,8 +596,8 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
           const SizedBox(width: 12),
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: isDiscount ? const Color(0xFF86EFAC) : Colors.white,
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
@@ -577,8 +607,14 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
     );
   }
 
-  Widget _buildPaymentMethodSelection(User provider, bool hasCard, bool hasMobileMoney, bool hasBank) {
+  Widget _buildPaymentMethodSelection(
+    User provider,
+    bool hasCard,
+    bool hasMobileMoney,
+    bool hasBank,
+  ) {
     final payLaterEnabled = provider.metadata['pay_later_enabled'] ?? true;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -591,48 +627,66 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
           ),
         ),
         const SizedBox(height: 14),
-        Row(
-          children: [
-            if (hasCard) ...[
-              Expanded(
-                child: _buildMethodCard(
-                  PaymentMethod.card,
-                  'Credit Card',
-                  Icons.credit_card,
-                ),
-              ),
-              const SizedBox(width: 10),
-            ],
-            if (hasMobileMoney) ...[
-              Expanded(
-                child: _buildMethodCard(
-                  PaymentMethod.mobileMoney,
-                  'Mobile Money',
-                  Icons.phone_android,
-                ),
-              ),
-              const SizedBox(width: 10),
-            ],
-            if (hasBank) ...[
-              Expanded(
-                child: _buildMethodCard(
-                  PaymentMethod.bank,
-                  'Bank Transfer',
-                  Icons.account_balance,
-                ),
-              ),
-              const SizedBox(width: 10),
-            ],
-            if (widget.serviceType != ServiceType.tour && payLaterEnabled) ...[
-              Expanded(
-                child: _buildMethodCard(
-                  PaymentMethod.payLater,
-                  'Pay Later',
-                  Icons.schedule,
-                ),
-              ),
-            ],
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            // Calculate width for 2 items per row, with 12px spacing
+            final double itemWidth = (constraints.maxWidth - 12) / 2;
+
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                if (payLaterEnabled)
+                  SizedBox(
+                    width:
+                        (hasMobileMoney || hasBank || hasCard)
+                            ? itemWidth
+                            : constraints.maxWidth,
+                    child: _buildMethodCard(
+                      PaymentMethod.payLater,
+                      'Pay Later',
+                      Icons.schedule,
+                    ),
+                  ),
+                if (hasMobileMoney)
+                  SizedBox(
+                    width:
+                        (payLaterEnabled || hasBank || hasCard)
+                            ? itemWidth
+                            : constraints.maxWidth,
+                    child: _buildMethodCard(
+                      PaymentMethod.mobileMoney,
+                      'Mobile Money',
+                      Icons.phone_android,
+                    ),
+                  ),
+                if (hasBank)
+                  SizedBox(
+                    width:
+                        (payLaterEnabled || hasMobileMoney || hasCard)
+                            ? itemWidth
+                            : constraints.maxWidth,
+                    child: _buildMethodCard(
+                      PaymentMethod.bank,
+                      'Bank Transfer',
+                      Icons.account_balance,
+                    ),
+                  ),
+                if (hasCard)
+                  SizedBox(
+                    width:
+                        (payLaterEnabled || hasMobileMoney || hasBank)
+                            ? itemWidth
+                            : constraints.maxWidth,
+                    child: _buildMethodCard(
+                      PaymentMethod.card,
+                      'MasterCard / Visa',
+                      Icons.credit_card,
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
       ],
     );
@@ -811,7 +865,40 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
   }
 
   Widget _buildMobileMoneyForm(User provider) {
-    final hasMobileMoney = provider.paymentAccounts.any((a) => a.type == PaymentAccountType.mobileMoney);
+    final mobileAccounts = provider.paymentAccounts
+        .where((a) => a.type == PaymentAccountType.mobileMoney)
+        .toList();
+
+    final List<DropdownMenuItem<String>> dropdownItems;
+    if (mobileAccounts.isNotEmpty) {
+      dropdownItems = mobileAccounts.map((a) {
+        final icon = a.providerName.contains('Hormuud')
+            ? '🟢'
+            : a.providerName.contains('Zaad')
+            ? '🔵'
+            : a.providerName.contains('Sahal')
+            ? '🟡'
+            : a.providerName.contains('eDahab')
+            ? '🟡'
+            : a.providerName.contains('Golis')
+            ? '🔴'
+            : a.providerName.contains('Telesom')
+            ? '🟣'
+            : '💰';
+        return DropdownMenuItem(
+          value: a.providerName,
+          child: Text('$icon ${a.providerName}'),
+        );
+      }).toList();
+    } else {
+      dropdownItems = const [
+        DropdownMenuItem(value: 'Hormuud EVC Plus', child: Text('🟢 Hormuud EVC Plus')),
+        DropdownMenuItem(value: 'Somtel eDahab', child: Text('🟡 Somtel eDahab')),
+        DropdownMenuItem(value: 'Telesom Zaad', child: Text('🔵 Telesom Zaad')),
+        DropdownMenuItem(value: 'Golis Sahal', child: Text('🟡 Golis Sahal')),
+      ];
+    }
+
     return Form(
       key: _formKey,
       child: Column(
@@ -819,65 +906,47 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
         children: [
           const _SectionLabel(label: 'Mobile Money', icon: Icons.phone_android),
           const SizedBox(height: 12),
-          
-          // --- NEW: DISPLAY SELECTED PROVIDER'S RECEIVING ACCOUNT ---
-          Builder(builder: (context) {
-            final mobileAccounts = provider.paymentAccounts.where((a) => a.type == PaymentAccountType.mobileMoney).toList();
-            if (mobileAccounts.isEmpty) return const SizedBox.shrink();
 
-            final payout = mobileAccounts.firstWhere(
-              (a) => a.providerName == _mobileProvider,
-              orElse: () => mobileAccounts.firstWhere((a) => a.isDefault, orElse: () => mobileAccounts.first),
-            );
-
-            return Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+          // Automatic Payment Notice
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.2),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.account_balance_wallet, size: 16, color: AppColors.primary),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Send payment to provider:',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary.withValues(alpha: 0.8),
-                        ),
-                      ),
-                    ],
+            ),
+            child: const Row(
+              children: [
+                Icon(
+                  Icons.sms_outlined,
+                  size: 20,
+                  color: AppColors.primary,
+                ),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'SMS Payment: You will receive an SMS on your phone.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    payout.providerName,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  Text(
-                    'Account/Phone: ${payout.accountNumber}',
-                    style: const TextStyle(fontSize: 14, color: Colors.blueGrey),
-                  ),
-                  Text(
-                    'Name: ${payout.holderName}',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                ],
-              ),
-            );
-          }),
-          if (hasMobileMoney) ...[
-            DropdownButtonFormField<String>(
-              initialValue: _mobileProvider, // Use initialValue as per Flutter's latest update
+                ),
+              ],
+            ),
+          ),
+          DropdownButtonFormField<String>(
+            initialValue: _mobileProvider,
             decoration: InputDecoration(
-              labelText: 'Mobile Provider',
-              prefixIcon: const Icon(Icons.business, color: AppColors.primary),
+              labelText: 'Select Your Provider',
+              prefixIcon: const Icon(
+                Icons.business,
+                color: AppColors.primary,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -895,36 +964,19 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
               filled: true,
               fillColor: Colors.grey[50],
             ),
-            items: provider.paymentAccounts
-                .where((a) => a.type == PaymentAccountType.mobileMoney)
-                .map((a) {
-                  final icon = a.providerName.contains('Hormuud')
-                      ? '🟢'
-                      : a.providerName.contains('Zaad')
-                          ? '🔵'
-                          : a.providerName.contains('Sahal')
-                              ? '🟡'
-                              : a.providerName.contains('eDahab')
-                                  ? '🟡'
-                                  : a.providerName.contains('Golis')
-                                      ? '🔴'
-                                      : a.providerName.contains('Telesom')
-                                          ? '🟣'
-                                          : '💰';
-                  return DropdownMenuItem(
-                    value: a.providerName,
-                    child: Text('$icon ${a.providerName}'),
+            items: dropdownItems,
+            onChanged: (v) {
+              setState(() => _mobileProvider = v!);
+              if (mobileAccounts.isNotEmpty) {
+                try {
+                  final acc = mobileAccounts.firstWhere(
+                    (a) => a.providerName == v,
                   );
-                })
-                .toList(),
-              onChanged: (v) {
-                setState(() => _mobileProvider = v!);
-                // Auto-fill phone if available
-                final acc = provider.paymentAccounts.firstWhere((a) => a.providerName == v);
-                _mobileNumberController.text = acc.accountNumber;
-              },
-            ),
-          ],
+                  _mobileNumberController.text = acc.accountNumber;
+                } catch (_) {}
+              }
+            },
+          ),
           const SizedBox(height: 12),
           _paymentTextField(
             controller: _mobileNumberController,
@@ -932,13 +984,7 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
             icon: Icons.phone_outlined,
             keyboardType: TextInputType.phone,
           ),
-          const SizedBox(height: 12),
-          _paymentTextField(
-            controller: _transactionReferenceController,
-            label: 'Transaction Reference (Optional)',
-            icon: Icons.receipt_outlined,
-            hintText: 'Reference from your mobile app',
-          ),
+          const SizedBox(height: 10),
           const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.all(12),
@@ -947,95 +993,79 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
             ),
-            child: const Text(
-              '📱 After submitting, you will receive a payment prompt on your mobile. Please complete the payment within 10 minutes.',
-              style: TextStyle(fontSize: 13, height: 1.5),
+            child: const Column(
+              children: [
+                Text(
+                  '📱 You will receive a payment SMS. Please complete it within 30 minutes.',
+                  style: TextStyle(fontSize: 13, height: 1.5),
+                ),
+                SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.sd_card_alert_outlined, color: AppColors.error, size: 16),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Ensure your SIM card is active to receive the SMS.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.error,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
+          
         ],
       ),
     );
   }
 
+
   Widget _buildBankTransferForm(User provider) {
-    final hasBank = provider.paymentAccounts.any((a) => a.type == PaymentAccountType.bank);
+    final hasBank = provider.paymentAccounts.any(
+      (a) => a.type == PaymentAccountType.bank,
+    );
     return Form(
       key: _formKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionLabel(label: 'Bank Transfer', icon: Icons.account_balance),
+          const _SectionLabel(
+            label: 'Bank Transfer',
+            icon: Icons.account_balance,
+          ),
           const SizedBox(height: 12),
-          
-          // DISPLAY SELECTED BANK DETAILS
-          Builder(builder: (context) {
-            final bankAccounts = provider.paymentAccounts.where((a) => a.type == PaymentAccountType.bank).toList();
-            if (bankAccounts.isEmpty) return const SizedBox.shrink();
 
-             final payout = bankAccounts.firstWhere(
-              (a) => a.providerName == _bankProvider,
-              orElse: () => bankAccounts.firstWhere((a) => a.isDefault, orElse: () => bankAccounts.first),
-            );
-
-            return Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.account_balance, size: 16, color: AppColors.primary),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Send payment to provider:',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary.withValues(alpha: 0.8),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    payout.providerName,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  Text(
-                    'Account Number: ${payout.accountNumber}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.primary),
-                  ),
-                  Text(
-                    'Account Holder: ${payout.holderName}',
-                    style: const TextStyle(fontSize: 13, color: Colors.grey),
-                  ),
-                ],
-              ),
-            );
-          }),
+          // --- PROVIDER BANK DETAILS HIDDEN ---
 
           if (hasBank) ...[
             DropdownButtonFormField<String>(
               initialValue: _bankProvider,
               decoration: InputDecoration(
                 labelText: 'Select Bank',
-                prefixIcon: const Icon(Icons.account_balance, color: AppColors.primary),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                prefixIcon: const Icon(
+                  Icons.account_balance,
+                  color: AppColors.primary,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 filled: true,
                 fillColor: Colors.grey[50],
               ),
               items: provider.paymentAccounts
                   .where((a) => a.type == PaymentAccountType.bank)
-                  .map((a) => DropdownMenuItem(
-                        value: a.providerName,
-                        child: Text(a.providerName),
-                      ))
+                  .map(
+                    (a) => DropdownMenuItem(
+                      value: a.providerName,
+                      child: Text(a.providerName),
+                    ),
+                  )
                   .toList(),
               onChanged: (v) => setState(() => _bankProvider = v!),
             ),
@@ -1091,7 +1121,7 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
               style: TextStyle(color: Colors.grey[700], height: 1.5),
             ),
             const SizedBox(height: 20),
-            
+
             // Verification Title
             Row(
               children: [
@@ -1101,23 +1131,33 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
                     color: AppColors.info.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.verified_user_outlined, color: AppColors.info, size: 18),
+                  child: const Icon(
+                    Icons.verified_user_outlined,
+                    color: AppColors.info,
+                    size: 18,
+                  ),
                 ),
                 const SizedBox(width: 10),
                 const Text(
                   'Booking Verification',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.primary),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: AppColors.primary,
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            
+
             _paymentTextField(
               controller: _verificationIdController,
               label: 'ID Card / Passport Number',
               icon: Icons.badge_outlined,
               hintText: 'Enter your ID for verification',
-              validator: (v) => v?.trim().isEmpty ?? true ? 'Verification ID is required for Pay Later' : null,
+              validator: (v) => v?.trim().isEmpty ?? true
+                  ? 'Verification ID is required for Pay Later'
+                  : null,
             ),
             const SizedBox(height: 12),
             _paymentTextField(
@@ -1127,12 +1167,16 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
               hintText: 'Secondary contact number',
               keyboardType: TextInputType.phone,
               validator: (v) {
-                if (v?.trim().isEmpty ?? true) return 'Alternative phone is required';
-                if (v!.length < 8) return 'Enter a valid phone number';
+                if (v?.trim().isEmpty ?? true) {
+                  return 'Alternative phone is required';
+                }
+                if (v!.length < 8) {
+                  return 'Enter a valid phone number';
+                }
                 return null;
               },
             ),
-            
+
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(12),
@@ -1143,7 +1187,11 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.warning_amber, color: Colors.amber, size: 20),
+                  const Icon(
+                    Icons.warning_amber,
+                    color: Colors.amber,
+                    size: 20,
+                  ),
                   const SizedBox(width: 10),
                   const Expanded(
                     child: Text(
@@ -1248,7 +1296,7 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                 ),
                 Text(
-                  'All transactions are encrypted and never stored on our servers.',
+                  'Payments are encrypted and secure.',
                   style: TextStyle(
                     color: Colors.grey[600],
                     fontSize: 12,
@@ -1265,20 +1313,85 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
 
   Widget _buildErrorBanner(String message) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
       decoration: BoxDecoration(
-        color: AppColors.error.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 30,
+            offset: const Offset(0, 15),
+          ),
+        ],
+        gradient: LinearGradient(
+          colors: [Colors.white, Colors.grey[50]!],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.error_outline, color: AppColors.error, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(color: AppColors.error, fontSize: 13),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(
+              color: Color(0xFFFF5252),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0x40FF5252),
+                  blurRadius: 15,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: const Icon(Icons.close, color: Colors.white, size: 32),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'Payment Declined',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 20,
+              color: Color(0xFF2D3748),
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 14,
+              height: 1.6,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: 200,
+            child: OutlinedButton(
+              onPressed: () => setState(() => _errorMessage = null),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Color(0xFFE2E8F0)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                backgroundColor: const Color(0xFFF8FAFC),
+              ),
+              child: const Text(
+                'TRY AGAIN',
+                style: TextStyle(
+                  color: Color(0xFF4A5568),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  letterSpacing: 1.1,
+                ),
+              ),
             ),
           ),
         ],
@@ -1288,10 +1401,10 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
 
   Widget _buildPayButton() {
     final labels = {
-      PaymentMethod.card: 'Pay \$${widget.totalPrice.toStringAsFixed(2)} now',
-      PaymentMethod.mobileMoney: 'Send Mobile Payment',
-      PaymentMethod.bank: 'I have transferred the money',
-      PaymentMethod.payLater: 'Confirm Booking (Pay Later)',
+      PaymentMethod.card: 'Pay \$${widget.totalPrice.toStringAsFixed(2)}',
+      PaymentMethod.mobileMoney: 'Send Payment',
+      PaymentMethod.bank: 'Bank Transferred',
+      PaymentMethod.payLater: 'Confirm Booking',
     };
     final icons = {
       PaymentMethod.card: Icons.credit_card,
@@ -1314,8 +1427,15 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
       ),
       child: SafeArea(
         child: FilledButton.icon(
-          onPressed: () => _processPayment(),
-          icon: Icon(icons[_selectedMethod], color: Colors.white),
+          onPressed: () {
+            if (_formKey.currentState?.validate() ?? false) {
+              _processPayment();
+            }
+          },
+          icon: Icon(
+            icons[_selectedMethod], 
+            color: Colors.white
+          ),
           label: Text(
             labels[_selectedMethod]!,
             style: const TextStyle(
@@ -1364,18 +1484,30 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
                   ),
                 ),
                 const SizedBox(height: 24),
-                const Text(
-                  'Processing Payment...',
-                  style: TextStyle(
+                Text(
+                  _selectedMethod == PaymentMethod.mobileMoney
+                      ? 'Check your phone'
+                      : 'Processing payment...',
+                  style: const TextStyle(
                     color: AppColors.primary,
                     fontWeight: FontWeight.bold,
-                    fontSize: 18,
+                    fontSize: 20,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Please do not close the app',
-                  style: TextStyle(color: Colors.grey[600]),
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 40),
+                  child: Text(
+                    _selectedMethod == PaymentMethod.mobileMoney
+                        ? 'Enter your PIN on your phone.'
+                        : 'Do not close the app.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.grey[700],
+                      fontSize: 14,
+                      height: 1.5,
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 32),
                 Padding(
@@ -1441,6 +1573,11 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
   }
 
   Future<void> _processPayment() async {
+     // Re-routed to specialized method to avoid logic conflicts
+     _processPaymentStep2();
+  }
+
+  Future<void> _processPaymentStep2() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     setState(() {
@@ -1472,7 +1609,9 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
             : null,
         transactionReference: _selectedMethod == PaymentMethod.mobileMoney
             ? _transactionReferenceController.text
-            : (_selectedMethod == PaymentMethod.bank ? _bankTransactionReferenceController.text : null),
+            : (_selectedMethod == PaymentMethod.bank
+                  ? _bankTransactionReferenceController.text
+                  : null),
       );
 
       final user = ref.read(authProvider);
@@ -1498,16 +1637,17 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
         'contactEmail': widget.contactEmail.trim(),
         'email': widget.contactEmail.trim(), // Added for compatibility
         'specialRequests': widget.specialRequests,
-        'location': widget.location.trim().isNotEmpty 
-            ? widget.location.trim() 
-            : (_billingCountryController.text.trim().isNotEmpty 
-                ? _billingCountryController.text.trim() 
-                : (widget.metadata?['location']?.toString().trim() ?? '')),
+        'location': widget.location.trim().isNotEmpty
+            ? widget.location.trim()
+            : (_billingCountryController.text.trim().isNotEmpty
+                  ? _billingCountryController.text.trim()
+                  : (widget.metadata?['location']?.toString().trim() ?? '')),
         'acceptHouseRules': _acceptHouseRules,
         'acceptRentalTerms': _acceptRentalTerms,
         'travelers': widget.travelers,
         'metadata': {
           ...widget.metadata ?? {},
+          if (widget.discount > 0) 'discount_amount': widget.discount,
           if (_selectedMethod == PaymentMethod.payLater) ...{
             'verificationId': _verificationIdController.text.trim(),
             'alternativePhone': _alternativePhoneController.text.trim(),
@@ -1517,13 +1657,17 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
         'bookingType': widget.serviceType.name,
         // Extract traveler counts from metadata for compatibility/validation logic
         if (widget.metadata != null) ...{
-          if (widget.metadata!['adultsCount'] != null) 'adultTravelers': widget.metadata!['adultsCount'],
-          if (widget.metadata!['childrenCount'] != null) 'childTravelers': widget.metadata!['childrenCount'],
-          if (widget.metadata!['infantsCount'] != null) 'infantTravelers': widget.metadata!['infantsCount'],
-          if (widget.metadata!['package_type'] != null) 'package': TourPackage.values.firstWhere(
-            (e) => e.name == widget.metadata!['package_type'],
-            orElse: () => TourPackage.custom,
-          ),
+          if (widget.metadata!['adultsCount'] != null)
+            'adultTravelers': widget.metadata!['adultsCount'],
+          if (widget.metadata!['childrenCount'] != null)
+            'childTravelers': widget.metadata!['childrenCount'],
+          if (widget.metadata!['infantsCount'] != null)
+            'infantTravelers': widget.metadata!['infantsCount'],
+          if (widget.metadata!['package_type'] != null)
+            'package': TourPackage.values.firstWhere(
+              (e) => e.name == widget.metadata!['package_type'],
+              orElse: () => TourPackage.custom,
+            ),
         },
       };
 
@@ -1539,9 +1683,28 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
       if (!mounted) return;
 
       if (result.success) {
-        // Redundant creation removed as it's already handled by the integration service
-        // persist to Supabase is done inside completeBooking -> createBooking
-        
+        if (result.status == 'pending_redirect' && result.paymentUrl != null) {
+          final uri = Uri.parse(result.paymentUrl!);
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+            
+            if (!mounted) return;
+            setState(() {
+              _isProcessing = false;
+            });
+
+            StatusDialog.show(
+              context,
+              isSuccess: true,
+              title: 'Card Payment',
+              message: 'Check your browser to complete the card payment.',
+              buttonText: 'OK',
+            );
+            return;
+          }
+        }
+
+        // Existing success logic for mobile money
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -1558,6 +1721,15 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
               result.error ?? 'Booking failed at step: ${result.step}';
           _isProcessing = false;
         });
+
+        // Show premium dialog for significant errors
+        StatusDialog.show(
+          context,
+          isSuccess: false,
+          title: 'Digniin',
+          message: _errorMessage!,
+          buttonText: 'OK',
+        );
       }
     } catch (e) {
       if (!mounted) return;
@@ -1565,6 +1737,14 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
         _errorMessage = 'An error occurred: $e';
         _isProcessing = false;
       });
+
+      StatusDialog.show(
+        context,
+        isSuccess: false,
+        title: 'Digniin',
+        message: 'A technical issue occurred. Please try again.',
+        buttonText: 'OK',
+      );
     }
   }
 

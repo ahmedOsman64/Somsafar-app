@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../shared/services/settings_repository.dart';
 import '../../shared/services/auth_service.dart';
-import 'settings/payout_accounts_screen.dart';
-
-import 'settings/transaction_history_screen.dart';
-import 'settings/manage_helpers_screen.dart';
 
 
 class ProviderSettingsScreen extends ConsumerWidget {
@@ -66,12 +63,7 @@ class ProviderSettingsScreen extends ConsumerWidget {
                 'Manage where you receive payments',
                 Icons.account_balance_wallet_outlined,
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const PayoutAccountsScreen(),
-                    ),
-                  );
+                  context.push('/provider/settings/payout-accounts');
                 },
               ),
               _buildNavigationTile(
@@ -80,12 +72,7 @@ class ProviderSettingsScreen extends ConsumerWidget {
                 'View automated payouts and earnings',
                 Icons.history_outlined,
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const TransactionHistoryScreen(),
-                    ),
-                  );
+                  context.push('/provider/settings/transactions');
                 },
               ),
             ]),
@@ -107,12 +94,7 @@ class ProviderSettingsScreen extends ConsumerWidget {
                   'Create limited access accounts',
                   Icons.group_add_outlined,
                   onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ManageHelpersScreen(),
-                      ),
-                    );
+                    context.push('/provider/settings/helpers');
                   },
                 ),
             ]),

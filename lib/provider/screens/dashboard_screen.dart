@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../shared/services/auth_service.dart';
 import '../../shared/models/user_model.dart';
+import 'package:table_calendar/table_calendar.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
@@ -51,19 +52,9 @@ class _DashboardScreenContent extends ConsumerWidget {
               const SizedBox(height: 24),
               const _OverviewSection(),
               const SizedBox(height: 24),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Expanded(flex: 2, child: _EarningsChartSection()),
-                  if (context.isDesktop) const SizedBox(width: 24),
-                  if (context.isDesktop)
-                    const Expanded(flex: 1, child: _RevenueProgressCard()),
-                ],
-              ),
-              if (!context.isDesktop) ...[
-                const SizedBox(height: 24),
-                const _RevenueProgressCard(),
-              ],
+              const _IncomeComparisonChart(),
+              const SizedBox(height: 24),
+              const _LiveCalendarCard(),
               const SizedBox(height: 24),
               const _RecentBookingsSection(),
               const SizedBox(height: 24),
@@ -247,85 +238,21 @@ class _WelcomeBanner extends ConsumerWidget {
   }
 }
 
-class _RevenueProgressCard extends ConsumerWidget {
-  const _RevenueProgressCard();
 
-  Future<void> _showEditTargetDialog(BuildContext context, WidgetRef ref, double currentTarget) async {
-    final controller = TextEditingController(text: currentTarget.toStringAsFixed(0));
-    final formKey = GlobalKey<FormState>();
-    final notifier = ref.read(monthlyTargetProvider.notifier);
 
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.track_changes, color: AppColors.primary, size: 22),
-            SizedBox(width: 10),
-            Text('Set Monthly Target', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            controller: controller,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            autofocus: true,
-            decoration: InputDecoration(
-              labelText: 'Target Amount (\$)',
-              prefixText: '\$ ',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            ),
-            validator: (v) {
-              if (v == null || v.trim().isEmpty) return 'Please enter a value';
-              final parsed = double.tryParse(v.replaceAll(',', ''));
-              if (parsed == null || parsed <= 0) return 'Enter a valid positive number';
-              return null;
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (formKey.currentState?.validate() ?? false) {
-                final value = double.tryParse(controller.text.replaceAll(',', ''));
-                if (value != null) {
-                  // 1. Dismiss the dialog immediately
-                  Navigator.of(ctx).pop();
-                  
-                  // 2. Delay the state update slightly to allow the dialog animation 
-                  // to complete and its BuildContext to be torn down before 
-                  // triggering a rebuild of the dashboard.
-                  Future.delayed(const Duration(milliseconds: 200), () {
-                    notifier.setTarget(value);
-                  });
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-  }
+class _LiveCalendarCard extends ConsumerWidget {
+  const _LiveCalendarCard();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dashboard = ref.watch(dashboardStatsProvider);
-    final progress = (dashboard.totalEarnings / dashboard.monthlyTarget).clamp(0.0, 1.0);
-    final currencyFormat = NumberFormat.currency(symbol: '\$');
+    final selectedDay = ref.watch(selectedCalendarDayProvider);
+    final focusedDay = selectedDay;
+
+    // Filter bookings for the selected day
+    final dayBookings = dashboard.recentBookings.where((b) {
+      return isSameDay(b.date, selectedDay);
+    }).toList();
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -343,117 +270,120 @@ class _RevenueProgressCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Monthly Target',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey[400],
-                  fontSize: 13,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              Tooltip(
-                message: 'Edit target',
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(20),
-                  onTap: () => _showEditTargetDialog(context, ref, dashboard.monthlyTarget),
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Icon(Icons.more_horiz, color: Colors.grey[400], size: 20),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            currencyFormat.format(dashboard.totalEarnings),
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF0D3B66),
-              letterSpacing: -0.5,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Target: ${currencyFormat.format(dashboard.monthlyTarget)}',
+          const Text(
+            'Live Booking Calendar',
             style: TextStyle(
-              color: Colors.grey[400],
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+              color: Color(0xFF0D3B66),
             ),
           ),
-          const SizedBox(height: 24),
-          Stack(
-            children: [
-              Container(
-                height: 8,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              FractionallySizedBox(
-                widthFactor: progress,
-                child: Container(
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: AppColors.secondary,
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.secondary.withValues(alpha: 0.2),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
           const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '${(progress * 100).toStringAsFixed(1)}% Completed',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                  color: AppColors.secondary,
-                ),
+          TableCalendar(
+            firstDay: DateTime.utc(2020, 1, 1),
+            lastDay: DateTime.utc(2030, 12, 31),
+            focusedDay: focusedDay,
+            selectedDayPredicate: (day) => isSameDay(selectedDay, day),
+            onDaySelected: (selected, focused) {
+              ref.read(selectedCalendarDayProvider.notifier).state = selected;
+            },
+            eventLoader: (day) {
+              // Show dots for any booking on this day
+              // We'll search through ALL provider bookings here for the calendar
+              // But for performance in this demo, let's use recentBookings/confirmed ones
+              return dashboard.recentBookings.where((b) => isSameDay(b.date, day)).toList();
+            },
+            calendarStyle: CalendarStyle(
+              todayDecoration: BoxDecoration(
+                color: AppColors.secondary.withValues(alpha: 0.3),
+                shape: BoxShape.circle,
               ),
-              Text(
-                '${dashboard.daysLeft} days left',
-                style: TextStyle(
-                  color: Colors.grey[400],
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
+              selectedDecoration: const BoxDecoration(
+                color: AppColors.secondary,
+                shape: BoxShape.circle,
               ),
-            ],
+              markerDecoration: const BoxDecoration(
+                color: AppColors.primary,
+                shape: BoxShape.circle,
+              ),
+            ),
+            headerStyle: const HeaderStyle(
+              formatButtonVisible: false,
+              titleCentered: true,
+              titleTextStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
           ),
+          if (dayBookings.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            Text(
+              'Bookings for ${DateFormat('MMMM d').format(selectedDay)}',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+            ...dayBookings.map((b) => ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const CircleAvatar(
+                backgroundColor: AppColors.secondary,
+                radius: 15,
+                child: Icon(Icons.person, size: 16, color: Colors.white),
+              ),
+              title: Text(b.travelerName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              subtitle: Text(b.serviceTitle, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              trailing: Text('\$${b.totalPrice.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+            )),
+          ] else ...[
+            const SizedBox(height: 16),
+            const Center(
+              child: Text(
+                'No bookings scheduled for this day.',
+                style: TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 }
-
-class _EarningsChartSection extends ConsumerWidget {
-  const _EarningsChartSection();
+class _IncomeComparisonChart extends ConsumerWidget {
+  const _IncomeComparisonChart();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dashboard = ref.watch(dashboardStatsProvider);
+    final filter = ref.watch(chartFilterProvider);
+    
+    List<double> data;
+    List<String> labels;
+    String title;
+
+    final now = DateTime.now();
+
+    switch (filter) {
+      case ChartFilter.weekly:
+        data = dashboard.weeklyBookingCounts.map((e) => e.toDouble()).toList();
+        labels = List.generate(7, (i) {
+          final date = now.subtract(Duration(days: 6 - i));
+          return DateFormat('E').format(date);
+        });
+        title = 'Weekly Booking Trend';
+        break;
+      case ChartFilter.monthly:
+        data = dashboard.monthlyBookingCounts.map((e) => e.toDouble()).toList();
+        labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        title = 'Calendar Year Bookings';
+        break;
+      case ChartFilter.yearly:
+        data = dashboard.yearlyBookingCounts.map((e) => e.toDouble()).toList();
+        labels = List.generate(5, (i) => (now.year - (4 - i)).toString());
+        title = 'Yearly Booking Growth';
+        break;
+    }
+
+    final maxVal = data.isEmpty ? 1.0 : data.reduce((a, b) => a > b ? a : b);
 
     return Container(
-      height: 320,
+      height: 380, // Slightly taller to fit the selector
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -469,51 +399,128 @@ class _EarningsChartSection extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Earnings Trend (Last 7 Days)',
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 17,
-              color: Color(0xFF0D3B66),
-              letterSpacing: -0.3,
-            ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 400;
+              return isNarrow 
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 17,
+                          color: Color(0xFF0D3B66),
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SegmentedButton<ChartFilter>(
+                        segments: const [
+                          ButtonSegment(value: ChartFilter.weekly, label: Text('Weekly', style: TextStyle(fontSize: 10))),
+                          ButtonSegment(value: ChartFilter.monthly, label: Text('Monthly', style: TextStyle(fontSize: 10))),
+                          ButtonSegment(value: ChartFilter.yearly, label: Text('Yearly', style: TextStyle(fontSize: 10))),
+                        ],
+                        selected: {filter},
+                        onSelectionChanged: (val) => ref.read(chartFilterProvider.notifier).state = val.first,
+                        showSelectedIcon: false,
+                        style: SegmentedButton.styleFrom(
+                          backgroundColor: Colors.grey[100],
+                          selectedBackgroundColor: AppColors.secondary,
+                          selectedForegroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                    ],
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 17,
+                          color: Color(0xFF0D3B66),
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      SegmentedButton<ChartFilter>(
+                        segments: const [
+                          ButtonSegment(value: ChartFilter.weekly, label: Text('Weekly', style: TextStyle(fontSize: 11))),
+                          ButtonSegment(value: ChartFilter.monthly, label: Text('Monthly', style: TextStyle(fontSize: 11))),
+                          ButtonSegment(value: ChartFilter.yearly, label: Text('Yearly', style: TextStyle(fontSize: 11))),
+                        ],
+                        selected: {filter},
+                        onSelectionChanged: (val) => ref.read(chartFilterProvider.notifier).state = val.first,
+                        showSelectedIcon: false,
+                        style: SegmentedButton.styleFrom(
+                          backgroundColor: Colors.grey[100],
+                          selectedBackgroundColor: AppColors.secondary,
+                          selectedForegroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                    ],
+                  );
+            },
           ),
           const SizedBox(height: 32),
           Expanded(
-            child: LineChart(
-              LineChartData(
+            child: BarChart(
+              BarChartData(
                 gridData: const FlGridData(show: false),
-                titlesData: const FlTitlesData(show: false),
-                borderData: FlBorderData(show: false),
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: dashboard.weeklyEarnings
-                        .asMap()
-                        .entries
-                        .map((e) => FlSpot(e.key.toDouble(), e.value))
-                        .toList(),
-                    isCurved: true,
-                    curveSmoothness: 0.35,
-                    color: AppColors.secondary,
-                    barWidth: 4,
-                    isStrokeCapRound: true,
-                    dotData: const FlDotData(show: false),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      gradient: LinearGradient(
-                        colors: [
-                          AppColors.secondary.withValues(alpha: 0.15),
-                          AppColors.secondary.withValues(alpha: 0.0),
-                        ],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
+                titlesData: FlTitlesData(
+                  show: true,
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (value, meta) {
+                        final idx = value.toInt();
+                        if (idx >= 0 && idx < labels.length) {
+                          // Show every label on weekly/yearly, every 2nd on monthly for space
+                          if (filter == ChartFilter.monthly && idx % 2 != 0) return const SizedBox();
+                          
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8.0),
+                            child: Text(
+                              labels[idx],
+                              style: const TextStyle(color: Colors.grey, fontSize: 10),
+                            ),
+                          );
+                        }
+                        return const SizedBox();
+                      },
                     ),
                   ),
-                ],
-                minX: 0,
-                maxX: 6,
-                minY: 0,
+                ),
+                borderData: FlBorderData(show: false),
+                barGroups: data.asMap().entries.map((e) {
+                  return BarChartGroupData(
+                    x: e.key,
+                    barRods: [
+                      BarChartRodData(
+                        toY: e.value.toDouble(),
+                        color: (filter == ChartFilter.monthly && e.key == now.month - 1) || (filter != ChartFilter.monthly && e.key == data.length - 1) 
+                            ? AppColors.secondary 
+                            : AppColors.primary.withValues(alpha: 0.4),
+                        width: filter == ChartFilter.monthly ? 10 : 20,
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                        backDrawRodData: BackgroundBarChartRodData(
+                          show: true,
+                          toY: (maxVal == 0 ? 5 : maxVal * 1.2).toDouble(),
+                          color: Colors.grey[100],
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
               ),
             ),
           ),

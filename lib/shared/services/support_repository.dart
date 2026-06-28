@@ -148,7 +148,24 @@ class SupportRepository extends StateNotifier<List<SupportTicket>> {
         .stream(primaryKey: ['id'])
         .listen((data) {
           if (!mounted) return;
-          state = data.map((res) {
+
+          final now = DateTime.now();
+          final limit = now.subtract(const Duration(hours: 72));
+          final validTickets = <SupportTicket>[];
+
+          for (final res in data) {
+            final createdAt = DateTime.tryParse(res['created_at'] ?? '');
+            if (createdAt != null && createdAt.isBefore(limit)) {
+              // Delete old ticket in the background (after 72 hours)
+              final ticketId = res['id'];
+              SupabaseConfig.client
+                  .from('support_tickets')
+                  .delete()
+                  .eq('id', ticketId)
+                  .catchError((e) => debugPrint('Error deleting expired ticket $ticketId: $e'));
+              continue;
+            }
+
             // Parse messages jsonb array
             List<SupportMessage> msgs = [];
             if (res['messages'] != null) {
@@ -157,7 +174,7 @@ class SupportRepository extends StateNotifier<List<SupportTicket>> {
                   .toList();
             }
 
-            return SupportTicket(
+            validTickets.add(SupportTicket(
               id: res['id'],
               userId: res['user_id'],
               userName: res['user_name'],
@@ -174,10 +191,11 @@ class SupportRepository extends StateNotifier<List<SupportTicket>> {
                 (e) => e.name == res['priority'],
                 orElse: () => TicketPriority.medium,
               ),
-              createdAt: DateTime.parse(res['created_at']),
+              createdAt: createdAt ?? DateTime.now(),
               messages: msgs,
-            );
-          }).toList();
+            ));
+          }
+          state = validTickets;
         }, onError: (error) {
           debugPrint('SupportRepository Stream error: $error');
         });
@@ -239,14 +257,18 @@ class SupportRepository extends StateNotifier<List<SupportTicket>> {
   }
 
   Future<void> adminReply(String ticketId, String replyText) async {
+    await addMessage(ticketId, replyText, isAdmin: true);
+  }
+
+  Future<void> addMessage(String ticketId, String messageText, {required bool isAdmin}) async {
     final ticketIndex = state.indexWhere((t) => t.id == ticketId);
     if (ticketIndex == -1) return;
     
     final ticket = state[ticketIndex];
     final newMsg = SupportMessage(
       id: const Uuid().v4(),
-      text: replyText,
-      isAdmin: true,
+      text: messageText,
+      isAdmin: isAdmin,
       timestamp: DateTime.now(),
     );
 
@@ -266,7 +288,7 @@ class SupportRepository extends StateNotifier<List<SupportTicket>> {
               userName: t.userName,
               userEmail: t.userEmail,
               type: t.type,
-              status: TicketStatus.inProgress,
+              status: isAdmin ? TicketStatus.inProgress : TicketStatus.open,
               priority: t.priority,
               createdAt: t.createdAt,
               messages: updatedMessages,
@@ -280,12 +302,12 @@ class SupportRepository extends StateNotifier<List<SupportTicket>> {
       await SupabaseConfig.client
           .from('support_tickets')
           .update({
-            'status': TicketStatus.inProgress.name,
+            'status': (isAdmin ? TicketStatus.inProgress : TicketStatus.open).name,
             'messages': updatedMessages.map((m) => m.toJson()).toList(),
           })
           .eq('id', ticketId);
     } catch (e) {
-      debugPrint('Admin reply error: $e');
+      debugPrint('Add/reply message error: $e');
       if (mounted) state = oldState;
     }
   }

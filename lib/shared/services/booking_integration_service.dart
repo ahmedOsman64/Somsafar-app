@@ -127,23 +127,10 @@ class BookingIntegrationService {
         );
       }
 
-      // Step 4: Process payment
-      final paymentResult = await backend.processPayment(
-        paymentData: paymentData,
-        amount: enrichedData['totalPrice'],
-        bookingId: const Uuid().v4(),
-      );
-
-      if (!paymentResult['success']) {
-        return BookingResult(
-          success: false,
-          error: paymentResult['message'] ?? 'Payment failed',
-          step: 'payment',
-        );
-      }
-
-      // Step 5: Create booking
+      // Step 4: Create booking (initially pending)
+      final bookingId = const Uuid().v4();
       final booking = await backend.createBooking(
+        id: bookingId,
         serviceId: enrichedData['serviceId'],
         providerId: enrichedData['providerId'],
         serviceTitle: enrichedData['serviceTitle'],
@@ -163,10 +150,40 @@ class BookingIntegrationService {
         metadata: enrichedData['metadata'] ?? {},
       );
 
+      // Step 5: Process payment (via Edge Function)
+      // Pay Later bookings skip the real-time payment gateway but still go through backend logic
+      if (paymentData.method != PaymentMethod.payLater) {
+        final paymentResult = await backend.processPayment(
+          paymentData: paymentData,
+          amount: enrichedData['totalPrice'],
+          bookingId: booking.id, // Use the real booking ID
+        );
+
+        if (!paymentResult.success) {
+          return BookingResult(
+            success: false,
+            error: paymentResult.message,
+            step: 'payment',
+            booking: booking,
+            paymentUrl: paymentResult.paymentUrl,
+            status: paymentResult.status,
+          );
+        }
+
+        return BookingResult(
+          success: true,
+          booking: booking,
+          transactionId: paymentResult.transactionId,
+          step: 'completed',
+          paymentUrl: paymentResult.paymentUrl,
+          status: paymentResult.status,
+        );
+      }
+
+      // If Pay Later, it's already created as pending/unpaid
       return BookingResult(
         success: true,
         booking: booking,
-        transactionId: paymentResult['transactionId'],
         step: 'completed',
       );
     } catch (e) {
@@ -211,10 +228,10 @@ class BookingIntegrationService {
         bookingId: const Uuid().v4(),
       );
 
-      if (!paymentResult['success']) {
+      if (!paymentResult.success) {
         return BookingResult(
           success: false,
-          error: paymentResult['message'] ?? 'Payment failed',
+          error: paymentResult.message,
           step: 'payment',
         );
       }
@@ -247,7 +264,7 @@ class BookingIntegrationService {
       return BookingResult(
         success: true,
         booking: booking,
-        transactionId: paymentResult['transactionId'],
+        transactionId: paymentResult.transactionId,
         step: 'quick_completed',
       );
     } catch (e) {
@@ -887,6 +904,8 @@ class BookingResult {
   final String? transactionId;
   final String? error;
   final String step;
+  final String? paymentUrl;
+  final String? status;
 
   BookingResult({
     required this.success,
@@ -894,5 +913,7 @@ class BookingResult {
     this.transactionId,
     this.error,
     required this.step,
+    this.paymentUrl,
+    this.status,
   });
 }

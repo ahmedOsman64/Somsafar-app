@@ -99,9 +99,24 @@ class _AdminCreateProviderScreenState
         final isRegistered = await ref.read(userProvider.notifier).isEmailRegistered(emailToUse);
         if (isRegistered) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('This email has already been registered. Please use a different one.'),
-              backgroundColor: Colors.orange,
+            SnackBar(
+              content: Row(
+                children: const [
+                  Icon(Icons.error_outline, color: Colors.white),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'This email already exists.',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           );
           setState(() => _isCreating = false);

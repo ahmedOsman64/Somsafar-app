@@ -81,14 +81,8 @@ class _TravelerNavigationScreenState extends State<TravelerNavigationScreen> {
     return GestureDetector(
       onTap: () => _onItemTapped(index),
       behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
+      child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withAlpha(20) : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -97,7 +91,7 @@ class _TravelerNavigationScreenState extends State<TravelerNavigationScreen> {
               child: Icon(
                 isSelected ? selectedIcon : unselectedIcon,
                 key: ValueKey<bool>(isSelected),
-                color: isSelected ? AppColors.primary : AppColors.grey,
+                color: AppColors.grey,
                 size: 26,
               ),
             ),
@@ -106,8 +100,8 @@ class _TravelerNavigationScreenState extends State<TravelerNavigationScreen> {
               label,
               style: TextStyle(
                 fontSize: 12,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? AppColors.primary : AppColors.grey,
+                fontWeight: FontWeight.w500,
+                color: AppColors.grey,
               ),
             ),
           ],

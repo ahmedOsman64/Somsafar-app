@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/services/auth_service.dart';
 import '../../shared/services/user_repository.dart';
 import '../../shared/models/user_model.dart';
@@ -19,8 +20,17 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  Gender? _selectedGender;
+  final _phoneController = TextEditingController(text: '+252');
   bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
 
   void _signup() async {
     if (_formKey.currentState!.validate()) {
@@ -33,11 +43,24 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       if (isRegistered) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'This email has already been registered. Please use a different one.',
+            SnackBar(
+              content: Row(
+                children: const [
+                  Icon(Icons.error_outline, color: Colors.white),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'This email already exists.',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
               ),
-              backgroundColor: Colors.orange,
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           );
         }
@@ -52,12 +75,19 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             email: _emailController.text,
             password: _passwordController.text,
             role: UserRole.traveler,
-            gender: _selectedGender,
+            phone: _phoneController.text.trim(),
           );
 
       if (mounted) setState(() => _isLoading = false);
 
       if (error == null) {
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('saved_email', _emailController.text.trim());
+        } catch (e) {
+          debugPrint('Failed to save email for pre-fill: $e');
+        }
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -139,19 +169,22 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         (v?.length ?? 0) < 6 ? 'Min 6 characters' : null,
                   ),
                   const SizedBox(height: 16),
-                  AppDropdown<Gender>(
-                    label: 'Gender',
-                    hint: 'Choose your gender',
-                    value: _selectedGender,
-                    items: const [
-                      DropdownMenuItem(value: Gender.male, child: Text('Male')),
-                      DropdownMenuItem(
-                        value: Gender.female,
-                        child: Text('Female'),
-                      ),
-                    ],
-                    onChanged: (v) => setState(() => _selectedGender = v),
-                    validator: (v) => v == null ? 'Required' : null,
+                  AppTextField(
+                    controller: _phoneController,
+                    label: 'Phone Number',
+                    hint: '+252xxxxxx',
+                    keyboardType: TextInputType.phone,
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return 'Required';
+                      final phoneVal = v.trim();
+                      if (!phoneVal.startsWith('+252')) {
+                        return 'Phone number must start with +252';
+                      }
+                      if (phoneVal.length < 9) {
+                        return 'Enter a valid phone number';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 32),
                   SizedBox(

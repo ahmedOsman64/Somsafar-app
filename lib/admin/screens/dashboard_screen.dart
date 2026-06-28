@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:table_calendar/table_calendar.dart';
 import '../admin_strings.dart';
 import '../../shared/services/service_repository.dart';
 import '../../shared/services/booking_repository.dart';
@@ -18,9 +19,10 @@ import '../../shared/services/system_activity_repository.dart';
 import '../../core/theme/app_colors.dart';
 import 'package:intl/intl.dart';
 import '../../core/widgets/responsive.dart';
-enum ChartInterval { daily, weekly, monthly }
+enum ChartInterval { daily, weekly, yearly }
 
 final chartIntervalProvider = StateProvider<ChartInterval>((ref) => ChartInterval.weekly);
+final selectedAdminCalendarDayProvider = StateProvider<DateTime>((ref) => DateTime.now());
 
 class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key});
@@ -58,16 +60,18 @@ class AdminDashboardScreen extends ConsumerWidget {
     // Chart Data Preparation
     final interval = ref.watch(chartIntervalProvider);
     final now = DateTime.now();
+    final alignedNow = DateTime(now.year, now.month, now.day, now.hour);
     
     List<DateTime> intervalDays;
     if (interval == ChartInterval.daily) {
-      intervalDays = List.generate(12, (i) => now.subtract(Duration(hours: (11 - i) * 2)));
-    } else if (interval == ChartInterval.monthly) {
-      intervalDays = List.generate(10, (i) => now.subtract(Duration(days: (9 - i) * 3)));
-    } else {
-      // Weekly: Find last Monday or just last 7 days starting from Monday fix
+      // Aligned hours, last 24 hours (12 bars of 2 hours)
+      intervalDays = List.generate(12, (i) => alignedNow.subtract(Duration(hours: (11 - i) * 2)));
+    } else if (interval == ChartInterval.weekly) {
       final lastMonday = now.subtract(Duration(days: now.weekday - 1));
-      intervalDays = List.generate(7, (i) => lastMonday.add(Duration(days: i)));
+      intervalDays = List.generate(7, (i) => DateTime(lastMonday.year, lastMonday.month, lastMonday.day).add(Duration(days: i)));
+    } else {
+      // Yearly: Full year, 12 months in order
+      intervalDays = List.generate(12, (i) => DateTime(now.year, now.month - (11 - i), 1));
     }
 
     final bookingSpots = intervalDays.asMap().entries.map((entry) {
@@ -75,6 +79,9 @@ class AdminDashboardScreen extends ConsumerWidget {
       final count = bookings.where((b) {
         if (interval == ChartInterval.daily) {
           return b.date.year == t.year && b.date.month == t.month && b.date.day == t.day && (b.date.hour ~/ 2) == (t.hour ~/ 2);
+        }
+        if (interval == ChartInterval.yearly) {
+          return b.date.year == t.year && b.date.month == t.month;
         }
         return b.date.year == t.year && b.date.month == t.month && b.date.day == t.day;
       }).length;
@@ -86,6 +93,9 @@ class AdminDashboardScreen extends ConsumerWidget {
       final count = activities.where((a) {
         if (interval == ChartInterval.daily) {
           return a.timestamp.year == t.year && a.timestamp.month == t.month && a.timestamp.day == t.day && (a.timestamp.hour ~/ 2) == (t.hour ~/ 2);
+        }
+        if (interval == ChartInterval.yearly) {
+          return a.timestamp.year == t.year && a.timestamp.month == t.month;
         }
         return a.timestamp.year == t.year && a.timestamp.month == t.month && a.timestamp.day == t.day;
       }).length;
@@ -260,6 +270,9 @@ class AdminDashboardScreen extends ConsumerWidget {
               const SizedBox(height: 32),
               const _RecentActivitySection(),
             ],
+
+            const SizedBox(height: 32),
+            const _AdminLiveCalendarCard(),
 
             const SizedBox(height: 40),
           ],
@@ -614,6 +627,126 @@ class _AdminWelcomeBanner extends ConsumerWidget {
   }
 }
 
+class _AdminLiveCalendarCard extends ConsumerWidget {
+  const _AdminLiveCalendarCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bookings = ref.watch(bookingProvider);
+    final selectedDay = ref.watch(selectedAdminCalendarDayProvider);
+    final focusedDay = selectedDay;
+
+    // Filter bookings for the selected day
+    final dayBookings = bookings.where((b) {
+      return isSameDay(b.date, selectedDay);
+    }).toList();
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Live Booking Calendar',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 20,
+              color: AppColors.primary,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 16),
+          TableCalendar(
+            firstDay: DateTime.utc(2020, 1, 1),
+            lastDay: DateTime.utc(2030, 12, 31),
+            focusedDay: focusedDay,
+            selectedDayPredicate: (day) => isSameDay(selectedDay, day),
+            onDaySelected: (selected, focused) {
+              ref.read(selectedAdminCalendarDayProvider.notifier).state = selected;
+            },
+            eventLoader: (day) {
+              return bookings.where((b) => isSameDay(b.date, day)).toList();
+            },
+            calendarStyle: const CalendarStyle(
+              todayDecoration: BoxDecoration(
+                color: Color(0x331B62A4),
+                shape: BoxShape.circle,
+              ),
+              selectedDecoration: BoxDecoration(
+                color: AppColors.primary,
+                shape: BoxShape.circle,
+              ),
+              markerDecoration: BoxDecoration(
+                color: AppColors.secondary,
+                shape: BoxShape.circle,
+              ),
+            ),
+            headerStyle: const HeaderStyle(
+              formatButtonVisible: false,
+              titleCentered: true,
+              titleTextStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ),
+          if (dayBookings.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            Text(
+              'Bookings for ${DateFormat('MMMM d').format(selectedDay)}',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.primary),
+            ),
+            const SizedBox(height: 12),
+            ...dayBookings.map((b) => ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.person, size: 18, color: AppColors.primary),
+              ),
+              title: Text(b.travelerName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              subtitle: Text(b.serviceTitle, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              trailing: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('\$${b.totalPrice.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(b.statusLabel, style: TextStyle(color: b.statusColor, fontSize: 10, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            )),
+          ] else ...[
+            const SizedBox(height: 24),
+            const Center(
+              child: Column(
+                children: [
+                  Icon(Icons.calendar_today_outlined, color: Colors.grey, size: 32),
+                  SizedBox(height: 8),
+                  Text(
+                    'No bookings scheduled for this day.',
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _AdminPerformanceChart extends ConsumerWidget {
   final List<FlSpot> bookingSpots;
   final List<FlSpot> activitySpots;
@@ -627,25 +760,27 @@ class _AdminPerformanceChart extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final interval = ref.watch(chartIntervalProvider);
     double maxY = bookingSpots.fold(0.0, (m, spot) => spot.y > m ? spot.y : m);
     double activityMaxY = activitySpots.fold(
       0.0,
       (m, spot) => spot.y > m ? spot.y : m,
     );
-    maxY = (maxY > activityMaxY ? maxY : activityMaxY) + 5;
-    if (maxY < 10) maxY = 10;
+    maxY = (maxY > activityMaxY ? maxY : activityMaxY);
+    final displayMaxY = (maxY == 0 ? 10 : maxY * 1.2).toDouble();
 
-    final totalBookings = bookingSpots.fold(0.0, (sum, spot) => sum + spot.y).toInt();
+    final totalBookings =
+        bookingSpots.fold(0.0, (sum, spot) => sum + spot.y).toInt();
 
     return Container(
       height: 400,
-      padding: const EdgeInsets.all(28),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(8),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -654,180 +789,121 @@ class _AdminPerformanceChart extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Platform Analytics',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 22,
-                        color: AppColors.primary,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    Text(
-                      '$totalBookings total bookings in this period',
-                      style: TextStyle(
-                        color: Colors.grey[500],
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              PopupMenuButton<ChartInterval>(
-                offset: const Offset(0, 44),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                elevation: 8,
-                onSelected: (val) => ref.read(chartIntervalProvider.notifier).state = val,
-                itemBuilder: (ctx) => [
-                  PopupMenuItem(value: ChartInterval.daily, child: _buildPopupItem(Icons.today, 'Daily')),
-                  PopupMenuItem(value: ChartInterval.weekly, child: _buildPopupItem(Icons.calendar_view_week, 'Weekly')),
-                  PopupMenuItem(value: ChartInterval.monthly, child: _buildPopupItem(Icons.calendar_month, 'Monthly')),
-                ],
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withAlpha(8),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.primary.withAlpha(20)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        ref.watch(chartIntervalProvider).name[0].toUpperCase() + ref.watch(chartIntervalProvider).name.substring(1),
-                        style: const TextStyle(fontSize: 13, color: AppColors.primary, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.keyboard_arrow_down, size: 18, color: AppColors.primary),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 450;
+              return isNarrow
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildTitleSection(totalBookings),
+                        const SizedBox(height: 16),
+                        _buildIntervalSelector(ref, interval),
+                      ],
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildTitleSection(totalBookings),
+                        _buildIntervalSelector(ref, interval),
+                      ],
+                    );
+            },
           ),
           const SizedBox(height: 32),
           Expanded(
-            child: LineChart(
-              LineChartData(
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  getDrawingHorizontalLine: (value) =>
-                      FlLine(color: Colors.grey.withAlpha(15), strokeWidth: 1),
-                ),
+            child: BarChart(
+              BarChartData(
+                gridData: const FlGridData(show: false),
                 titlesData: FlTitlesData(
                   show: true,
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles:
+                      const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  topTitles:
+                      const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 28,
+                      getTitlesWidget: (value, meta) {
+                        if (value % (displayMaxY / 4).ceil() != 0) return const SizedBox();
+                        return Text(
+                          value.toInt().toString(),
+                          style: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600),
+                        );
+                      },
+                    ),
+                  ),
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
-                      reservedSize: 32,
-                      interval: 1,
                       getTitlesWidget: (value, meta) {
                         final idx = value.toInt();
-                        if (idx < 0 || idx >= intervalDays.length) return const Text('');
+                        if (idx < 0 || idx >= intervalDays.length) {
+                          return const SizedBox();
+                        }
+                        
+                        // For daily, skip some labels to avoid crowding
+                        if (interval == ChartInterval.daily && idx % 2 != 0) return const SizedBox();
+
                         final date = intervalDays[idx];
-                        final interval = ref.watch(chartIntervalProvider);
                         String label = '';
                         if (interval == ChartInterval.daily) {
-                          label = DateFormat('HH:mm').format(date);
-                        } else if (interval == ChartInterval.monthly) {
-                          label = DateFormat('MMM d').format(date);
+                          label = DateFormat('HH:00').format(date);
+                        } else if (interval == ChartInterval.yearly) {
+                          label = DateFormat('MMM').format(date);
                         } else {
                           label = DateFormat('EEE').format(date);
                         }
                         return Padding(
                           padding: const EdgeInsets.only(top: 8),
-                          child: Text(label, style: TextStyle(color: Colors.grey[400], fontSize: 10, fontWeight: FontWeight.w600)),
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                                color: Colors.grey[400],
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600),
+                          ),
                         );
                       },
                     ),
-                  ),
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      interval: (maxY / 4).ceilToDouble(),
-                      reservedSize: 30,
-                      getTitlesWidget: (value, meta) {
-                        return Text(value.toInt().toString(), style: TextStyle(color: Colors.grey[400], fontSize: 10, fontWeight: FontWeight.w600));
-                      },
-                    ),
-                  ),
-                ),
-                lineTouchData: LineTouchData(
-                  touchTooltipData: LineTouchTooltipData(
-                    getTooltipColor: (_) => AppColors.primary.withAlpha(230),
-                    tooltipRoundedRadius: 12,
-                    tooltipPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    getTooltipItems: (touchedSpots) {
-                      return touchedSpots.map((spot) {
-                        final isBooking = spot.barIndex == 1;
-                        return LineTooltipItem(
-                          '${isBooking ? "Bookings" : "System"}: ${spot.y.toInt()}',
-                          const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
-                        );
-                      }).toList();
-                    },
                   ),
                 ),
                 borderData: FlBorderData(show: false),
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: activitySpots,
-                    isCurved: true,
-                    color: AppColors.secondary,
-                    barWidth: 3,
-                    isStrokeCapRound: true,
-                    dotData: const FlDotData(show: false),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      gradient: LinearGradient(
-                        colors: [AppColors.secondary.withAlpha(40), AppColors.secondary.withAlpha(0)],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
+                barGroups: List.generate(intervalDays.length, (i) {
+                  return BarChartGroupData(
+                    x: i,
+                    barRods: [
+                      BarChartRodData(
+                        toY: activitySpots[i].y,
+                        color: AppColors.secondary,
+                        width: interval == ChartInterval.yearly ? 4 : 8,
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                        backDrawRodData: BackgroundBarChartRodData(
+                          show: true,
+                          toY: displayMaxY,
+                          color: Colors.grey[100],
+                        ),
                       ),
-                    ),
-                  ),
-                  LineChartBarData(
-                    spots: bookingSpots,
-                    isCurved: true,
-                    color: AppColors.primary,
-                    barWidth: 4,
-                    isStrokeCapRound: true,
-                    dotData: FlDotData(
-                      show: true,
-                      getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
-                        radius: 3,
-                        color: Colors.white,
-                        strokeWidth: 2,
-                        strokeColor: AppColors.primary,
+                      BarChartRodData(
+                        toY: bookingSpots[i].y,
+                        color: AppColors.primary,
+                        width: interval == ChartInterval.yearly ? 4 : 8,
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                        backDrawRodData: BackgroundBarChartRodData(
+                          show: true,
+                          toY: displayMaxY,
+                          color: Colors.grey[100],
+                        ),
                       ),
-                      checkToShowDot: (spot, barData) => spot.y > 0,
-                    ),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      gradient: LinearGradient(
-                        colors: [AppColors.primary.withAlpha(40), AppColors.primary.withAlpha(0)],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
-                    ),
-                  ),
-                ],
-                minX: 0,
-                maxX: (intervalDays.length - 1).toDouble(),
-                minY: 0,
-                maxY: maxY,
+                    ],
+                    barsSpace: 4,
+                  );
+                }),
+                maxY: displayMaxY,
               ),
             ),
           ),
@@ -845,13 +921,55 @@ class _AdminPerformanceChart extends ConsumerWidget {
     );
   }
 
-  Widget _buildPopupItem(IconData icon, String title) {
-    return Row(
+  Widget _buildTitleSection(int totalBookings) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 18, color: Colors.grey[700]),
-        const SizedBox(width: 12),
-        Text(title, style: TextStyle(fontSize: 13, color: Colors.grey[800], fontWeight: FontWeight.w500)),
+        const Text(
+          'Platform Analytics',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 22,
+            color: AppColors.primary,
+            letterSpacing: -0.5,
+          ),
+        ),
+        Text(
+          '$totalBookings total bookings in this period',
+          style: TextStyle(
+            color: Colors.grey[500],
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ],
+    );
+  }
+
+  Widget _buildIntervalSelector(WidgetRef ref, ChartInterval current) {
+    return SegmentedButton<ChartInterval>(
+      segments: const [
+        ButtonSegment(
+            value: ChartInterval.daily,
+            label: Text('Daily', style: TextStyle(fontSize: 11))),
+        ButtonSegment(
+            value: ChartInterval.weekly,
+            label: Text('Weekly', style: TextStyle(fontSize: 11))),
+        ButtonSegment(
+            value: ChartInterval.yearly,
+            label: Text('Yearly', style: TextStyle(fontSize: 11))),
+      ],
+      selected: {current},
+      onSelectionChanged: (val) =>
+          ref.read(chartIntervalProvider.notifier).state = val.first,
+      showSelectedIcon: false,
+      style: SegmentedButton.styleFrom(
+        backgroundColor: Colors.grey[100],
+        selectedBackgroundColor: AppColors.secondary,
+        selectedForegroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        visualDensity: VisualDensity.compact,
+      ),
     );
   }
 }
@@ -935,7 +1053,7 @@ class _RecentActivitySection extends ConsumerWidget {
               child: Center(child: Text('No recent activity recorded', style: TextStyle(color: Colors.grey))),
             )
           else
-            ...activities.take(6).map((activity) {
+            ...activities.take(4).map((activity) {
               return _ActivityCard(
                 icon: activity.icon,
                 iconColor: activity.iconColor,

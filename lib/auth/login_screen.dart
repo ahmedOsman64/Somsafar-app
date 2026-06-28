@@ -32,17 +32,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     setState(() {
       _emailController.text = prefs.getString('saved_email') ?? '';
       _passwordController.text = prefs.getString('saved_password') ?? '';
-      _rememberMe = _emailController.text.isNotEmpty;
+      // Remember me checkbox is active if a saved password exists
+      _rememberMe = _passwordController.text.isNotEmpty;
     });
   }
 
   Future<void> _saveCredentials() async {
     final prefs = await SharedPreferences.getInstance();
+    // Always remember/save the email address
+    if (_emailController.text.trim().isNotEmpty) {
+      await prefs.setString('saved_email', _emailController.text.trim());
+    }
+    
     if (_rememberMe) {
-      await prefs.setString('saved_email', _emailController.text);
       await prefs.setString('saved_password', _passwordController.text);
     } else {
-      await prefs.remove('saved_email');
       await prefs.remove('saved_password');
     }
   }

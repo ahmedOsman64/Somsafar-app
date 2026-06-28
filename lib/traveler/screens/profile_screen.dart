@@ -143,7 +143,7 @@ class _TravelerProfileScreenState extends ConsumerState<TravelerProfileScreen> {
                           child: Column(
                             children: [
                               Text(
-                                'SomSafar v1.0.0+4',
+                                'SomSafar v1.0.0+4 from Zust',
                                 style: TextStyle(
                                   color: Colors.grey[400],
                                   fontSize: 12,

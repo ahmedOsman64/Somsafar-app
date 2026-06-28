@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/services/auth_service.dart';
-import 'payment_screen.dart';
+import '../../../shared/models/booking_forms_model.dart';
+import 'enhanced_payment_screen.dart';
 
 class TravelerIdentityScreen extends ConsumerStatefulWidget {
   final String serviceId;
@@ -179,17 +180,24 @@ class _TravelerIdentityScreenState
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => PaymentScreen(
+                    builder: (context) => EnhancedPaymentScreen(
                       serviceId: widget.serviceId,
+                      providerId: '', // Ideally should be passed to this screen
+                      serviceTitle: 'Booking', // Ideally should be passed
+                      serviceType: ServiceType.hotel, // Defaulting if unknown
                       checkIn: widget.checkIn,
                       checkOut: widget.checkOut,
                       guests: widget.guests,
                       rooms: widget.rooms,
                       totalPrice: widget.totalPrice,
+                      basePrice: widget.totalPrice, // Simplified
                       contactName: _nameController.text,
                       contactEmail: _emailController.text,
                       contactPhone: _phoneController.text,
                       specialRequests: widget.specialRequests,
+                      metadata: {
+                        'idType': _selectedIdType,
+                      },
                     ),
                   ),
                 );

@@ -246,131 +246,159 @@ class ProviderShell extends ConsumerWidget {
       ),
       desktop: Scaffold(
         body: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            LayoutBuilder(
-              builder: (context, constraints) => SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                  child: IntrinsicHeight(
-                    child: NavigationRail(
-                      extended: true,
-                      backgroundColor: Colors.white,
-                      selectedIconTheme: const IconThemeData(
-                        color: AppColors.secondary,
-                      ),
-                      selectedLabelTextStyle: const TextStyle(
-                        color: AppColors.secondary,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      leading: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 20),
-                        child: Image.asset(
-                          'assets/images/logo.png',
-                          height: 40,
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                      destinations: [
-                        const NavigationRailDestination(
-                          icon: Icon(Icons.dashboard_outlined),
-                          selectedIcon: Icon(Icons.dashboard),
-                          label: Text('Dashboard'),
-                        ),
-                        NavigationRailDestination(
-                          icon: Icon(servicesIcon),
-                          selectedIcon: Icon(servicesIcon),
-                          label: Text(servicesLabel),
-                        ),
-                        NavigationRailDestination(
-                          icon: Stack(
-                            children: [
-                              Icon(bookingsIcon),
-                              if (ref.watch(dashboardStatsProvider).pendingBookings > 0)
-                                Positioned(
-                                  right: -2,
-                                  top: -2,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: const BoxDecoration(
-                                      color: Colors.red,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    constraints: const BoxConstraints(
-                                      minWidth: 10,
-                                      minHeight: 10,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          selectedIcon: Icon(bookingsIcon),
-                          label: Text(bookingsLabel),
-                        ),
-                        if (!isHelper)
-                          const NavigationRailDestination(
-                            icon: Icon(Icons.percent_outlined),
-                            selectedIcon: Icon(Icons.percent),
-                            label: Text('Discounts'),
-                          ),
-                        if (!isHelper)
-                          const NavigationRailDestination(
-                            icon: Icon(Icons.analytics_outlined),
-                            selectedIcon: Icon(Icons.analytics),
-                            label: Text('Reports'),
-                          ),
-                        const NavigationRailDestination(
-                          icon: Icon(Icons.reviews_outlined),
-                          selectedIcon: Icon(Icons.reviews),
-                          label: Text('Reviews'),
-                        ),
-                        const NavigationRailDestination(
-                          icon: Icon(Icons.person_outline),
-                          selectedIcon: Icon(Icons.person),
-                          label: Text('Profile'),
-                        ),
-                        if (!isHelper)
-                          const NavigationRailDestination(
-                            icon: Icon(Icons.settings_outlined),
-                            selectedIcon: Icon(Icons.settings),
-                            label: Text('Settings'),
-                          ),
-                      ],
-                      trailing: Expanded(
-                        child: Align(
-                          alignment: Alignment.bottomCenter,
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: 20),
-                            child: IconButton(
-                              icon: const Icon(
-                                Icons.logout,
-                                color: AppColors.error,
-                              ),
-                              onPressed: () async {
-                                final confirmed = await ConfirmationDialog.show(
-                                  context: context,
-                                  title: 'Logout?',
-                                  message:
-                                      'Are you sure you want to log out of your account?',
-                                  confirmLabel: 'Yes, Logout',
-                                  type: ConfirmationDialogType.info,
-                                  icon: Icons.logout,
-                                );
-                                if (confirmed == true) {
-                                  await ref.read(authServiceProvider).logout();
-                                  if (context.mounted) context.go('/login');
-                                }
-                              },
-                              tooltip: 'Logout',
+            Container(
+              width: 250,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withAlpha(10),
+                    blurRadius: 10,
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Column(
+                        children: [
+                          // Leading / Logo Section
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 20),
+                            child: Image.asset(
+                              'assets/images/logo.png',
+                              height: 40,
+                              fit: BoxFit.contain,
                             ),
                           ),
-                        ),
-                      ),
-                      selectedIndex: _calculateSelectedIndex(context),
-                      onDestinationSelected: (index) =>
-                          _onItemTapped(index, context),
+                          // Nav Items
+                          _buildSidebarItem(
+                            context,
+                            icon: Icons.dashboard_outlined,
+                            selectedIcon: Icons.dashboard,
+                            label: 'Dashboard',
+                            isSelected: _calculateSelectedIndex(context) == 0,
+                            onTap: () => _onItemTapped(0, context),
+                          ),
+                          _buildSidebarItem(
+                            context,
+                            icon: servicesIcon,
+                            selectedIcon: servicesIcon,
+                            label: servicesLabel,
+                            isSelected: _calculateSelectedIndex(context) == 1,
+                            onTap: () => _onItemTapped(1, context),
+                          ),
+                          _buildSidebarItem(
+                            context,
+                            icon: bookingsIcon,
+                            selectedIcon: bookingsIcon,
+                            label: bookingsLabel,
+                            isSelected: _calculateSelectedIndex(context) == 2,
+                            showDot: ref.watch(dashboardStatsProvider).pendingBookings > 0,
+                            onTap: () => _onItemTapped(2, context),
+                          ),
+                          if (!isHelper) ...[
+                            _buildSidebarItem(
+                              context,
+                              icon: Icons.percent_outlined,
+                              selectedIcon: Icons.percent,
+                              label: 'Discounts',
+                              isSelected: _calculateSelectedIndex(context) == 3,
+                              onTap: () => _onItemTapped(3, context),
+                            ),
+                            _buildSidebarItem(
+                              context,
+                              icon: Icons.analytics_outlined,
+                              selectedIcon: Icons.analytics,
+                              label: 'Reports',
+                              isSelected: _calculateSelectedIndex(context) == 4,
+                              onTap: () => _onItemTapped(4, context),
+                            ),
+                          ],
+                          _buildSidebarItem(
+                            context,
+                            icon: Icons.reviews_outlined,
+                            selectedIcon: Icons.reviews,
+                            label: 'Reviews',
+                            isSelected: _calculateSelectedIndex(context) == (isHelper ? 3 : 5),
+                            onTap: () => _onItemTapped(isHelper ? 3 : 5, context),
+                          ),
+                          _buildSidebarItem(
+                            context,
+                            icon: Icons.person_outline,
+                            selectedIcon: Icons.person,
+                            label: 'Profile',
+                            isSelected: _calculateSelectedIndex(context) == (isHelper ? 4 : 6),
+                            onTap: () => _onItemTapped(isHelper ? 4 : 6, context),
+                          ),
+                          if (!isHelper)
+                            _buildSidebarItem(
+                              context,
+                              icon: Icons.settings_outlined,
+                              selectedIcon: Icons.settings,
+                              label: 'Settings',
+                              isSelected: _calculateSelectedIndex(context) == 7,
+                              onTap: () => _onItemTapped(7, context),
+                          ),
+                      ],
                     ),
                   ),
                 ),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                    child: InkWell(
+                      onTap: () async {
+                        final confirmed = await ConfirmationDialog.show(
+                          context: context,
+                          title: 'Logout?',
+                          message:
+                              'Are you sure you want to log out of your account?',
+                          confirmLabel: 'Yes, Logout',
+                          type: ConfirmationDialogType.info,
+                          icon: Icons.logout,
+                        );
+                        if (confirmed == true) {
+                          await ref.read(authServiceProvider).logout();
+                          if (context.mounted) context.go('/login');
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 16,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.error.withAlpha(20),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.logout_rounded,
+                              color: AppColors.error,
+                              size: 22,
+                            ),
+                            const SizedBox(width: 12),
+                            const Text(
+                              'Logout',
+                              style: TextStyle(
+                                color: AppColors.error,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
               ),
             ),
             const VerticalDivider(thickness: 1, width: 1),
@@ -379,7 +407,6 @@ class ProviderShell extends ConsumerWidget {
         ),
       ),
     );
-
   }
 
   Widget _buildDrawerItem(
@@ -439,5 +466,72 @@ class ProviderShell extends ConsumerWidget {
     if (location.startsWith('/provider/profile')) return 6;
     if (location.startsWith('/provider/settings')) return 7;
     return 0;
+  }
+
+  Widget _buildSidebarItem(
+    BuildContext context, {
+    required IconData icon,
+    required IconData selectedIcon,
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+    bool showDot = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? AppColors.secondary.withAlpha(40)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Stack(
+                children: [
+                  Icon(
+                    isSelected ? selectedIcon : icon,
+                    color: isSelected ? AppColors.secondary : Colors.grey[700],
+                    size: 24,
+                  ),
+                  if (showDot)
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(1),
+                        decoration: BoxDecoration(
+                          color: AppColors.secondary,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 8,
+                          minHeight: 8,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: isSelected ? AppColors.secondary : Colors.black87,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

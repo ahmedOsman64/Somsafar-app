@@ -113,10 +113,12 @@ class _BookingSuccessScreenState extends State<BookingSuccessScreen>
                   position: _slideAnimation,
                   child: Column(
                     children: [
-                      const Text(
-                        'Booking Confirmed! 🎉',
-                        style: TextStyle(
-                          fontSize: 26,
+                      Text(
+                        widget.paymentMethod == PaymentMethod.payLater
+                            ? 'Booking Successful! 🎉'
+                            : 'Payment Successful! 🎉',
+                        style: const TextStyle(
+                          fontSize: 24,
                           fontWeight: FontWeight.bold,
                           color: AppColors.primary,
                         ),
@@ -124,7 +126,9 @@ class _BookingSuccessScreenState extends State<BookingSuccessScreen>
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'Your booking has been submitted successfully. Please wait up to 1 hour while we verify your request.',
+                        widget.paymentMethod == PaymentMethod.payLater
+                            ? 'Your booking is confirmed. You will pay when you arrive. Please keep your booking reference.'
+                            : 'We have received your payment. Your booking is confirmed. Please wait an hour for final processing.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 15,
@@ -204,7 +208,7 @@ class _BookingSuccessScreenState extends State<BookingSuccessScreen>
                                   Text(
                                     widget.paymentMethod ==
                                             PaymentMethod.payLater
-                                        ? 'Amount Due at Arrival'
+                                        ? 'Amount to Pay'
                                         : 'Amount Paid',
                                     style: TextStyle(
                                       color: Colors.grey[600],
@@ -240,19 +244,19 @@ class _BookingSuccessScreenState extends State<BookingSuccessScreen>
                           children: [
                             _confirmationRow(
                               Icons.email_outlined,
-                              'Email confirmation sent',
+                              'Confirmation email sent',
                             ),
                             const SizedBox(height: 8),
                             _confirmationRow(
                               Icons.sms_outlined,
-                              'SMS notification sent',
+                              'Confirmation SMS sent',
                             ),
                             if (widget.paymentMethod ==
                                 PaymentMethod.payLater) ...[
                               const SizedBox(height: 8),
                               _confirmationRow(
                                 Icons.warning_amber_outlined,
-                                'Pay at arrival – please arrive on time',
+                                'Pay at arrival – please be on time',
                               ),
                             ],
                           ],

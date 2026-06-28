@@ -6,6 +6,8 @@ import '../../shared/services/booking_repository.dart';
 import '../../shared/services/service_repository.dart';
 import '../../shared/services/auth_service.dart';
 
+enum ChartFilter { weekly, monthly, yearly }
+
 class DashboardStats {
   final int totalServices;
   final int activeServices;
@@ -16,6 +18,11 @@ class DashboardStats {
   final double monthlyTarget;
   final List<Booking> recentBookings;
   final List<double> weeklyEarnings;
+  final List<double> monthlyEarnings;
+  final List<double> yearlyEarnings;
+  final List<int> weeklyBookingCounts;
+  final List<int> monthlyBookingCounts;
+  final List<int> yearlyBookingCounts;
   final int daysLeft;
 
   const DashboardStats({
@@ -28,6 +35,11 @@ class DashboardStats {
     this.monthlyTarget = 15000.00,
     this.recentBookings = const [],
     this.weeklyEarnings = const [],
+    this.monthlyEarnings = const [],
+    this.yearlyEarnings = const [],
+    this.weeklyBookingCounts = const [],
+    this.monthlyBookingCounts = const [],
+    this.yearlyBookingCounts = const [],
     this.daysLeft = 0,
   });
 }
@@ -59,6 +71,10 @@ final monthlyTargetProvider =
     StateNotifierProvider<MonthlyTargetNotifier, double>(
   (_) => MonthlyTargetNotifier(),
 );
+
+final chartFilterProvider = StateProvider<ChartFilter>((ref) => ChartFilter.monthly);
+
+final selectedCalendarDayProvider = StateProvider<DateTime>((ref) => DateTime.now());
 
 final dashboardStatsProvider = Provider<DashboardStats>((ref) {
   final services = ref.watch(filteredServicesProvider);
@@ -115,9 +131,47 @@ final dashboardStatsProvider = Provider<DashboardStats>((ref) {
     }).fold<double>(0.0, (sum, b) => sum + b.totalPrice);
   }).toList();
 
+  final weeklyBookingCounts = last7Days.map((day) {
+    return confirmedAndCompleted.where((b) {
+      return b.date.year == day.year &&
+          b.date.month == day.month &&
+          b.date.day == day.day;
+    }).length;
+  }).toList();
+
   // Days left in current month
   final lastDayOfMonth = DateTime(now.year, now.month + 1, 0);
   final daysLeft = lastDayOfMonth.difference(DateTime(now.year, now.month, now.day)).inDays;
+
+  // Dynamic Monthly Earnings & Counts (Calendar Year: Jan to Dec)
+  final currentYear = now.year;
+  final monthlyEarnings = List.generate(12, (i) {
+    final month = i + 1;
+    return confirmedAndCompleted.where((b) {
+      return b.date.year == currentYear && b.date.month == month;
+    }).fold<double>(0.0, (sum, b) => sum + b.totalPrice);
+  }).toList();
+
+  final monthlyBookingCounts = List.generate(12, (i) {
+    final month = i + 1;
+    return confirmedAndCompleted.where((b) {
+      return b.date.year == currentYear && b.date.month == month;
+    }).length;
+  }).toList();
+
+  // Dynamic Yearly Earnings & Counts (Last 5 Years)
+  final last5Years = List.generate(5, (i) => now.year - (4 - i));
+  final yearlyEarnings = last5Years.map((year) {
+    return confirmedAndCompleted.where((b) {
+      return b.date.year == year;
+    }).fold<double>(0.0, (sum, b) => sum + b.totalPrice);
+  }).toList();
+
+  final yearlyBookingCounts = last5Years.map((year) {
+    return confirmedAndCompleted.where((b) {
+      return b.date.year == year;
+    }).length;
+  }).toList();
 
   // Recent bookings: provider-side only, sorted newest first, top 5
   final sortedBookings = List<Booking>.from(providerBookings)
@@ -134,6 +188,11 @@ final dashboardStatsProvider = Provider<DashboardStats>((ref) {
     monthlyTarget: monthlyTarget,
     recentBookings: recentBookings,
     weeklyEarnings: weeklyEarnings,
+    monthlyEarnings: monthlyEarnings,
+    yearlyEarnings: yearlyEarnings,
+    weeklyBookingCounts: weeklyBookingCounts,
+    monthlyBookingCounts: monthlyBookingCounts,
+    yearlyBookingCounts: yearlyBookingCounts,
     daysLeft: daysLeft,
   );
 });

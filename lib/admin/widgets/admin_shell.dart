@@ -132,119 +132,141 @@ class AdminShell extends ConsumerWidget {
       ),
       desktop: Scaffold(
         body: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            LayoutBuilder(
-              builder: (context, constraints) => SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                  child: IntrinsicHeight(
-                    child: NavigationRail(
-                      extended: true,
-                      backgroundColor: AppColors.dark,
-                      unselectedLabelTextStyle: const TextStyle(
-                        color: Colors.white70,
-                      ),
-                      unselectedIconTheme: const IconThemeData(
-                        color: Colors.white70,
-                      ),
-                      selectedIconTheme: const IconThemeData(
-                        color: Color.fromARGB(255, 250, 154, 69),
-                      ),
-                      selectedLabelTextStyle: const TextStyle(
-                        color: AppColors.accent,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      leading: Padding(
-                        padding: const EdgeInsets.only(top: 24, bottom: 24),
-                        child: Column(
-                          children: [
-                            Image.asset(
-                              'assets/images/logo.png',
-                              height: 50,
-                              fit: BoxFit.contain,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              adminRole.name.toUpperCase().replaceAll(
+            Container(
+              width: 250,
+              color: AppColors.dark,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Column(
+                        children: [
+                          // Leading / Logo Section
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 24),
+                            child: Column(
+                              children: [
+                                Image.asset(
+                                  'assets/images/logo.png',
+                                  height: 50,
+                                  fit: BoxFit.contain,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  adminRole.name.toUpperCase().replaceAll(
                                     'ADMIN',
                                     '',
                                   ),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.2,
-                              ),
-                            ),
-                            Container(
-                              margin: const EdgeInsets.only(top: 4),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.accent.withAlpha(50),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppColors.accent),
-                              ),
-                              child: const Text(
-                                'ADMIN',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: AppColors.accent,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.2,
+                                  ),
                                 ),
+                                Container(
+                                  margin: const EdgeInsets.only(top: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.accent.withAlpha(50),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: AppColors.accent),
+                                  ),
+                                  child: const Text(
+                                    'ADMIN',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: AppColors.accent,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Nav Items
+                          ...navItems.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final item = entry.value;
+                            final isSelected =
+                                _calculateSelectedIndex(context, navItems) ==
+                                index;
+
+                            return _buildSidebarItem(
+                              context,
+                              icon: item.icon,
+                              selectedIcon: item.selectedIcon,
+                              label: item.label,
+                              isSelected: isSelected,
+                              onTap: () =>
+                                  _onItemTapped(index, context, navItems),
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // Logout Button
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: InkWell(
+                      onTap: () async {
+                        final confirmed = await ConfirmationDialog.show(
+                          context: context,
+                          title: 'Logout?',
+                          message:
+                              'Are you sure you want to log out of the Admin Portal?',
+                          confirmLabel: 'Yes, Logout',
+                          type: ConfirmationDialogType.info,
+                          icon: Icons.logout,
+                        );
+                        if (confirmed == true) {
+                          await ref.read(authServiceProvider).logout();
+                          if (context.mounted) context.go('/login');
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 16,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withAlpha(20),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.red.withAlpha(50)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.logout_rounded,
+                              color: Colors.redAccent,
+                              size: 22,
+                            ),
+                            const SizedBox(width: 12),
+                            const Text(
+                              'Logout',
+                              style: TextStyle(
+                                color: Colors.redAccent,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
                               ),
                             ),
                           ],
                         ),
                       ),
-                      destinations: navItems
-                          .map(
-                            (item) => NavigationRailDestination(
-                              icon: Icon(item.icon),
-                              selectedIcon: Icon(item.selectedIcon),
-                              label: Text(item.label),
-                            ),
-                          )
-                          .toList(),
-                      trailing: Expanded(
-                        child: Align(
-                          alignment: Alignment.bottomCenter,
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: 20),
-                            child: IconButton(
-                              icon: const Icon(
-                                Icons.logout,
-                                color: AppColors.error,
-                              ),
-                              onPressed: () async {
-                                final confirmed = await ConfirmationDialog.show(
-                                  context: context,
-                                  title: 'Logout?',
-                                  message:
-                                      'Are you sure you want to log out of the Admin Portal?',
-                                  confirmLabel: 'Yes, Logout',
-                                  type: ConfirmationDialogType.info,
-                                  icon: Icons.logout,
-                                );
-                                if (confirmed == true) {
-                                  await ref.read(authServiceProvider).logout();
-                                  if (context.mounted) context.go('/login');
-                                }
-                              },
-                              tooltip: 'Logout',
-                            ),
-                          ),
-                        ),
-                      ),
-                      selectedIndex: _calculateSelectedIndex(context, navItems),
-                      onDestinationSelected: (index) =>
-                          _onItemTapped(index, context, navItems),
                     ),
                   ),
-                ),
+                  const SizedBox(height: 8),
+                ],
               ),
             ),
+            const VerticalDivider(thickness: 1, width: 1),
             Expanded(
               child: Column(
                 children: [
@@ -266,9 +288,7 @@ class AdminShell extends ConsumerWidget {
                       children: [
                         Text(
                           _getPageTitle(context),
-                          style: Theme.of(context)
-                              .textTheme
-                              .headlineSmall
+                          style: Theme.of(context).textTheme.headlineSmall
                               ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         const Spacer(),
@@ -330,7 +350,6 @@ class AdminShell extends ConsumerWidget {
         ),
       ),
     );
-
   }
 
   void _showSecurityOverlay(BuildContext context, SystemActivity alert) {
@@ -417,7 +436,11 @@ class AdminShell extends ConsumerWidget {
         icon: Icons.support_agent_outlined,
         selectedIcon: Icons.support_agent,
         route: '/admin/helpers',
-        roles: [AdminRole.superAdmin, AdminRole.opsAdmin, AdminRole.supportAdmin],
+        roles: [
+          AdminRole.superAdmin,
+          AdminRole.opsAdmin,
+          AdminRole.supportAdmin,
+        ],
       ),
       _NavItem(
         label: 'Services',
@@ -514,6 +537,54 @@ class AdminShell extends ConsumerWidget {
     ];
 
     return allItems.where((item) => item.roles.contains(role)).toList();
+  }
+
+  Widget _buildSidebarItem(
+    BuildContext context, {
+    required IconData icon,
+    required IconData selectedIcon,
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? AppColors.accent.withAlpha(40)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isSelected ? selectedIcon : icon,
+                color: isSelected ? AppColors.accent : Colors.white70,
+                size: 24,
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: isSelected ? AppColors.accent : Colors.white,
+                    fontWeight: isSelected
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

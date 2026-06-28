@@ -888,6 +888,7 @@ class _HotelBookingFormState extends ConsumerState<HotelBookingForm>
             totalPrice: _bookingSummary!.totalPrice,
             basePrice: _bookingSummary!.basePrice,
             taxes: _bookingSummary!.taxes,
+            discount: _bookingSummary!.discount,
             extras: _bookingSummary!.extras,
             contactName: bookingData.fullName,
             contactEmail: bookingData.email,

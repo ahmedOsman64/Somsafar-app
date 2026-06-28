@@ -1024,11 +1024,19 @@ class AuthService extends ChangeNotifier {
           if (pe.code != '23505') {
             // Unique violation
             debugPrint('Helper DB Insert Error: ${pe.message}');
+            // DELETE the auth user if profile creation failed to keep things in sync
+            try {
+               await SupabaseConfig.client.rpc('admin_delete_user', params: {'target_user_id': res.user!.id});
+            } catch (e) {
+               debugPrint('Cleanup failed: $e');
+            }
+            
             return {
-              'error': 'Profile creation failed: ${pe.message}',
-              'id': res.user!.id,
+              'error': 'Profile creation failed (Database): ${pe.message}',
             };
           }
+        } catch (e) {
+             return {'error': 'Profile creation failed (Unexpected): $e'};
         }
         return {'id': res.user!.id};
       }

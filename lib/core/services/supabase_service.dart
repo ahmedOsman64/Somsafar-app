@@ -20,20 +20,37 @@ class SupabaseConfig {
           ? (dotenv.env['SUPABASE_ANON_KEY'] ?? _fallbackAnonKey)
           : _fallbackAnonKey);
 
-  static Future<void> initialize() async {
+  static Future<void> initialize({String? url, String? anonKey}) async {
+    if (url != null && url.isNotEmpty && !url.contains('URL_KAAGA_HALKAN')) {
+      _customUrl = url;
+    }
+    if (anonKey != null && anonKey.isNotEmpty && !anonKey.contains('ANON_KEY_GAAGA_HALKAN')) {
+      _customAnonKey = anonKey;
+    }
+
     final results = await Future.wait([
       dotenv.load(fileName: 'assets/.env').catchError((e) {
-        debugPrint('Warning: Failed to load .env file. Using fallback or custom configuration.');
+        debugPrint('Note: assets/.env not found or failed to load. Using fallback/custom config.');
+        return; // Non-fatal
       }),
       SharedPreferences.getInstance(),
     ]);
 
     final prefs = results[1] as SharedPreferences;
-    _customUrl = prefs.getString('sys_supabase_url');
-    _customAnonKey = prefs.getString('sys_supabase_anon_key');
+    
+    // Only load from prefs if not already set by parameters or .env
+    if (_customUrl == null || _customUrl!.isEmpty) {
+      final savedUrl = prefs.getString('sys_supabase_url');
+      if (savedUrl != null && savedUrl.isNotEmpty) _customUrl = savedUrl;
+    }
+    
+    if (_customAnonKey == null || _customAnonKey!.isEmpty) {
+      final savedKey = prefs.getString('sys_supabase_anon_key');
+      if (savedKey != null && savedKey.isNotEmpty) _customAnonKey = savedKey;
+    }
 
-    final supabaseUrl = url;
-    final supabaseAnonKey = anonKey;
+    final supabaseUrl = SupabaseConfig.url;
+    final supabaseAnonKey = SupabaseConfig.anonKey;
 
     if (supabaseUrl.isEmpty || !supabaseUrl.startsWith('http')) {
       throw Exception('Invalid Supabase URL: "$supabaseUrl". Check your .env file or database settings.');
@@ -45,7 +62,16 @@ class SupabaseConfig {
 
     // Check if already initialized
     try {
-      Supabase.instance;
+      if (_client != null) {
+        debugPrint('Supabase already initialized. Skipping.');
+        return;
+      }
+      // Accessing client will throw if Supabase is not initialized.
+      // In release mode, the assert in Supabase.instance is stripped,
+      // so accessing Supabase.instance alone does not throw an error,
+      // but accessing its client field will throw.
+      Supabase.instance.client;
+      _client = Supabase.instance.client;
       debugPrint('Supabase already initialized. Skipping.');
       return;
     } catch (_) {
@@ -53,21 +79,38 @@ class SupabaseConfig {
     }
 
     debugPrint('Initializing Supabase with URL: $supabaseUrl');
-    await Supabase.initialize(
-      url: supabaseUrl,
-      publishableKey: supabaseAnonKey,
-      authOptions: const FlutterAuthClientOptions(
-        authFlowType: AuthFlowType.pkce,
-      ),
-    );
+    try {
+      await Supabase.initialize(
+        url: supabaseUrl,
+        anonKey: supabaseAnonKey,
+        authOptions: const FlutterAuthClientOptions(
+          authFlowType: AuthFlowType.pkce,
+        ),
+      );
+      _client = Supabase.instance.client;
+      debugPrint('Supabase.initialize() call completed successfully.');
+    } catch (e) {
+      debugPrint('Supabase.initialize() THREW an error: $e');
+      rethrow;
+    }
   }
 
+  static SupabaseClient? _client;
+
   static SupabaseClient get client {
+    if (_client != null) return _client!;
+    
     try {
-      return Supabase.instance.client;
+      _client = Supabase.instance.client;
+      return _client!;
     } catch (e) {
       debugPrint('SupabaseClient Access Error: $e');
-      throw StateError('Supabase has not been initialized. Ensure SupabaseConfig.initialize() is called and awaited in main().');
+      throw StateError(
+        'Supabase has not been initialized correctly. \n'
+        'Error: $e\n'
+        'Ensure SupabaseConfig.initialize() is called and awaited in main() '
+        'and that the URL and Anon Key are valid.'
+      );
     }
   }
 }

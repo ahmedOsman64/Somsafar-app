@@ -25,7 +25,9 @@ class _PayoutAccountsScreenState extends ConsumerState<PayoutAccountsScreen> {
       return const Scaffold(body: Center(child: Text('Please login')));
     }
 
-    final accounts = user.paymentAccounts;
+    final accounts = user.paymentAccounts
+        .where((a) => a.type != PaymentAccountType.bank)
+        .toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -139,7 +141,7 @@ class _PayoutAccountsScreenState extends ConsumerState<PayoutAccountsScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Add a bank account, mobile wallet, or card (MasterCard) to receive bookings payments.',
+            'Add a mobile wallet or card (MasterCard) to receive bookings payments.',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.grey, fontSize: 13),
           ),
@@ -474,20 +476,6 @@ class _AddPaymentAccountSheetState
                       if (v) {
                         setState(() {
                           _type = PaymentAccountType.mobileMoney;
-                        });
-                      }
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ChoiceChip(
-                    label: const Text('Bank'),
-                    selected: _type == PaymentAccountType.bank,
-                    onSelected: (v) {
-                      if (v) {
-                        setState(() {
-                          _type = PaymentAccountType.bank;
                         });
                       }
                     },

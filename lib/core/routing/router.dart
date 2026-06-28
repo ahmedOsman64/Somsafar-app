@@ -30,6 +30,9 @@ import '../../provider/screens/reports_screen.dart';
 import '../../provider/screens/reviews_screen.dart';
 import '../../provider/screens/profile_screen.dart';
 import '../../provider/screens/settings_screen.dart';
+import '../../provider/screens/settings/payout_accounts_screen.dart';
+import '../../provider/screens/settings/transaction_history_screen.dart';
+import '../../provider/screens/settings/manage_helpers_screen.dart';
 
 import '../../admin/screens/dashboard_screen.dart';
 import '../../admin/screens/users_screen.dart';
@@ -79,7 +82,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final settings = ref.read(settingsProvider);
       final hasSeenOnboarding = settings.hasSeenOnboarding;
       final path = state.uri.path;
-      
+
       if (!authNotifier.initializationComplete || !settings.initialized) {
         return null; // Wait for both services to fully initialize (prevents refresh -> login race condition)
       }
@@ -125,7 +128,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         if (path.startsWith('/provider') || path.startsWith('/admin')) {
           return '/access-denied';
         }
-      } else if (authState.role == UserRole.provider || authState.role == UserRole.providerHelper) {
+      } else if (authState.role == UserRole.provider ||
+          authState.role == UserRole.providerHelper) {
         if (path.startsWith('/traveler') || path.startsWith('/admin')) {
           return '/access-denied';
         }
@@ -161,10 +165,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/splash',
         builder: (context, state) => const SplashScreen(),
       ),
-      GoRoute(
-        path: '/',
-        redirect: (_, __) => '/login',
-      ),
+      GoRoute(path: '/', redirect: (_, __) => '/login'),
       GoRoute(
         path: '/onboarding',
         builder: (context, state) => const OnboardingScreen(),
@@ -236,7 +237,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Traveler Routes
       StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) => 
+        builder: (context, state, navigationShell) =>
             TravelerShell(navigationShell: navigationShell),
         branches: [
           StatefulShellBranch(
@@ -255,8 +256,9 @@ final routerProvider = Provider<GoRouter>((ref) {
                   final category = state.uri.queryParameters['category'];
                   final ids = state.uri.queryParameters['ids'];
                   final providerId = state.uri.queryParameters['providerId'];
-                  final hasDiscount = state.uri.queryParameters['hasDiscount'] == 'true';
-                  
+                  final hasDiscount =
+                      state.uri.queryParameters['hasDiscount'] == 'true';
+
                   return TravelerSearchScreen(
                     category: category,
                     ids: ids,
@@ -334,10 +336,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               );
             }
 
-            return TourBookingForm(
-              service: service,
-              initialPackage: package,
-            );
+            return TourBookingForm(service: service, initialPackage: package);
           } else if (category == 'transport') {
             return VehicleBookingForm(service: service);
           }
@@ -359,46 +358,73 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: '/provider/dashboard',
-            builder: (context, state) => const ProviderDashboardScreen(),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ProviderDashboardScreen()),
           ),
           GoRoute(
             path: '/provider/services',
-            builder: (context, state) => const ProviderServicesScreen(),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ProviderServicesScreen()),
           ),
           GoRoute(
             path: '/provider/bookings',
-            builder: (context, state) => const ProviderBookingsScreen(),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ProviderBookingsScreen()),
           ),
           GoRoute(
             path: '/provider/discounts',
-            builder: (context, state) => const ProviderDiscountsScreen(),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ProviderDiscountsScreen()),
           ),
           GoRoute(
             path: '/provider/reports',
-            builder: (context, state) => const ProviderReportsScreen(),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ProviderReportsScreen()),
           ),
           GoRoute(
             path: '/provider/reviews',
-            builder: (context, state) => const ProviderReviewsScreen(),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ProviderReviewsScreen()),
           ),
           GoRoute(
             path: '/provider/profile',
-            builder: (context, state) => const ProviderProfileScreen(),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ProviderProfileScreen()),
           ),
           GoRoute(
             path: '/provider/settings',
-            builder: (context, state) => const ProviderSettingsScreen(),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ProviderSettingsScreen()),
+            routes: [
+              GoRoute(
+                path: 'payout-accounts',
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: PayoutAccountsScreen()),
+              ),
+              GoRoute(
+                path: 'transactions',
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: TransactionHistoryScreen()),
+              ),
+              GoRoute(
+                path: 'helpers',
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: ManageHelpersScreen()),
+              ),
+            ],
           ),
           GoRoute(
             path: '/provider/notifications',
-            builder: (context, state) => const NotificationScreen(),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: NotificationScreen()),
           ),
         ],
       ),
       GoRoute(
         path: '/provider/services/add',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const ProviderServiceFormScreen(),
+        pageBuilder: (context, state) =>
+            const NoTransitionPage(child: ProviderServiceFormScreen()),
       ),
       GoRoute(
         path: '/provider/services/edit',
@@ -407,8 +433,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/provider/services/edit/:id',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) =>
-            ProviderServiceFormScreen(serviceId: state.pathParameters['id']),
+        pageBuilder: (context, state) => NoTransitionPage(
+          child: ProviderServiceFormScreen(
+            serviceId: state.pathParameters['id'],
+          ),
+        ),
       ),
 
       // Admin Routes
@@ -516,10 +545,10 @@ class RouterRefreshListenable extends ChangeNotifier {
     ref.listen(authServiceProvider, (previous, next) {
       notifyListeners();
     });
-    
+
     // Listen to settings changes (especially the 'initialized' flag)
     ref.listen(settingsProvider, (previous, next) {
-      if (previous?.initialized != next.initialized || 
+      if (previous?.initialized != next.initialized ||
           previous?.hasSeenOnboarding != next.hasSeenOnboarding) {
         notifyListeners();
       }

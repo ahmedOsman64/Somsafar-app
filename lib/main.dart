@@ -22,66 +22,91 @@ class _MyHttpOverrides extends HttpOverrides {
 }
 
 void main() async {
-  // MUST be called first, before runZonedGuarded or any async work
-  WidgetsFlutterBinding.ensureInitialized();
-  HttpOverrides.global = _MyHttpOverrides();
-
-  // Configure Google Fonts to always allow runtime fetching
-  GoogleFonts.config.allowRuntimeFetching = true;
-
-  // Initialize Supabase BEFORE entering the zone and BEFORE runApp
-  // This prevents the LateInitializationError / "Supabase has not been initialized" race condition
-  bool initSuccess = false;
-  try {
-    await SupabaseConfig.initialize();
-    initSuccess = true;
-    debugPrint('main(): Supabase initialized successfully.');
-  } catch (e) {
-    debugPrint('main(): CRITICAL - Supabase initialization failed: $e');
-  }
-
-  if (!initSuccess) {
-    runApp(MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error_outline, color: Colors.red, size: 64),
-                const SizedBox(height: 16),
-                const Text(
-                  'Initialisation Failed',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Please check your internet connection and try again.',
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () => main(),
-                  child: const Text('Retry'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    ));
-    return;
-  }
-
   runZonedGuarded(
     () async {
-      // Seed missing lookup data in background (essential categories, regions, etc.)
-      unawaited(
-        LookupService.seedMissingLookups().catchError((e) {
+      // MUST be called first, before any async work inside the zone
+      WidgetsFlutterBinding.ensureInitialized();
+      HttpOverrides.global = _MyHttpOverrides();
+
+      // Configure Google Fonts to always allow runtime fetching
+      GoogleFonts.config.allowRuntimeFetching = true;
+
+      debugPrint('main(): Starting Supabase initialization...');
+      bool initSuccess = false;
+      try {
+        await SupabaseConfig.initialize(
+          url: 'https://japigvtsdlhhbhsjntut.supabase.co',
+          anonKey:
+              'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImphcGlndnRzZGxoaGJoc2pudHV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwODMzNzIsImV4cCI6MjA4ODY1OTM3Mn0.wMycYukBZmitfoXo9JcqwNiQkmL4vT-nzmsMygT1_Fs',
+        );
+        initSuccess = true;
+        debugPrint('main(): Supabase initialized successfully.');
+      } catch (e) {
+        debugPrint('main(): CRITICAL - Supabase initialization failed: $e');
+      }
+
+      if (!initSuccess) {
+        runApp(
+          MaterialApp(
+            debugShowCheckedModeBanner: false,
+            home: Scaffold(
+              backgroundColor: const Color(0xFF003366), // Somsafar primary
+              body: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.wifi_off, color: Colors.white, size: 80),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Connection is Unavailable',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Please check your internet connection to use SomSafar.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white70, fontSize: 16),
+                      ),
+                      const SizedBox(height: 32),
+                      ElevatedButton(
+                        onPressed: () {
+                          // Restarting app by re-calling main
+                          main();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xFF003366),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 32,
+                            vertical: 12,
+                          ),
+                        ),
+                        child: const Text('Try Again'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        return;
+      }
+
+      try {
+        // Seed missing lookup data (essential categories, regions, etc.)
+        await LookupService.seedMissingLookups().catchError((e) {
           debugPrint('Failed to seed missing lookups: $e');
-        }),
-      );
+        });
+      } catch (e) {
+        debugPrint('Error during background seeding: $e');
+      }
 
       runApp(const ProviderScope(child: SomSafarApp()));
     },

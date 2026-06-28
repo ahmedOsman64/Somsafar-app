@@ -151,7 +151,11 @@ class SystemActivityRepository extends StateNotifier<List<SystemActivity>> {
 
     _subscription = query.order('created_at', ascending: false).listen((data) {
       if (!mounted) return;
-      state = data.map((map) => SystemActivity.fromMap(map)).toList();
+      final list = data as List;
+      state = list
+          .map<SystemActivity>(
+              (map) => SystemActivity.fromMap(map as Map<String, dynamic>))
+          .toList();
     }, onError: (e) => debugPrint('SystemActivity stream error: $e'));
   }
 

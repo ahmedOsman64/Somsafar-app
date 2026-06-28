@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum BookingStatus { pending, confirmed, completed, cancelled }
+enum BookingStatus { draft, pending, processing, confirmed, completed, cancelled, failed }
 
 class Booking {
   final String id;
@@ -60,9 +60,13 @@ class Booking {
       case BookingStatus.completed:
         return const Color(0xFF2F80ED); // Info
       case BookingStatus.cancelled:
+      case BookingStatus.failed:
         return const Color(0xFFEB5757); // Error
       case BookingStatus.pending:
+      case BookingStatus.processing:
         return const Color(0xFFF2C94C); // Warning
+      case BookingStatus.draft:
+        return const Color(0xFFBDBDBD); // Grey
     }
   }
 

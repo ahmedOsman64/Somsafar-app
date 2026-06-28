@@ -227,10 +227,16 @@ class UserRepository extends StateNotifier<List<User>> {
         updateData['failed_attempts'] = 0;
       }
 
-      await SupabaseConfig.client
+      final response = await SupabaseConfig.client
           .from('users')
           .update(updateData)
-          .eq('id', updatedUser.id);
+          .eq('id', updatedUser.id)
+          .select(); // Use select() to verify it actually updated
+
+      if (response.isEmpty) {
+        debugPrint('UserRepository: Update failed - 0 rows affected. Check RLS policies.');
+        throw Exception('Access denied: You do not have permission to update this user.');
+      }
 
       // Trigger automatic service verification if provider just became verified
       if (!oldUser.isVerified && updatedUser.isVerified) {
@@ -286,6 +292,7 @@ class UserRepository extends StateNotifier<List<User>> {
   }
 
   Future<void> deleteUser(String id) async {
+    final oldState = state;
     try {
       final userToDelete = state.firstWhere(
         (u) => u.id == id,
@@ -310,6 +317,9 @@ class UserRepository extends StateNotifier<List<User>> {
       _ref.read(activityProvider.notifier).logUserDeletion(userToDelete.name);
     } catch (e) {
       print('Delete user error: $e');
+      // Revert state on failure
+      state = oldState;
+      rethrow;
     }
   }
 
@@ -520,3 +530,30 @@ final filteredUsersProvider = Provider<List<User>>((ref) {
       return users;
   }
 });
+
+/// Fetches a specific user by ID directly from Supabase.
+/// This is used when the user stream doesn't yet contain the target user (e.g. provider details).
+final providerDetailProvider = FutureProvider.family<User?, String>((ref, userId) async {
+  try {
+    final response = await SupabaseConfig.client
+        .from('users')
+        .select()
+        .eq('id', userId)
+        .maybeSingle();
+
+    if (response == null) return null;
+
+    // Use the existing mapping logic in UserRepository (we'd need a cleaner way to reuse it, 
+    // but for now we'll do a simple map or call a static mapper if available)
+    // For now, doing a basic map check
+    final repository = ref.read(userProvider.notifier);
+    return repository.mapRecordToUser(response);
+  } catch (e) {
+    debugPrint('Error fetching provider detail: $e');
+    return null;
+  }
+});
+
+extension UserRepositoryExtension on UserRepository {
+  User? mapRecordToUser(Map<String, dynamic> res) => _mapRecordToUser(res);
+}

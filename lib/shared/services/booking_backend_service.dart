@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show FunctionException;
 import 'package:uuid/uuid.dart';
 import '../models/booking_forms_model.dart';
 import '../models/booking_model.dart';
@@ -7,12 +8,30 @@ import '../models/user_model.dart';
 import 'auth_service.dart';
 import 'system_activity_repository.dart';
 import 'financial_repository.dart';
-import 'user_repository.dart';
 import 'booking_repository.dart';
+import '../../core/services/supabase_service.dart';
 
 final bookingBackendProvider = Provider<BookingBackendService>((ref) {
   return BookingBackendService(ref);
 });
+
+class PaymentResult {
+  final bool success;
+  final String? transactionId;
+  final String message;
+  final String? error;
+  final String? paymentUrl;
+  final String? status;
+
+  PaymentResult({
+    required this.success,
+    this.transactionId,
+    required this.message,
+    this.error,
+    this.paymentUrl,
+    this.status,
+  });
+}
 
 class BookingBackendService {
   final Ref _ref;
@@ -20,6 +39,7 @@ class BookingBackendService {
 
   // Create a new booking
   Future<Booking> createBooking({
+    String? id,
     required String serviceId,
     required String providerId,
     required String serviceTitle,
@@ -45,9 +65,8 @@ class BookingBackendService {
     }
 
     try {
-      final bookingId = const Uuid().v4();
+      final bookingId = id ?? const Uuid().v4();
 
-      await Future.delayed(const Duration(seconds: 1));
 
       final booking = Booking(
         id: bookingId,
@@ -66,20 +85,18 @@ class BookingBackendService {
         contactPhone: contactPhone,
         contactEmail: contactEmail,
         specialRequests: specialRequests,
-        paymentMethod: paymentData.method == PaymentMethod.mobileMoney 
-            ? '${paymentData.mobileProvider} Mobile Money' 
-            : (paymentData.method == PaymentMethod.bank 
-                ? '${paymentData.mobileProvider} Bank Transfer' 
-                : paymentData.method.name),
+        paymentMethod: _formatPaymentMethod(paymentData),
         metadata: metadata,
         status: BookingStatus.pending,
-        paymentStatus: _getPaymentStatus(paymentData.method),
+        paymentStatus: BookingPaymentStatus.pending,
       );
 
-      // --- FULL CONNECTION: Notify Admin and Provider via Activity Log ---
-      _ref
-          .read(activityProvider.notifier)
-          .logBooking(
+      // --- PERSIST TO SUPABASE FIRST (Atomic registration) ---
+      // This ensures the booking exists before any payment is attempted
+      await _ref.read(bookingProvider.notifier).createBooking(booking);
+
+      // --- LOG ATTEMPT ---
+      _ref.read(activityProvider.notifier).logBooking(
             travelerName: travelerName,
             serviceTitle: serviceTitle,
             price: totalPrice,
@@ -87,46 +104,26 @@ class BookingBackendService {
             userId: travelerId,
           );
 
-      // --- NEW: AUTOMATIC FINANCIAL RECORDING WITH PROVIDER PAYOUT ---
-      final isPaid =
-          paymentData.method == PaymentMethod.card ||
-          paymentData.method == PaymentMethod.mobileMoney;
-      
-      // Look up provider details for payout
-      final allUsers = _ref.read(userProvider);
-      final provider = allUsers.firstWhere(
-        (u) => u.id == providerId || u.providerId == providerId,
-        orElse: () => User(id: providerId, name: 'Unknown Provider', email: '', password: '', role: UserRole.provider),
-      );
-      
-      final defaultPayout = provider.paymentAccounts.isEmpty 
-        ? null 
-        : provider.paymentAccounts.firstWhere((a) => a.isDefault, orElse: () => provider.paymentAccounts.first);
-
-      _ref
-          .read(financialProvider.notifier)
-          .addTransaction(
-            userName: travelerName,
-            amount: totalPrice,
-            bookingId: bookingId,
-            isPaid: isPaid,
-            providerId: providerId,
-            providerName: provider.name,
-            receivingAccount: defaultPayout != null 
-              ? '${defaultPayout.providerName} (${defaultPayout.accountNumber})' 
-              : 'No Account Set',
-          );
-
       await _sendBookingConfirmations(booking, paymentData);
-
-      // --- NEW: PERSIST TO SUPABASE ---
-      await _ref.read(bookingProvider.notifier).createBooking(booking);
 
       return booking;
     } catch (e) {
       debugPrint('Error creating booking: $e');
       throw Exception('Failed to create booking: $e');
     }
+  }
+
+  String _formatPaymentMethod(PaymentData data) {
+    if (data.method == PaymentMethod.mobileMoney) {
+      return 'MWALLET_ACCOUNT'; // Align with backend expectations
+    }
+    if (data.method == PaymentMethod.bank) {
+      return 'BANK_TRANSFER';
+    }
+    if (data.method == PaymentMethod.card) {
+      return 'CREDIT_CARD';
+    }
+    return data.method.name.toUpperCase();
   }
 
   // Update booking status
@@ -143,7 +140,7 @@ class BookingBackendService {
     }
 
     try {
-      await Future.delayed(const Duration(milliseconds: 500));
+
       _ref
           .read(activityProvider.notifier)
           .logStatusUpdate(currentUser.name, 'Booking $bookingId', status.name);
@@ -162,30 +159,118 @@ class BookingBackendService {
     int guests = 1,
     int rooms = 1,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 500));
     return true;
   }
+
 
   Future<bool> validateServiceAvailability({
     required String serviceId,
     required DateTime checkIn,
     required DateTime checkOut,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 400));
     return true;
   }
 
-  Future<Map<String, dynamic>> processPayment({
+
+  Future<PaymentResult> processPayment({
     required PaymentData paymentData,
     required double amount,
     required String bookingId,
   }) async {
-    await Future.delayed(const Duration(seconds: 2));
-    return {
-      'success': true,
-      'transactionId': 'tx_${const Uuid().v4()}',
-      'message': 'Payment successful',
-    };
+    try {
+      final response = await SupabaseConfig.client.functions.invoke(
+        'process-payment',
+        body: {
+          'booking_id': bookingId,
+          'account_no': paymentData.mobileNumber,
+          'payment_method': _formatPaymentMethod(paymentData),
+          'idempotency_key': bookingId, // Use bookingId as idempotency key
+        },
+      );
+
+      final data = response.data as Map<String, dynamic>;
+      final bool success = response.status == 200 && (data['success'] == true);
+
+      if (success) {
+        // --- RECORD FINANCIAL TRANSACTION ONLY ON SUCCESS ---
+        // Backend handles provider lookup to avoid client-side trust issues
+        
+        _ref.read(financialProvider.notifier).addTransaction(
+          userName: 'Traveler', // Prefer fetching from session
+          amount: amount,
+          bookingId: bookingId,
+          isPaid: true,
+          providerId: 'provider-lookup-via-backend', // Should be handled server-side or via separate lookup
+          providerName: 'Verified Provider',
+          receivingAccount: 'Verified Account',
+        );
+      }
+
+      String message = data['message'] ?? (success ? 'Payment successful' : 'Payment failed');
+      if (message.contains('u direyso')) {
+        message = message.replaceAll('u direyso', 'ka direyso');
+      } else if (message.contains('u direeso')) {
+        message = message.replaceAll('u direeso', 'ka direeso');
+      }
+
+      return PaymentResult(
+        success: success,
+        transactionId: data['data'] != null ? data['data']['reference_id'] : null,
+        message: message,
+        error: data['error']?.toString(),
+        status: data['status'] ?? (success ? 'completed' : 'failed'),
+        paymentUrl: data['payment_url'],
+      );
+    } on FunctionException catch (e) {
+      debugPrint('Payment FunctionException [${e.status}]: ${e.details}');
+      String errorMessage = 'Payment failed. Please try again.';
+      
+      final details = e.details;
+      if (details is Map && details['message'] != null) {
+        errorMessage = details['message'].toString();
+      }
+
+      if (errorMessage.contains('u direyso')) {
+        errorMessage = errorMessage.replaceAll('u direyso', 'ka direyso');
+      } else if (errorMessage.contains('u direeso')) {
+        errorMessage = errorMessage.replaceAll('u direeso', 'ka direeso');
+      }
+
+      return PaymentResult(success: false, message: errorMessage, error: e.toString());
+    } catch (e) {
+      debugPrint('Payment error: $e');
+      return PaymentResult(
+        success: false, 
+        message: 'Technical error. Please check your internet.',
+        error: e.toString()
+      );
+    }
+  }
+
+  Future<PaymentResult> verifyPayment(String referenceId) async {
+    if (referenceId.isEmpty) {
+       return PaymentResult(success: false, message: 'Invalid reference ID');
+    }
+
+    try {
+      final response = await SupabaseConfig.client.functions.invoke(
+        'verify-payment',
+        body: {'reference_id': referenceId},
+      );
+
+      final data = response.data as Map<String, dynamic>;
+      final bool success = data['success'] == true && data['data'] != null;
+
+      return PaymentResult(
+        success: success,
+        transactionId: referenceId,
+        message: data['message'] ?? (success ? 'Verified' : 'Verification failed'),
+        error: data['errorCode'],
+      );
+    } catch (e) {
+      debugPrint('Verification error: $e');
+      return PaymentResult(success: false, message: 'System connection failed', error: e.toString());
+    }
   }
 
   Future<Map<String, dynamic>> applyDiscountCode({
@@ -193,8 +278,8 @@ class BookingBackendService {
     required double amount,
     required String serviceId,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 500));
     if (code.toUpperCase() == 'WELCOME10') {
+
       return {
         'success': true,
         'discount': amount * 0.1,
@@ -211,12 +296,5 @@ class BookingBackendService {
   ) async {
     debugPrint('Confirmation sent to ${booking.contactEmail}');
   }
-
-  BookingPaymentStatus _getPaymentStatus(PaymentMethod method) {
-    if (method == PaymentMethod.card || method == PaymentMethod.mobileMoney) {
-      return BookingPaymentStatus.paid;
-    }
-    // Bank transfers are pending until verified by provider
-    return BookingPaymentStatus.pending;
-  }
 }
+

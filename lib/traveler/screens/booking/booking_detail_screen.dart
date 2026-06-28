@@ -5,8 +5,6 @@ import 'package:intl/intl.dart';
 import '../../../shared/services/receipt_pdf_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/models/booking_model.dart';
-import '../../../shared/models/user_model.dart';
-
 import '../../../shared/services/user_repository.dart';
 
 class BookingDetailScreen extends ConsumerWidget {
@@ -16,13 +14,13 @@ class BookingDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Fetch provider to get public email
-    final users = ref.watch(userProvider);
-    final provider = users.cast<User?>().firstWhere(
-      (u) => u?.id == booking.providerId,
-      orElse: () => null,
+    // Fetch provider to get public email using the new future provider
+    final providerAsync = ref.watch(providerDetailProvider(booking.providerId));
+    final publicEmail = providerAsync.when(
+      data: (u) => u?.publicEmail,
+      loading: () => null,
+      error: (_, __) => null,
     );
-    final publicEmail = provider?.publicEmail;
     final metadata = booking.metadata;
     final type =
         metadata['serviceType']?.toString().toLowerCase() ??
@@ -148,17 +146,6 @@ class BookingDetailScreen extends ConsumerWidget {
 
             const Divider(height: 32),
 
-            // Provider Contact (Visible only if booking is made)
-            if (publicEmail != null && publicEmail.isNotEmpty) ...[
-              _buildSectionTitle('Provider Contact'),
-              _buildInfoRow(
-                'Business Email',
-                publicEmail,
-                color: const Color(0xFFF43F5E),
-                isBold: true,
-              ),
-              const Divider(height: 32),
-            ],
 
             // Payment Information
             _buildSectionTitle('Payment Information'),
@@ -184,17 +171,24 @@ class BookingDetailScreen extends ConsumerWidget {
 
             _buildInfoRow(
               'Payment Status',
-              (booking.paymentMethod == 'payLater' ||
-                      booking.paymentMethod == 'PaymentMethod.payLater')
-                  ? 'PAY AT ARRIVAL'
-                  : booking.paymentStatus.name.toUpperCase(),
-              color:
-                  (booking.paymentMethod == 'payLater' ||
-                      booking.paymentMethod == 'PaymentMethod.payLater')
-                  ? Colors.orange
-                  : AppColors.success,
+              _getDisplayPaymentStatus(booking),
+              color: _getPaymentStatusColor(booking),
               isBold: true,
             ),
+
+            const Divider(height: 32),
+
+            // Provider Contact (Visible only if email is found)
+            if (publicEmail != null && publicEmail.isNotEmpty) ...[
+              _buildSectionTitle('Provider Contact'),
+              _buildInfoRow(
+                'Business Email',
+                publicEmail,
+                color: const Color(0xFFF43F5E),
+                isBold: true,
+              ),
+              const Divider(height: 32),
+            ],
 
             if (booking.status == BookingStatus.confirmed) ...[
               const SizedBox(height: 32),
@@ -294,12 +288,33 @@ class BookingDetailScreen extends ConsumerWidget {
   }
 
   String _formatPaymentMethod(String method) {
+    if (method.toLowerCase().contains('mobile money')) return '📱 Mobile Money';
+    if (method.toLowerCase().contains('bank transfer')) return '🏦 Bank Transfer';
     final m = method.toLowerCase();
     if (m.contains('card')) return '💳 Credit/Debit Card';
     if (m.contains('mobile')) return '📱 Mobile Money';
     if (m.contains('bank')) return '🏦 Bank Transfer';
     if (m.contains('paylater')) return '🕒 Pay Later';
     return method.replaceAll('PaymentMethod.', '').toUpperCase();
+  }
+
+  String _getDisplayPaymentStatus(Booking booking) {
+    final method = booking.paymentMethod?.toLowerCase() ?? '';
+    // Force PAID for Mobile Money and Card as they are immediate
+    if (method.contains('mobile') || method.contains('card')) {
+      return 'PAID';
+    }
+    if (method.contains('paylater')) {
+      return 'PAY AT ARRIVAL';
+    }
+    return booking.paymentStatus.name.toUpperCase();
+  }
+
+  Color _getPaymentStatusColor(Booking booking) {
+    final status = _getDisplayPaymentStatus(booking);
+    if (status == 'PAID') return AppColors.success;
+    if (status == 'PAY AT ARRIVAL') return Colors.orange;
+    return const Color(0xFFF2C94C); // Warning/Pending color
   }
 
   String _buildTravelerBreakdown(Booking booking) {

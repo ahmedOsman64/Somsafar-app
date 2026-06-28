@@ -808,6 +808,7 @@ class _VehicleBookingFormState extends ConsumerState<VehicleBookingForm>
             basePrice: widget.service.price,
             totalPrice: _bookingSummary!.totalPrice,
             taxes: _bookingSummary!.taxes,
+            discount: _bookingSummary!.discount,
             extras: _bookingSummary!.extras,
             contactName: bookingData.fullName,
             contactEmail: bookingData.email,
