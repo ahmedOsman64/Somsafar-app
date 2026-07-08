@@ -34,6 +34,9 @@ class ProviderBookingsScreen extends ConsumerWidget {
       case ProviderType.tour:
         title = 'Tour Bookings';
         break;
+      case ProviderType.tailor:
+        title = 'Dalabaadka Harqaanka';
+        break;
     }
 
     return DefaultTabController(

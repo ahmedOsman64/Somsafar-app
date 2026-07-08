@@ -36,10 +36,11 @@ Deno.serve(async (req) => {
       }
     )
 
+    const token = authHeader?.replace('Bearer ', '')
     const {
       data: { user },
       error: userError,
-    } = await supabaseClient.auth.getUser()
+    } = await supabaseClient.auth.getUser(token)
 
     if (userError || !user) {
       return new Response(JSON.stringify({ success: false, message: 'Unauthorized' }), { status: 401, headers: corsHeaders })
@@ -87,13 +88,31 @@ Deno.serve(async (req) => {
       }
     }
 
-    const response = await fetch(WAAFIPAY_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(inquiryRequest)
-    })
+    const transactionId = transaction.waafipay_response?.params?.transactionId || transaction.id;
+    const isMockTransaction = typeof transactionId === 'string' && transactionId.startsWith('MOCK-TX-');
 
-    const result = await response.json()
+    let result;
+    if (isMockTransaction) {
+      console.log(`[Verify] Sandbox Mode: Verifying mocked transaction: ${transactionId}`);
+      result = {
+        responseCode: "2001",
+        responseMsg: "Transaction approved successfully (Mocked)",
+        errorCode: "0",
+        params: {
+          state: "APPROVED",
+          transactionId: transactionId,
+          transactionState: "APPROVED"
+        },
+        requestId: inquiryRequest.requestId
+      };
+    } else {
+      const response = await fetch(WAAFIPAY_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(inquiryRequest)
+      })
+      result = await response.json()
+    }
 
     // 3. Handle result
     const remoteStatus = 

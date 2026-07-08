@@ -727,13 +727,14 @@ class _HotelBookingFormState extends ConsumerState<HotelBookingForm>
 
 
   /// Checks how many rooms are free for the selected date window and updates state.
-  void _checkDateAvailability() {
+  void _checkDateAvailability() async {
     if (_checkInDate == null || _checkOutDate == null) { return; }
-    final available = ref.read(bookingProvider.notifier).getAvailableRoomsForDates(
+    final available = await ref.read(bookingProvider.notifier).getAvailableRoomsForDatesAsync(
       serviceId: widget.service.id,
       checkIn: _checkInDate!,
       checkOut: _checkOutDate!,
     );
+    if (!mounted) return;
     setState(() {
       _availableRoomsForDates = available;
       // Clamp rooms to what's actually available
@@ -801,11 +802,18 @@ class _HotelBookingFormState extends ConsumerState<HotelBookingForm>
 
     // Final availability double-check before proceeding to payment
     if (_checkInDate != null && _checkOutDate != null) {
-      final available = ref.read(bookingProvider.notifier).getAvailableRoomsForDates(
+      setState(() {
+        _isLoading = true;
+      });
+      final available = await ref.read(bookingProvider.notifier).getAvailableRoomsForDatesAsync(
         serviceId: widget.service.id,
         checkIn: _checkInDate!,
         checkOut: _checkOutDate!,
       );
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
       if (available <= 0) {
         setState(() {
           _errorMessage = 'These dates are no longer available. Please choose different dates.';

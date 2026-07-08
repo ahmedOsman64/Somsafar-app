@@ -53,6 +53,12 @@ class ProviderShell extends ConsumerWidget {
         bookingsLabel = 'Tour Bookings';
         servicesIcon = Icons.explore;
         break;
+      case ProviderType.tailor:
+        servicesLabel = 'Macaamiisha (Customers)';
+        bookingsLabel = 'Dalabaadka (Orders)';
+        servicesIcon = Icons.people;
+        bookingsIcon = Icons.shopping_bag;
+        break;
     }
 
     return Responsive(
@@ -173,7 +179,7 @@ class ProviderShell extends ConsumerWidget {
                         Navigator.pop(context);
                       },
                     ),
-                    if (!isHelper)
+                    if (!isHelper && providerType != ProviderType.tailor)
                       _buildDrawerItem(
                         context,
                         icon: Icons.percent_outlined,
@@ -183,16 +189,21 @@ class ProviderShell extends ConsumerWidget {
                     if (!isHelper)
                       _buildDrawerItem(
                         context,
-                        icon: Icons.analytics_outlined,
-                        label: 'Reports',
+                        icon: providerType == ProviderType.tailor
+                            ? Icons.monetization_on_outlined
+                            : Icons.analytics_outlined,
+                        label: providerType == ProviderType.tailor
+                            ? 'Xisaabaadka (Financials)'
+                            : 'Reports',
                         index: 4,
                       ),
-                    _buildDrawerItem(
-                      context,
-                      icon: Icons.reviews_outlined,
-                      label: 'Reviews',
-                      index: 5,
-                    ),
+                    if (providerType != ProviderType.tailor)
+                      _buildDrawerItem(
+                        context,
+                        icon: Icons.reviews_outlined,
+                        label: 'Reviews',
+                        index: 5,
+                      ),
                     _buildDrawerItem(
                       context,
                       icon: Icons.person_outline,
@@ -301,7 +312,7 @@ class ProviderShell extends ConsumerWidget {
                             showDot: ref.watch(dashboardStatsProvider).pendingBookings > 0,
                             onTap: () => _onItemTapped(2, context),
                           ),
-                          if (!isHelper) ...[
+                           if (!isHelper && providerType != ProviderType.tailor) ...[
                             _buildSidebarItem(
                               context,
                               icon: Icons.percent_outlined,
@@ -310,29 +321,39 @@ class ProviderShell extends ConsumerWidget {
                               isSelected: _calculateSelectedIndex(context) == 3,
                               onTap: () => _onItemTapped(3, context),
                             ),
+                          ],
+                          if (!isHelper) ...[
                             _buildSidebarItem(
                               context,
-                              icon: Icons.analytics_outlined,
-                              selectedIcon: Icons.analytics,
-                              label: 'Reports',
+                              icon: providerType == ProviderType.tailor
+                                  ? Icons.monetization_on_outlined
+                                  : Icons.analytics_outlined,
+                              selectedIcon: providerType == ProviderType.tailor
+                                  ? Icons.monetization_on
+                                  : Icons.analytics,
+                              label: providerType == ProviderType.tailor
+                                  ? 'Xisaabaadka (Financials)'
+                                  : 'Reports',
                               isSelected: _calculateSelectedIndex(context) == 4,
                               onTap: () => _onItemTapped(4, context),
                             ),
                           ],
-                          _buildSidebarItem(
-                            context,
-                            icon: Icons.reviews_outlined,
-                            selectedIcon: Icons.reviews,
-                            label: 'Reviews',
-                            isSelected: _calculateSelectedIndex(context) == (isHelper ? 3 : 5),
-                            onTap: () => _onItemTapped(isHelper ? 3 : 5, context),
-                          ),
+                          if (providerType != ProviderType.tailor) ...[
+                            _buildSidebarItem(
+                              context,
+                              icon: Icons.reviews_outlined,
+                              selectedIcon: Icons.reviews,
+                              label: 'Reviews',
+                              isSelected: _calculateSelectedIndex(context) == (isHelper ? 3 : 5),
+                              onTap: () => _onItemTapped(isHelper ? 3 : 5, context),
+                            ),
+                          ],
                           _buildSidebarItem(
                             context,
                             icon: Icons.person_outline,
                             selectedIcon: Icons.person,
                             label: 'Profile',
-                            isSelected: _calculateSelectedIndex(context) == (isHelper ? 4 : 6),
+                            isSelected: _calculateSelectedIndex(context) == (isHelper ? 4 : (providerType == ProviderType.tailor ? 4 : 6)),
                             onTap: () => _onItemTapped(isHelper ? 4 : 6, context),
                           ),
                           if (!isHelper)

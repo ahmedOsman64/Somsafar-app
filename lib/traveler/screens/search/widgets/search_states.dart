@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/providers/localization_provider.dart';
 
 class LoadingState extends StatelessWidget {
   const LoadingState({super.key});
@@ -128,7 +130,7 @@ class _SkeletonCardState extends State<SkeletonCard>
   }
 }
 
-class NoResultsState extends StatelessWidget {
+class NoResultsState extends ConsumerWidget {
   final VoidCallback onClearFilters;
   final VoidCallback onExploreNearby;
 
@@ -139,7 +141,8 @@ class NoResultsState extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final loc = ref.watch(localizationProvider);
     return Center(
       child: SingleChildScrollView(
         child: Column(
@@ -151,9 +154,9 @@ class NoResultsState extends StatelessWidget {
               color: Colors.grey.shade400,
             ),
             const SizedBox(height: 24),
-            const Text(
-              'No stays found',
-              style: TextStyle(
+            Text(
+              loc.translate('no_stays_found'),
+              style: const TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
                 color: Colors.black87,
@@ -161,7 +164,7 @@ class NoResultsState extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'Try changing filters or dates',
+              loc.translate('try_changing_filters'),
               style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 32),
@@ -181,9 +184,9 @@ class NoResultsState extends StatelessWidget {
                     side: BorderSide(color: AppColors.primary),
                     foregroundColor: AppColors.primary,
                   ),
-                  child: const Text(
-                    'Clear Filters',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                  child: Text(
+                    loc.translate('clear_filters'),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -201,9 +204,9 @@ class NoResultsState extends StatelessWidget {
                     ),
                     elevation: 0,
                   ),
-                  child: const Text(
-                    'Explore Nearby Cities',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                  child: Text(
+                    loc.translate('explore_nearby'),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
               ],

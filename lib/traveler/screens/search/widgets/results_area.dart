@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/providers/localization_provider.dart';
 import 'service_card.dart';
 import 'search_states.dart';
 
-class ResultsArea extends StatelessWidget {
+class ResultsArea extends ConsumerWidget {
   final List<dynamic> filteredServices;
   final bool isLoading;
   final bool isMobile;
@@ -34,7 +36,8 @@ class ResultsArea extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final loc = ref.watch(localizationProvider);
     if (isLoading) {
       return const LoadingState();
     }
@@ -48,7 +51,7 @@ class ResultsArea extends StatelessWidget {
 
     return Column(
       children: [
-        _buildResultsSummaryBar(context),
+        _buildResultsSummaryBar(context, loc),
         Expanded(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -109,7 +112,7 @@ class ResultsArea extends StatelessWidget {
     );
   }
 
-  Widget _buildResultsSummaryBar(BuildContext context) {
+  Widget _buildResultsSummaryBar(BuildContext context, AppLocalizations loc) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -127,7 +130,7 @@ class ResultsArea extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              '${filteredServices.length} stays found${searchQuery.isNotEmpty ? ' in "$searchQuery"' : ''}',
+              '${filteredServices.length} ${loc.translate('stays_found')}${searchQuery.isNotEmpty ? ' ($searchQuery)' : ''}',
               style: TextStyle(
                 fontSize: MediaQuery.sizeOf(context).width > 600 ? 18 : 16,
                 fontWeight: FontWeight.w600,

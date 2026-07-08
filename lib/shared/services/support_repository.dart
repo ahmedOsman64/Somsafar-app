@@ -149,20 +149,15 @@ class SupportRepository extends StateNotifier<List<SupportTicket>> {
         .listen((data) {
           if (!mounted) return;
 
-          final now = DateTime.now();
+          final now = DateTime.now().toUtc();
           final limit = now.subtract(const Duration(hours: 72));
           final validTickets = <SupportTicket>[];
 
           for (final res in data) {
-            final createdAt = DateTime.tryParse(res['created_at'] ?? '');
+            final createdAtRaw = res['created_at'];
+            final createdAt = createdAtRaw != null ? DateTime.tryParse(createdAtRaw)?.toUtc() : null;
             if (createdAt != null && createdAt.isBefore(limit)) {
-              // Delete old ticket in the background (after 72 hours)
-              final ticketId = res['id'];
-              SupabaseConfig.client
-                  .from('support_tickets')
-                  .delete()
-                  .eq('id', ticketId)
-                  .catchError((e) => debugPrint('Error deleting expired ticket $ticketId: $e'));
+              // Skip old tickets in UI. Automatic deletion is handled on the database level.
               continue;
             }
 
@@ -191,7 +186,7 @@ class SupportRepository extends StateNotifier<List<SupportTicket>> {
                 (e) => e.name == res['priority'],
                 orElse: () => TicketPriority.medium,
               ),
-              createdAt: createdAt ?? DateTime.now(),
+              createdAt: createdAt?.toLocal() ?? DateTime.now(),
               messages: msgs,
             ));
           }

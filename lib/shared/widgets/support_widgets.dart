@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../shared/services/auth_service.dart';
+import '../../core/providers/localization_provider.dart';
+import 'package:go_router/go_router.dart';
 import '../../shared/services/support_repository.dart';
 
 class SupportSection extends ConsumerWidget {
@@ -17,6 +19,7 @@ class SupportSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authProvider);
+    final loc = ref.watch(localizationProvider);
     final myTickets = ref
         .watch(supportProvider)
         .where((t) => t.userId == (user?.id ?? ''))
@@ -29,24 +32,24 @@ class SupportSection extends ConsumerWidget {
         _buildSupportItem(
           context,
           Icons.headset_mic_outlined,
-          'Contact Support',
-          'Get help from our team',
+          loc.translate('contact_support'),
+          loc.translate('get_help'),
           Colors.blue,
           () => _openTicketDialog(context, ref, TicketType.contactSupport),
         ),
         _buildSupportItem(
           context,
           Icons.report_problem_outlined,
-          'Report an Issue',
-          'Found a bug? Let us know',
+          loc.translate('report_issue'),
+          loc.translate('found_bug'),
           Colors.red,
           () => _openTicketDialog(context, ref, TicketType.reportIssue),
         ),
         _buildSupportItem(
           context,
           Icons.help_outline,
-          'FAQs',
-          'Frequently asked questions',
+          loc.translate('faqs'),
+          loc.translate('freq_asked_questions'),
           Colors.purple,
           () {
             showDialog(
@@ -58,8 +61,8 @@ class SupportSection extends ConsumerWidget {
         _buildSupportItem(
           context,
           Icons.chat_bubble_outline,
-          'Live Chat',
-          'Chat with us now',
+          loc.translate('live_chat'),
+          loc.translate('chat_now'),
           Colors.green,
           () {
             showDialog(
@@ -71,8 +74,8 @@ class SupportSection extends ConsumerWidget {
         _buildSupportItem(
           context,
           Icons.info_outline,
-          'About SomSafar',
-          'Learn more about our platform',
+          loc.translate('about_somsafar'),
+          loc.translate('learn_more'),
           Colors.orange,
           () {
             showDialog(
@@ -84,8 +87,8 @@ class SupportSection extends ConsumerWidget {
         _buildSupportItem(
           context,
           Icons.privacy_tip_outlined,
-          'Privacy Policy',
-          'How we handle your data',
+          loc.translate('privacy_policy'),
+          loc.translate('how_handle_data'),
           Colors.teal,
           () {
             showDialog(
@@ -98,9 +101,9 @@ class SupportSection extends ConsumerWidget {
           const Divider(height: 32),
           Row(
             children: [
-              const Text(
-                'My Tickets',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              Text(
+                loc.translate('my_tickets'),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
               if (hasReplies) ...[
                 const SizedBox(width: 8),
@@ -115,7 +118,7 @@ class SupportSection extends ConsumerWidget {
                     border: Border.all(color: Colors.green.shade200),
                   ),
                   child: Text(
-                    'Admin replied',
+                    loc.translate('admin_replied'),
                     style: TextStyle(
                       fontSize: 11,
                       color: Colors.green.shade700,
@@ -138,16 +141,17 @@ class SupportSection extends ConsumerWidget {
     WidgetRef ref,
     SupportTicket ticket,
   ) {
+    final loc = ref.read(localizationProvider);
     final statusColor = ticket.status == TicketStatus.open
         ? Colors.red
         : ticket.status == TicketStatus.inProgress
         ? Colors.orange
         : Colors.green;
     final statusLabel = ticket.status == TicketStatus.open
-        ? 'Open'
+        ? loc.translate('ticket_open')
         : ticket.status == TicketStatus.inProgress
-        ? 'In Progress'
-        : 'Closed';
+        ? loc.translate('ticket_in_progress')
+        : loc.translate('ticket_closed');
 
     return InkWell(
       onTap: () => showDialog(
@@ -267,58 +271,141 @@ class SupportSection extends ConsumerWidget {
   }
 }
 
-class FAQDialog extends StatefulWidget {
+class FAQDialog extends ConsumerStatefulWidget {
   const FAQDialog({super.key});
 
   @override
-  State<FAQDialog> createState() => _FAQDialogState();
+  ConsumerState<FAQDialog> createState() => _FAQDialogState();
 }
 
-class _FAQDialogState extends State<FAQDialog> {
-  final List<Map<String, String>> _faqs = [
-    {
-      'question': 'How do I book a trip?',
-      'answer': 'You can book a trip by searching for your destination on the home screen, selecting a travel package, and clicking "Book Now". Follow the prompts to complete your booking.'
-    },
-    {
-      'question': 'What payment methods are supported?',
-      'answer': 'We support major mobile money services (EVC Plus, Sahal, Premier Wallet) and credit/debit cards for secure payments.'
-    },
-    {
-      'question': 'Can I cancel my booking?',
-      'answer': 'Yes, you can cancel your booking from the "My Bookings" section. Please note that cancellation policies vary by trip and operator.'
-    },
-    {
-      'question': 'How do I contact my driver or guide?',
-      'answer': 'Once your booking is confirmed, you will receive the contact details of your driver or guide in the booking details screen.'
-    },
-    {
-      'question': 'How do I verify my profile?',
-      'answer': 'To verify your profile, go to your profile settings and complete all the required fields, including uploading a profile picture and verifying your phone number.'
-    },
-    {
-      'question': 'How do refunds work?',
-      'answer': 'Refunds are processed back to your original payment method (e.g. EVC Plus, Sahal, or card) within 2-3 business days after a cancellation is approved.'
-    },
-    {
-      'question': 'What if the operator cancels my booking?',
-      'answer': 'If a provider cancels your booking, you will receive a full 100% refund immediately, and our support team will help you find an alternative.'
-    },
-    {
-      'question': 'Is my payment data secure?',
-      'answer': 'Yes. We use industry-standard encryption protocols and secure mobile money integrations to ensure your data and transactions are completely protected.'
-    },
-    {
-      'question': 'Can I change my booking dates?',
-      'answer': 'Yes, you can request date modifications by contacting our customer support team or by reaching out to the provider directly through the app.'
-    },
-  ];
+class _FAQDialogState extends ConsumerState<FAQDialog> {
+  List<Map<String, String>> _getFaqs(String langCode) {
+    if (langCode == 'so') {
+      return [
+        {
+          'question': 'Sideen u ballansadaa safar?',
+          'answer': 'Waxaad ballansan kartaa safar adiga oo ka raadinaya meesha aad u socoto bogga hore, dooranaya xirmo safar, ka dibna gujinaya "Hadda Ballanso". Raac tilmaamaha si aad u dhammaystirto ballansashadaada.'
+        },
+        {
+          'question': 'Waa maxay hababka lacag bixinta ee la taageero?',
+          'answer': 'Waxaan taageernaa adeegyada lacagta moobilka ee ugu waaweyn (EVC Plus, Sahal, Premier Wallet) iyo kaararka deynta/debit-ka ee lacag bixinta badbaadsan.'
+        },
+        {
+          'question': 'Miyaan kansali karaa ballanteyda?',
+          'answer': 'Haa, waxaad kaga kansali kartaa ballantaada qaybta "My Bookings". Fadlan ogow in shuruucda kansalaadu ay ku kala duwan yihiin safarka iyo adeeg bixiyaha.'
+        },
+        {
+          'question': 'Sideen ula xiriiraa darawalkeyga ama hagahayga?',
+          'answer': 'Marka ballantaada la xaqiijiyo, waxaad heli doontaa faahfaahinta xiriirka darawalkaaga ama hagahaaga oo ku taal bogga faahfaahinta booska.'
+        },
+        {
+          'question': 'Sideen u xaqiijiyaa profile-kayga?',
+          'answer': 'Si aad u xaqiijiso profile-kaaga, tag settings-ka profile-kaaga oo buuxi dhammaan meelaha loo baahan yahay, oo ay ku jirto inaad geliso sawirka profile-ka oo aad xaqiijiso lambarkaaga telefoonka.'
+        },
+        {
+          'question': 'Sidee u shaqeeyaan lacag celintu?',
+          'answer': 'Lacag celinta waxaa dib loogu soo celiyaa habkii aad markii hore u bixisay (tusaale EVC Plus, Sahal, ama kaarka) muddo 2-3 maalmood oo shaqo ah ka dib marka kansalaada la ansixiyo.'
+        },
+        {
+          'question': 'Maxaa dhacaya haddii adeeg bixiyuhu kansalo ballanteyda?',
+          'answer': 'Haddii bixiyuhu kansalo booskaaga, waxaad heli doontaa lacag celin buuxda oo 100% ah isla markaaba, kooxdayada taageerada ayaa kaa caawin doonta inaad hesho bedel kale.'
+        },
+        {
+          'question': 'Ma ammaan baa xogta lacag bixintaydu?',
+          'answer': 'Haa. Waxaan isticmaalnaa hab-maamuusyada sirta ah ee heerka warshadaha iyo is-dhexgalka lacagta moobilka ee sugan si loo hubiyo in xogtaada iyo macaamilkaagu ay si buuxda u badباadsan yihiin.'
+        },
+        {
+          'question': 'Miyaan bedeli karaa taariikhaha ballansashada?',
+          'answer': 'Haa, waxaad codsan kartaa bedelka taariikhda adiga oo la xiriiraya kooxdayada taageerada macaamiisha ama adiga oo toos ula xiriiraya adeeg bixiyaha adigoo isticmaalaya app-ka.'
+        },
+      ];
+    } else if (langCode == 'ar') {
+      return [
+        {
+          'question': 'كيف يمكنني حجز رحلة؟',
+          'answer': 'يمكنك حجز رحلة من خلال البحث عن وجهتك على الشاشة الرئيسية، واختيار باقة السفر، ثم النقر على "احجز الآن". اتبع التعليمات لإتمام الحجز.'
+        },
+        {
+          'question': 'ما هي وسائل الدفع المدعومة؟',
+          'answer': 'نحن ندعم خدمات الدفع عبر الهاتف المحمول الرئيسية (إي في سي بلس، سهل، بريمير والت) والبطاقات الائتمانية/الخصم للمدفوعات الآمنة.'
+        },
+        {
+          'question': 'هل يمكنني إلغاء حجزي؟',
+          'answer': 'نعم، يمكنك إلغاء حجزك من قسم "حجوزاتي". يرجى ملاحظة أن سياسات الإلغاء تختلف حسب الرحلة ومقدم الخدمة.'
+        },
+        {
+          'question': 'كيف يمكنني الاتصال بالسائق أو المرشد؟',
+          'answer': 'بمجرد تأكيد حجزك، ستتلقى تفاصيل الاتصال بالسائق أو المرشد في شاشة تفاصيل الحجز.'
+        },
+        {
+          'question': 'كيف يمكنني تفعيل ملفي الشخصي؟',
+          'answer': 'لتفعيل ملفك الشخصي، انتقل إلى إعدادات الملف الشخصي وأكمل جميع الحقول المطلوبة، بما في ذلك تحميل صورة للملف وتأكيد رقم هاتفك.'
+        },
+        {
+          'question': 'كيف تعمل عملية استرداد الأموال؟',
+          'answer': 'يتم استرداد الأموال إلى وسيلة الدفع الأصلية (مثل إي في سي بلس، سهل، أو البطاقة) خلال 2-3 أيام عمل بعد الموافقة على إلغاء الحجز.'
+        },
+        {
+          'question': 'ماذا يحدث إذا ألغى مقدم الخدمة حجزي؟',
+          'answer': 'إذا ألغى المزود حجزك، فستتلقى استرداداً كاملاً بنسبة 100% فوراً، وسيقوم فريق الدعم بمساعدتك في العثور على بديل.'
+        },
+        {
+          'question': 'هل بيانات الدفع الخاصة بي آمنة؟',
+          'answer': 'نعم. نحن نستخدم بروتوكولات تشفير معيارية وتكاملات دفع آمنة عبر الهاتف لضمان حماية بياناتك ومعاملاتك بالكامل.'
+        },
+        {
+          'question': 'هل يمكنني تغيير تواريخ الحجز؟',
+          'answer': 'نعم، يمكنك طلب تعديل التواريخ عن طريق الاتصال بفريق دعم العملاء أو التواصل مع المزود مباشرة عبر التطبيق.'
+        },
+      ];
+    }
+    return [
+      {
+        'question': 'How do I book a trip?',
+        'answer': 'You can book a trip by searching for your destination on the home screen, selecting a travel package, and clicking "Book Now". Follow the prompts to complete your booking.'
+      },
+      {
+        'question': 'What payment methods are supported?',
+        'answer': 'We support major mobile money services (EVC Plus, Sahal, Premier Wallet) and credit/debit cards for secure payments.'
+      },
+      {
+        'question': 'Can I cancel my booking?',
+        'answer': 'Yes, you can cancel your booking from the "My Bookings" section. Please note that cancellation policies vary by trip and operator.'
+      },
+      {
+        'question': 'How do I contact my driver or guide?',
+        'answer': 'Once your booking is confirmed, you will receive the contact details of your driver or guide in the booking details screen.'
+      },
+      {
+        'question': 'How do I verify my profile?',
+        'answer': 'To verify your profile, go to your profile settings and complete all the required fields, including uploading a profile picture and verifying your phone number.'
+      },
+      {
+        'question': 'How do refunds work?',
+        'answer': 'Refunds are processed back to your original payment method (e.g. EVC Plus, Sahal, or card) within 2-3 business days after a cancellation is approved.'
+      },
+      {
+        'question': 'What if the operator cancels my booking?',
+        'answer': 'If a provider cancels your booking, you will receive a full 100% refund immediately, and our support team will help you find an alternative.'
+      },
+      {
+        'question': 'Is my payment data secure?',
+        'answer': 'Yes. We use industry-standard encryption protocols and secure mobile money integrations to ensure your data and transactions are completely protected.'
+      },
+      {
+        'question': 'Can I change my booking dates?',
+        'answer': 'Yes, you can request date modifications by contacting our customer support team or by reaching out to the provider directly through the app.'
+      },
+    ];
+  }
 
   String _searchQuery = '';
 
   @override
   Widget build(BuildContext context) {
-    final filteredFaqs = _faqs.where((faq) {
+    final loc = ref.watch(localizationProvider);
+    final faqsList = _getFaqs(loc.languageCode);
+    final filteredFaqs = faqsList.where((faq) {
       return faq['question']!.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           faq['answer']!.toLowerCase().contains(_searchQuery.toLowerCase());
     }).toList();
@@ -336,7 +423,7 @@ class _FAQDialogState extends State<FAQDialog> {
             child: const Icon(Icons.help_outline, color: Colors.purple, size: 20),
           ),
           const SizedBox(width: 12),
-          const Text('FAQs', style: TextStyle(fontWeight: FontWeight.bold)),
+          Text(loc.translate('faqs'), style: const TextStyle(fontWeight: FontWeight.bold)),
         ],
       ),
       content: SizedBox(
@@ -347,7 +434,7 @@ class _FAQDialogState extends State<FAQDialog> {
             TextField(
               onChanged: (value) => setState(() => _searchQuery = value),
               decoration: InputDecoration(
-                hintText: 'Search for questions...',
+                hintText: loc.translate('search_questions'),
                 prefixIcon: const Icon(Icons.search, size: 20),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -383,7 +470,7 @@ class _FAQDialogState extends State<FAQDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Close'),
+          child: Text(loc.translate('close')),
         ),
       ],
     );
@@ -477,8 +564,73 @@ class _LiveChatDialogState extends ConsumerState<LiveChatDialog> {
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider);
+
+    if (user == null) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        titlePadding: EdgeInsets.zero,
+        title: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: const BoxDecoration(
+            color: Colors.green,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(16),
+              topRight: Radius.circular(16),
+            ),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.chat_bubble_outline, color: Colors.white, size: 20),
+              SizedBox(width: 12),
+              Text(
+                'Live Chat',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        ),
+        contentPadding: const EdgeInsets.all(24),
+        content: SizedBox(
+          width: 400,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.lock_outline, size: 64, color: Colors.grey),
+              const SizedBox(height: 16),
+              const Text(
+                'Fadlan soo gal si aad u bilowdo Live Chat',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Waxaad u baahan tahay akoon si aad ula xiriirto taageerada.',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  context.go('/login');
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+                child: const Text('Soo Gal (Login)'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final tickets = ref.watch(supportProvider);
-    final userId = user?.id ?? 'guest';
+    final userId = user.id;
 
     // Find the active live chat ticket
     SupportTicket? activeTicket;

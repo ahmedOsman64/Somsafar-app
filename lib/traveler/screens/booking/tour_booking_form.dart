@@ -583,6 +583,7 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
             label: 'Children',
             subtitle: '2 - 14 years old',
             value: _childrenCount,
+            minValue: 0,
             onDecrement: () => setState(() {
               if (_childrenCount > 0) {
                 _childrenCount--;
@@ -616,6 +617,7 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
             label: 'Infants',
             subtitle: 'Under 2 years old (Free)',
             value: _infantsCount,
+            minValue: 0,
             onDecrement: () => setState(() {
               if (_infantsCount > 0) {
                 _infantsCount--;
@@ -1296,17 +1298,6 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
     );
   }
 
-  IconData _getPackageIcon(TourPackage pkg) {
-    switch (pkg) {
-      case TourPackage.jumma:
-        return Icons.mosque_outlined;
-      case TourPackage.eid:
-        return Icons.celebration_outlined;
-      case TourPackage.custom:
-        return Icons.edit_note_outlined;
-    }
-  }
-
   String _formatPackageName(TourPackage package, [double? multiplier]) {
     switch (package) {
       case TourPackage.jumma:
@@ -1605,86 +1596,7 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
           'Tour Package Category',
           style: TextStyle(fontSize: 14, color: Colors.grey[600]),
         ),
-        const SizedBox(height: 24),
-
-        // ── Package Selection ───────────────────────────────────────
-        const Text(
-          'Select Tour Package Type *',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: TourPackage.values.map((pkg) {
-            final isSelected = _package == pkg;
-            final packages =
-                ref.watch(travelPackagesProvider).valueOrNull ?? [];
-            final pkgInfo = packages.firstWhere(
-              (p) => p.key.toLowerCase() == pkg.name.toLowerCase(),
-              orElse: () => LookupItem(key: pkg.name, label: pkg.name),
-            );
-
-            return Expanded(
-              child: GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _package = pkg;
-                    _updateAutomaticDate();
-                    if (pkg == TourPackage.custom) {
-                      _numberOfDays = 1;
-                    }
-                    _updateBookingSummary();
-                    _goToStep(0); // Refresh animation
-                  });
-                },
-                child: Container(
-                  margin: EdgeInsets.only(
-                    right: pkg == TourPackage.values.last ? 0 : 8,
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? AppColors.primary.withValues(alpha: 0.05)
-                        : Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isSelected ? AppColors.primary : Colors.grey[300]!,
-                      width: isSelected ? 2 : 1,
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      Icon(
-                        _getPackageIcon(pkg),
-                        color: isSelected
-                            ? AppColors.primary
-                            : Colors.grey[600],
-                        size: 24,
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        pkgInfo.label,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: isSelected
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                          color: isSelected
-                              ? AppColors.primary
-                              : Colors.grey[600],
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
+        const SizedBox(height: 16),
       ],
     );
   }

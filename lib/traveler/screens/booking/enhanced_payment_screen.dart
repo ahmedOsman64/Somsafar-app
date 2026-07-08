@@ -15,6 +15,7 @@ import '../../../shared/models/user_model.dart';
 import '../../../shared/models/payment_account_model.dart';
 import 'booking_success_screen.dart';
 import '../../../shared/widgets/status_dialogs.dart';
+import '../../../core/providers/localization_provider.dart';
 
 class EnhancedPaymentScreen extends ConsumerStatefulWidget {
   final String serviceId;
@@ -214,6 +215,19 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
               : 'Hormuud EVC Plus';
         }
 
+        // Initialize bank provider from actual accounts
+        final bankAccounts = provider.paymentAccounts
+            .where((a) => a.type == PaymentAccountType.bank)
+            .toList();
+        if (_bankProvider == null ||
+            !bankAccounts.any(
+              (a) => a.providerName == _bankProvider,
+            )) {
+          _bankProvider = bankAccounts.isNotEmpty
+              ? bankAccounts.first.providerName
+              : null;
+        }
+
         return _buildScaffold(provider, hasCard, hasMobileMoney, hasBank);
       },
     );
@@ -306,21 +320,21 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
                 ),
               ),
               const SizedBox(width: 16),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Secure Payment',
-                      style: TextStyle(
+                      ref.watch(localizationProvider).translate('secure_payment'),
+                      style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
                       ),
                     ),
                     Text(
-                      'Your payment is 256-bit encrypted',
-                      style: TextStyle(color: Colors.white70, fontSize: 13),
+                      ref.watch(localizationProvider).translate('payment_encrypted'),
+                      style: const TextStyle(color: Colors.white70, fontSize: 13),
                     ),
                   ],
                 ),
@@ -446,7 +460,7 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
                   ),
                   const SizedBox(height: 12),
                   _buildSummaryRow(
-                    'Base Price',
+                    ref.watch(localizationProvider).translate('base_price'),
                     '\$${widget.basePrice.toStringAsFixed(2)}',
                   ),
                   ...widget.extras.entries.map(
@@ -459,13 +473,13 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
                   ),
                   if (widget.discount > 0)
                     _buildSummaryRow(
-                      '🏷 Discount',
+                      '🏷 ${ref.watch(localizationProvider).translate('discount')}',
                       '-\$${widget.discount.toStringAsFixed(2)}',
                       isDiscount: true,
                     ),
                   if (widget.taxes > 0)
                     _buildSummaryRow(
-                      'Taxes & Fees',
+                      ref.watch(localizationProvider).translate('taxes_fees'),
                       '\$${widget.taxes.toStringAsFixed(2)}',
                     ),
                   const SizedBox(height: 8),
@@ -615,12 +629,13 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
   ) {
     final payLaterEnabled = provider.metadata['pay_later_enabled'] ?? true;
 
+    final loc = ref.watch(localizationProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Payment Method',
-          style: TextStyle(
+        Text(
+          loc.translate('payment_method'),
+          style: const TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 17,
             color: AppColors.primary,
@@ -644,7 +659,7 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
                             : constraints.maxWidth,
                     child: _buildMethodCard(
                       PaymentMethod.payLater,
-                      'Pay Later',
+                      loc.translate('pay_later'),
                       Icons.schedule,
                     ),
                   ),
@@ -656,7 +671,7 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
                             : constraints.maxWidth,
                     child: _buildMethodCard(
                       PaymentMethod.mobileMoney,
-                      'Mobile Money',
+                      loc.translate('mobile_money'),
                       Icons.phone_android,
                     ),
                   ),
@@ -668,7 +683,7 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
                             : constraints.maxWidth,
                     child: _buildMethodCard(
                       PaymentMethod.bank,
-                      'Bank Transfer',
+                      loc.translate('bank_transfer'),
                       Icons.account_balance,
                     ),
                   ),
@@ -865,39 +880,6 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
   }
 
   Widget _buildMobileMoneyForm(User provider) {
-    final mobileAccounts = provider.paymentAccounts
-        .where((a) => a.type == PaymentAccountType.mobileMoney)
-        .toList();
-
-    final List<DropdownMenuItem<String>> dropdownItems;
-    if (mobileAccounts.isNotEmpty) {
-      dropdownItems = mobileAccounts.map((a) {
-        final icon = a.providerName.contains('Hormuud')
-            ? '🟢'
-            : a.providerName.contains('Zaad')
-            ? '🔵'
-            : a.providerName.contains('Sahal')
-            ? '🟡'
-            : a.providerName.contains('eDahab')
-            ? '🟡'
-            : a.providerName.contains('Golis')
-            ? '🔴'
-            : a.providerName.contains('Telesom')
-            ? '🟣'
-            : '💰';
-        return DropdownMenuItem(
-          value: a.providerName,
-          child: Text('$icon ${a.providerName}'),
-        );
-      }).toList();
-    } else {
-      dropdownItems = const [
-        DropdownMenuItem(value: 'Hormuud EVC Plus', child: Text('🟢 Hormuud EVC Plus')),
-        DropdownMenuItem(value: 'Somtel eDahab', child: Text('🟡 Somtel eDahab')),
-        DropdownMenuItem(value: 'Telesom Zaad', child: Text('🔵 Telesom Zaad')),
-        DropdownMenuItem(value: 'Golis Sahal', child: Text('🟡 Golis Sahal')),
-      ];
-    }
 
     return Form(
       key: _formKey,
@@ -918,18 +900,18 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
                 color: AppColors.primary.withValues(alpha: 0.2),
               ),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(
+                const Icon(
                   Icons.sms_outlined,
                   size: 20,
                   color: AppColors.primary,
                 ),
-                SizedBox(width: 10),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'SMS Payment: You will receive an SMS on your phone.',
-                    style: TextStyle(
+                    ref.watch(localizationProvider).translate('sms_payment_notice'),
+                    style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
                       color: AppColors.primary,
@@ -939,43 +921,58 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
               ],
             ),
           ),
-          DropdownButtonFormField<String>(
-            initialValue: _mobileProvider,
-            decoration: InputDecoration(
-              labelText: 'Select Your Provider',
-              prefixIcon: const Icon(
-                Icons.business,
-                color: AppColors.primary,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey[300]!),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(
-                  color: AppColors.primary,
-                  width: 2,
-                ),
-              ),
-              filled: true,
-              fillColor: Colors.grey[50],
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey[300]!),
             ),
-            items: dropdownItems,
-            onChanged: (v) {
-              setState(() => _mobileProvider = v!);
-              if (mobileAccounts.isNotEmpty) {
-                try {
-                  final acc = mobileAccounts.firstWhere(
-                    (a) => a.providerName == v,
-                  );
-                  _mobileNumberController.text = acc.accountNumber;
-                } catch (_) {}
-              }
-            },
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.business,
+                  color: AppColors.primary,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        ref.watch(localizationProvider).translate('provider'),
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        (() {
+                          final String p = _mobileProvider ?? 'Hormuud EVC Plus';
+                          final String icon = p.contains('Hormuud')
+                              ? '🟢'
+                              : p.contains('Zaad')
+                              ? '🔵'
+                              : p.contains('Sahal')
+                              ? '🟡'
+                              : p.contains('eDahab')
+                              ? '🟡'
+                              : p.contains('Golis')
+                              ? '🔴'
+                              : p.contains('Telesom')
+                              ? '🟣'
+                              : '💰';
+                          return '$icon $p';
+                        })(),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           _paymentTextField(
@@ -1044,30 +1041,42 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
           // --- PROVIDER BANK DETAILS HIDDEN ---
 
           if (hasBank) ...[
-            DropdownButtonFormField<String>(
-              initialValue: _bankProvider,
-              decoration: InputDecoration(
-                labelText: 'Select Bank',
-                prefixIcon: const Icon(
-                  Icons.account_balance,
-                  color: AppColors.primary,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                filled: true,
-                fillColor: Colors.grey[50],
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[300]!),
               ),
-              items: provider.paymentAccounts
-                  .where((a) => a.type == PaymentAccountType.bank)
-                  .map(
-                    (a) => DropdownMenuItem(
-                      value: a.providerName,
-                      child: Text(a.providerName),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.account_balance,
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Designated Bank',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _bankProvider ?? 'Bank',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ],
                     ),
-                  )
-                  .toList(),
-              onChanged: (v) => setState(() => _bankProvider = v!),
+                  ),
+                ],
+              ),
             ),
           ],
           const SizedBox(height: 12),
@@ -1138,9 +1147,9 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
                   ),
                 ),
                 const SizedBox(width: 10),
-                const Text(
-                  'Booking Verification',
-                  style: TextStyle(
+                Text(
+                  ref.watch(localizationProvider).translate('booking_verification'),
+                  style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
                     color: AppColors.primary,
@@ -1152,26 +1161,27 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
 
             _paymentTextField(
               controller: _verificationIdController,
-              label: 'ID Card / Passport Number',
+              label: ref.watch(localizationProvider).translate('id_card_label'),
               icon: Icons.badge_outlined,
-              hintText: 'Enter your ID for verification',
+              hintText: ref.watch(localizationProvider).translate('id_card_hint'),
               validator: (v) => v?.trim().isEmpty ?? true
-                  ? 'Verification ID is required for Pay Later'
+                  ? ref.read(localizationProvider).translate('id_required')
                   : null,
             ),
             const SizedBox(height: 12),
             _paymentTextField(
               controller: _alternativePhoneController,
-              label: 'Alternative Contact Phone',
+              label: ref.watch(localizationProvider).translate('alt_phone_label'),
               icon: Icons.phone_android_outlined,
-              hintText: 'Secondary contact number',
+              hintText: ref.watch(localizationProvider).translate('alt_phone_hint'),
               keyboardType: TextInputType.phone,
               validator: (v) {
+                final loc = ref.read(localizationProvider);
                 if (v?.trim().isEmpty ?? true) {
-                  return 'Alternative phone is required';
+                  return loc.translate('alt_phone_required');
                 }
                 if (v!.length < 8) {
-                  return 'Enter a valid phone number';
+                  return loc.translate('valid_phone');
                 }
                 return null;
               },
@@ -1193,21 +1203,21 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
                     size: 20,
                   ),
                   const SizedBox(width: 10),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'This information helps verify your identity. Payment will be collected in person.',
-                      style: TextStyle(fontSize: 12, height: 1.4),
+                      ref.watch(localizationProvider).translate('pay_later_notice'),
+                      style: const TextStyle(fontSize: 12, height: 1.4),
                     ),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 12),
-            const Row(
+            Row(
               children: [
-                _InfoPoint(text: 'No upfront payment'),
-                Spacer(),
-                _InfoPoint(text: 'Free cancellation'),
+                _InfoPoint(text: ref.watch(localizationProvider).translate('no_upfront')),
+                const Spacer(),
+                _InfoPoint(text: ref.watch(localizationProvider).translate('free_cancellation')),
               ],
             ),
           ],
@@ -1222,14 +1232,14 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
       children: [
         if (widget.serviceType == ServiceType.apartment)
           _agreementTile(
-            title: 'Accept House Rules',
+            title: ref.watch(localizationProvider).translate('accept_house_rules'),
             value: _acceptHouseRules,
             onChanged: (v) => setState(() => _acceptHouseRules = v!),
             icon: Icons.gavel,
           ),
         if (widget.serviceType == ServiceType.vehicle)
           _agreementTile(
-            title: 'Accept Rental Terms',
+            title: ref.watch(localizationProvider).translate('accept_rental_terms'),
             value: _acceptRentalTerms,
             onChanged: (v) => setState(() => _acceptRentalTerms = v!),
             icon: Icons.description_outlined,
@@ -1291,12 +1301,12 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  '256-bit Encrypted',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                Text(
+                  ref.watch(localizationProvider).translate('encrypted_label'),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                 ),
                 Text(
-                  'Payments are encrypted and secure.',
+                  ref.watch(localizationProvider).translate('encrypted_desc'),
                   style: TextStyle(
                     color: Colors.grey[600],
                     fontSize: 12,
@@ -1400,11 +1410,12 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
   }
 
   Widget _buildPayButton() {
+    final loc = ref.watch(localizationProvider);
     final labels = {
-      PaymentMethod.card: 'Pay \$${widget.totalPrice.toStringAsFixed(2)}',
-      PaymentMethod.mobileMoney: 'Send Payment',
-      PaymentMethod.bank: 'Bank Transferred',
-      PaymentMethod.payLater: 'Confirm Booking',
+      PaymentMethod.card: '${loc.translate('pay_amount')} \$${widget.totalPrice.toStringAsFixed(2)}',
+      PaymentMethod.mobileMoney: loc.translate('send_payment'),
+      PaymentMethod.bank: loc.translate('bank_transferred'),
+      PaymentMethod.payLater: loc.translate('confirm_booking'),
     };
     final icons = {
       PaymentMethod.card: Icons.credit_card,
@@ -1578,6 +1589,7 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
   }
 
   Future<void> _processPaymentStep2() async {
+    final loc = ref.read(localizationProvider);
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     setState(() {
@@ -1696,8 +1708,8 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
             StatusDialog.show(
               context,
               isSuccess: true,
-              title: 'Card Payment',
-              message: 'Check your browser to complete the card payment.',
+              title: loc.translate('secure_payment'),
+              message: loc.translate('card_payment_notice'),
               buttonText: 'OK',
             );
             return;
@@ -1726,7 +1738,7 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
         StatusDialog.show(
           context,
           isSuccess: false,
-          title: 'Digniin',
+          title: loc.translate('warning'),
           message: _errorMessage!,
           buttonText: 'OK',
         );
@@ -1741,8 +1753,8 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
       StatusDialog.show(
         context,
         isSuccess: false,
-        title: 'Digniin',
-        message: 'A technical issue occurred. Please try again.',
+        title: loc.translate('warning'),
+        message: loc.translate('technical_issue'),
         buttonText: 'OK',
       );
     }

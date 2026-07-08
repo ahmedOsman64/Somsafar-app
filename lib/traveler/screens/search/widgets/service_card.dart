@@ -8,6 +8,7 @@ import '../../../../shared/services/favorites_provider.dart';
 import '../../../../shared/models/service_model.dart';
 import '../../../../shared/services/discount_repository.dart';
 import '../../../../core/services/storage_service.dart';
+import '../../../../core/providers/localization_provider.dart';
 
 class ServiceCard extends ConsumerStatefulWidget {
   final dynamic service;
@@ -71,6 +72,7 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
   }
 
   Widget _buildGridCard() {
+    final loc = ref.watch(localizationProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -185,13 +187,13 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
                                       .toString()
                                       .toLowerCase()
                                       .contains('apartment'))
-                                  ? 'Price per month'
+                                  ? loc.translate('price_per_month')
                                   : (widget.service.category
                                         .toString()
                                         .toLowerCase()
                                         .contains('tour'))
-                                  ? 'Price per person'
-                                  : 'Price per night',
+                                  ? loc.translate('price_per_person')
+                                  : loc.translate('price_per_night'),
                               style: TextStyle(
                                 fontSize: 10,
                                 color: Colors.grey.shade500,
@@ -1103,6 +1105,7 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
   }
 
   Widget _buildAvailabilityBadge() {
+    final loc = ref.watch(localizationProvider);
     final bool isInactive = widget.service.status == ServiceStatus.inactive;
     final metadata = widget.service.metadata;
     final String category = widget.service.category.toLowerCase();
@@ -1114,14 +1117,14 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
           color: Colors.red.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(6),
         ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.block, size: 12, color: Colors.red),
-            SizedBox(width: 4),
+            const Icon(Icons.block, size: 12, color: Colors.red),
+            const SizedBox(width: 4),
             Text(
-              'Fully Booked',
-              style: TextStyle(
+              loc.translate('fully_booked'),
+              style: const TextStyle(
                 color: Colors.red,
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
@@ -1133,11 +1136,11 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
     }
 
     // Build availability text (no low-stock count shown to customers)
-    String availabilityText = 'Available Now';
+    String availabilityText = loc.translate('available_now');
     final String? package = metadata['package'] as String?;
     if (category.contains('tour') && package != null) {
       final formattedPackage = package[0].toUpperCase() + package.substring(1);
-      availabilityText = 'Available Now - $formattedPackage';
+      availabilityText = '${loc.translate('available_now')} - $formattedPackage';
     }
 
     return Container(

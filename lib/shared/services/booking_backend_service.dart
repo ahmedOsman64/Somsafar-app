@@ -10,6 +10,7 @@ import 'system_activity_repository.dart';
 import 'financial_repository.dart';
 import 'booking_repository.dart';
 import '../../core/services/supabase_service.dart';
+import '../services/settings_repository.dart';
 
 final bookingBackendProvider = Provider<BookingBackendService>((ref) {
   return BookingBackendService(ref);
@@ -151,6 +152,27 @@ class BookingBackendService {
     }
   }
 
+  Future<int> getAvailableSlots({
+    required String serviceId,
+    required DateTime checkIn,
+    required DateTime checkOut,
+  }) async {
+    try {
+      final response = await SupabaseConfig.client.rpc(
+        'check_service_availability',
+        params: {
+          'p_service_id': serviceId,
+          'p_check_in': checkIn.toIso8601String().split('T')[0],
+          'p_check_out': checkOut.toIso8601String().split('T')[0],
+        },
+      );
+      return (response as num).toInt();
+    } catch (e) {
+      debugPrint('Error checking availability via RPC: $e');
+      return -1; // Fallback indicator
+    }
+  }
+
   // Public methods
   Future<bool> checkAvailability({
     required String serviceId,
@@ -159,7 +181,13 @@ class BookingBackendService {
     int guests = 1,
     int rooms = 1,
   }) async {
-    return true;
+    final available = await getAvailableSlots(
+      serviceId: serviceId,
+      checkIn: checkIn,
+      checkOut: checkOut,
+    );
+    if (available == -1) return true; // Fallback to allowing if RPC fails/not deployed
+    return available >= rooms;
   }
 
 
@@ -168,7 +196,13 @@ class BookingBackendService {
     required DateTime checkIn,
     required DateTime checkOut,
   }) async {
-    return true;
+    final available = await getAvailableSlots(
+      serviceId: serviceId,
+      checkIn: checkIn,
+      checkOut: checkOut,
+    );
+    if (available == -1) return true; // Fallback to allowing if RPC fails/not deployed
+    return available > 0;
   }
 
 
@@ -178,15 +212,22 @@ class BookingBackendService {
     required String bookingId,
   }) async {
     try {
+      final locale = _ref.read(settingsProvider).language; // 'en', 'so', 'ar'
+      final session = SupabaseConfig.client.auth.currentSession;
       final response = await SupabaseConfig.client.functions.invoke(
         'process-payment',
+        headers: {
+          if (session != null) 'Authorization': 'Bearer ${session.accessToken}',
+        },
         body: {
           'booking_id': bookingId,
           'account_no': paymentData.mobileNumber,
           'payment_method': _formatPaymentMethod(paymentData),
           'idempotency_key': bookingId, // Use bookingId as idempotency key
+          'locale': locale,
         },
       );
+
 
       final data = response.data as Map<String, dynamic>;
       final bool success = response.status == 200 && (data['success'] == true);
@@ -253,8 +294,12 @@ class BookingBackendService {
     }
 
     try {
+      final session = SupabaseConfig.client.auth.currentSession;
       final response = await SupabaseConfig.client.functions.invoke(
         'verify-payment',
+        headers: {
+          if (session != null) 'Authorization': 'Bearer ${session.accessToken}',
+        },
         body: {'reference_id': referenceId},
       );
 

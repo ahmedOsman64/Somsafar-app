@@ -62,6 +62,10 @@ class _ProviderServicesScreenState
         title = 'Manage Tours';
         addLabel = 'Add Tour';
         break;
+      case ProviderType.tailor:
+        title = 'Macaamiisha';
+        addLabel = 'Kudar Macmiil';
+        break;
     }
 
     // Filter services

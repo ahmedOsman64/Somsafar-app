@@ -10,6 +10,7 @@ import '../../../../shared/services/system_activity_repository.dart';
 import '../../../../shared/services/settings_repository.dart';
 import '../../../../core/services/storage_service.dart';
 import '../../../../shared/models/user_model.dart';
+import '../../../../core/providers/localization_provider.dart';
 
 
 class ProfileHeader extends StatelessWidget {
@@ -912,32 +913,227 @@ class SecuritySettings extends ConsumerWidget {
 class AppPreferences extends ConsumerWidget {
   const AppPreferences({super.key});
 
+  void _showLanguageSelector(BuildContext context, WidgetRef ref, AppLocalizations loc) {
+    final settings = ref.read(settingsProvider);
+    final languages = [
+      {'name': 'English (United States)', 'code': 'English (United States)', 'display': 'English (US)', 'flag': '🇺🇸'},
+      {'name': 'Somali (Somalia)', 'code': 'Somali (Somalia)', 'display': 'Af Soomaali', 'flag': '🇸🇴'},
+      {'name': 'Arabic (Saudi Arabia)', 'code': 'Arabic (Saudi Arabia)', 'display': 'العربية', 'flag': '🇸🇦'},
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    loc.translate('select_language'),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.dark,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              ...languages.map((lang) {
+                final isSelected = settings.language == lang['code'];
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: isSelected ? AppColors.primary.withValues(alpha: 0.08) : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isSelected ? AppColors.primary : Colors.grey.shade200,
+                      width: isSelected ? 1.5 : 1,
+                    ),
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    leading: Text(
+                      lang['flag']!,
+                      style: const TextStyle(fontSize: 24),
+                    ),
+                    title: Text(
+                      lang['display']!,
+                      style: TextStyle(
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        color: isSelected ? AppColors.primary : AppColors.dark,
+                      ),
+                    ),
+                    subtitle: Text(
+                      lang['name']!,
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                    ),
+                    trailing: isSelected
+                        ? const Icon(Icons.check_circle_rounded, color: AppColors.primary)
+                        : null,
+                    onTap: () {
+                      ref.read(settingsProvider.notifier).updateLanguage(lang['code']!);
+                      Navigator.pop(context);
+                    },
+                  ),
+                );
+              }),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showCurrencySelector(BuildContext context, WidgetRef ref, AppLocalizations loc) {
+    final settings = ref.read(settingsProvider);
+    final currencies = [
+      {'name': 'USD (\$)', 'code': r'USD ($)', 'display': 'US Dollar', 'symbol': '\$'},
+      {'name': 'SOS (Somali Shilling)', 'code': 'SOS (Somali Shilling)', 'display': 'Shilin Soomaali', 'symbol': 'Sh.so.'},
+      {'name': 'EUR (€)', 'code': 'EUR (€)', 'display': 'Euro', 'symbol': '€'},
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    loc.translate('select_currency'),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.dark,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              ...currencies.map((curr) {
+                final isSelected = settings.currency == curr['code'];
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: isSelected ? AppColors.primary.withValues(alpha: 0.08) : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isSelected ? AppColors.primary : Colors.grey.shade200,
+                      width: isSelected ? 1.5 : 1,
+                    ),
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppColors.primary.withValues(alpha: 0.12) : Colors.grey.shade100,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        curr['symbol']!,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: isSelected ? AppColors.primary : Colors.grey.shade700,
+                        ),
+                      ),
+                    ),
+                    title: Text(
+                      curr['display']!,
+                      style: TextStyle(
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        color: isSelected ? AppColors.primary : AppColors.dark,
+                      ),
+                    ),
+                    subtitle: Text(
+                      curr['name']!,
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                    ),
+                    trailing: isSelected
+                        ? const Icon(Icons.check_circle_rounded, color: AppColors.primary)
+                        : null,
+                    onTap: () {
+                      ref.read(settingsProvider.notifier).updateCurrency(curr['code']!);
+                      Navigator.pop(context);
+                    },
+                  ),
+                );
+              }),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsProvider);
+    final loc = ref.watch(localizationProvider);
+
+    String displayLang = settings.language;
+    if (settings.language.toLowerCase().contains('somali')) {
+      displayLang = 'Af Soomaali 🇸🇴';
+    } else if (settings.language.toLowerCase().contains('arabic')) {
+      displayLang = 'العربية 🇸🇦';
+    } else {
+      displayLang = 'English (US) 🇺🇸';
+    }
+
     return Column(
       children: [
         _buildPreferenceItem(
           Icons.language,
-          'Language',
-          'English (US)',
-          onTap: () {},
+          loc.translate('language'),
+          displayLang,
+          onTap: () => _showLanguageSelector(context, ref, loc),
         ),
         const Divider(height: 32),
         _buildPreferenceItem(
           Icons.attach_money,
-          'Currency',
-          'USD (\$)',
-          onTap: () {},
+          loc.translate('currency'),
+          settings.currency,
+          onTap: () => _showCurrencySelector(context, ref, loc),
         ),
         const Divider(height: 32),
         _buildPreferenceItem(
           Icons.notifications_active_outlined,
-          'Push Notifications',
-          'Enabled',
+          loc.translate('push_notifications'),
+          settings.pushNotifications ? loc.translate('enabled') : loc.translate('disabled'),
           trailing: Switch(
-            value: true,
-            onChanged: (val) {},
+            value: settings.pushNotifications,
+            onChanged: (val) {
+              ref.read(settingsProvider.notifier).updatePush(val);
+            },
             activeThumbColor: AppColors.secondary,
+            activeTrackColor: AppColors.secondary.withValues(alpha: 0.5),
           ),
         ),
       ],

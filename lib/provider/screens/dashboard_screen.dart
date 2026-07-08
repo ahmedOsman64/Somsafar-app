@@ -662,6 +662,10 @@ class _OverviewSection extends ConsumerWidget {
         servicesIcon =
             Icons.miscellaneous_services; // Or another appropriate icon
         break;
+      case ProviderType.tailor:
+        servicesLabel = 'Macaamiisha';
+        servicesIcon = Icons.people;
+        break;
     }
 
     return Column(

@@ -8,6 +8,7 @@ import '../../shared/services/auth_service.dart';
 import '../../shared/services/booking_repository.dart';
 import 'profile/widgets/profile_widgets.dart';
 import '../../shared/widgets/support_widgets.dart';
+import '../../core/providers/localization_provider.dart';
 
 class TravelerProfileScreen extends ConsumerStatefulWidget {
   const TravelerProfileScreen({super.key});
@@ -41,13 +42,14 @@ class _TravelerProfileScreenState extends ConsumerState<TravelerProfileScreen> {
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider);
     final isMobile = !context.isDesktop;
+    final loc = ref.watch(localizationProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text(
-          'Traveler Profile',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: Text(
+          loc.translate('traveler_profile'),
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.white,
         foregroundColor: AppColors.dark,
@@ -57,7 +59,7 @@ class _TravelerProfileScreenState extends ConsumerState<TravelerProfileScreen> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (!isMobile) _buildSidebar(),
+            if (!isMobile) _buildSidebar(loc),
             Expanded(
               child: SingleChildScrollView(
                 controller: _scrollController,
@@ -97,7 +99,7 @@ class _TravelerProfileScreenState extends ConsumerState<TravelerProfileScreen> {
                           ProfileSection(
                             key: _personalInfoKey,
                             icon: Icons.person_outline,
-                            title: 'Personal Information',
+                            title: loc.translate('personal_info'),
                             child: PersonalInfoForm(
                               onCancel: () =>
                                   setState(() => _isEditing = false),
@@ -119,21 +121,21 @@ class _TravelerProfileScreenState extends ConsumerState<TravelerProfileScreen> {
                         ProfileSection(
                           key: _securityKey,
                           icon: Icons.security_outlined,
-                          title: 'Security Settings',
+                          title: loc.translate('security_settings'),
                           child: const SecuritySettings(),
                         ),
                         const SizedBox(height: 24),
                         ProfileSection(
                           key: _supportKey,
                           icon: Icons.help_outline,
-                          title: 'Support & Help',
+                          title: loc.translate('support_help'),
                           child: const SupportSection(),
                         ),
                         const SizedBox(height: 24),
                         ProfileSection(
                           key: _preferencesKey,
                           icon: Icons.settings_suggest_outlined,
-                          title: 'App Preferences',
+                          title: loc.translate('app_preferences'),
                           child: const AppPreferences(),
                         ),
                         const SizedBox(height: 24),
@@ -174,7 +176,7 @@ class _TravelerProfileScreenState extends ConsumerState<TravelerProfileScreen> {
     );
   }
 
-  Widget _buildSidebar() {
+  Widget _buildSidebar(AppLocalizations loc) {
     return Container(
       width: 280,
       color: Colors.white,
@@ -183,14 +185,14 @@ class _TravelerProfileScreenState extends ConsumerState<TravelerProfileScreen> {
         children: [
           _buildSidebarItem(
             Icons.person_outline,
-            'Personal Info',
+            loc.translate('personal_info'),
             _personalInfoKey,
           ),
-          _buildSidebarItem(Icons.security_outlined, 'Security', _securityKey),
-          _buildSidebarItem(Icons.help_outline, 'Support', _supportKey),
+          _buildSidebarItem(Icons.security_outlined, loc.translate('security_settings'), _securityKey),
+          _buildSidebarItem(Icons.help_outline, loc.translate('support_help'), _supportKey),
           _buildSidebarItem(
             Icons.settings_suggest_outlined,
-            'Preferences',
+            loc.translate('app_preferences'),
             _preferencesKey,
           ),
         ],
@@ -213,11 +215,11 @@ class _TravelerStatsRow extends ConsumerWidget {
   final String userId;
   const _TravelerStatsRow({required this.userId});
 
-  String _memberTier(int trips) {
-    if (trips >= 20) return '🥇 Gold';
-    if (trips >= 10) return '🥈 Silver';
-    if (trips >= 3) return '🥉 Bronze';
-    return '🌱 Newbie';
+  String _memberTier(int trips, AppLocalizations loc) {
+    if (trips >= 20) return loc.translate('gold');
+    if (trips >= 10) return loc.translate('silver');
+    if (trips >= 3) return loc.translate('bronze');
+    return loc.translate('newbie');
   }
 
   Color _tierColor(int trips) {
@@ -240,35 +242,36 @@ class _TravelerStatsRow extends ConsumerWidget {
               b.status == BookingStatus.confirmed,
         )
         .length;
-    final tier = _memberTier(total);
+    final loc = ref.watch(localizationProvider);
+    final tier = _memberTier(total, loc);
     final tierColor = _tierColor(total);
 
     return Row(
       children: [
         _StatCard(
           value: total.toString(),
-          label: 'Total Trips',
+          label: loc.translate('total_trips'),
           icon: Icons.luggage_rounded,
           color: AppColors.primary,
         ),
         const SizedBox(width: 10),
         _StatCard(
           value: done.toString(),
-          label: 'Completed',
+          label: loc.translate('completed'),
           icon: Icons.check_circle_rounded,
           color: const Color(0xFF22C55E),
         ),
         const SizedBox(width: 10),
         _StatCard(
           value: pending.toString(),
-          label: 'Active',
+          label: loc.translate('active'),
           icon: Icons.pending_actions_rounded,
           color: const Color(0xFFF59E0B),
         ),
         const SizedBox(width: 10),
         _StatCard(
           value: tier,
-          label: 'Member',
+          label: loc.translate('member'),
           icon: Icons.workspace_premium_rounded,
           color: tierColor,
           small: true,
@@ -346,7 +349,7 @@ class _StatCard extends StatelessWidget {
 }
 
 // ── Profile Completeness Card ─────────────────────────────────────────────
-class _ProfileCompletenessCard extends StatelessWidget {
+class _ProfileCompletenessCard extends ConsumerWidget {
   final User user;
   final VoidCallback onEdit;
 
@@ -364,10 +367,11 @@ class _ProfileCompletenessCard extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     const total = 6;
     final completed = _completedFields();
     final percent = completed / total;
+    final loc = ref.watch(localizationProvider);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -409,16 +413,16 @@ class _ProfileCompletenessCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Complete Your Profile',
-                      style: TextStyle(
+                    Text(
+                      loc.translate('complete_profile'),
+                      style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                         fontSize: 15,
                       ),
                     ),
                     Text(
-                      '$completed of $total fields filled',
+                      '$completed/$total ${loc.translate('fields_filled')}',
                       style: TextStyle(
                         color: Colors.white.withAlpha(180),
                         fontSize: 12,
@@ -485,13 +489,13 @@ class _ProfileCompletenessCard extends StatelessWidget {
             runSpacing: 6,
             children: [
               if (user.phone == null || user.phone!.isEmpty)
-                _MissingChip(label: 'Phone'),
+                _MissingChip(label: loc.translate('phone')),
               if (user.location == null || user.location!.isEmpty)
-                _MissingChip(label: 'Location'),
+                _MissingChip(label: loc.translate('location')),
               if (user.profileImage == null || user.profileImage!.isEmpty)
-                _MissingChip(label: 'Photo'),
-              if (user.gender == null) _MissingChip(label: 'Gender'),
-              if (user.dateOfBirth == null) _MissingChip(label: 'Birthday'),
+                _MissingChip(label: loc.translate('photo')),
+              if (user.gender == null) _MissingChip(label: loc.translate('gender')),
+              if (user.dateOfBirth == null) _MissingChip(label: loc.translate('birthday')),
             ],
           ),
           const SizedBox(height: 16),
@@ -506,9 +510,9 @@ class _ProfileCompletenessCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               alignment: Alignment.center,
-              child: const Text(
-                'Complete Profile →',
-                style: TextStyle(
+              child: Text(
+                loc.translate('complete_profile_btn'),
+                style: const TextStyle(
                   color: Color(0xFF1565C0),
                   fontWeight: FontWeight.bold,
                   fontSize: 14,

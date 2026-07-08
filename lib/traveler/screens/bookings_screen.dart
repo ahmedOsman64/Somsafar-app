@@ -8,6 +8,7 @@ import '../../shared/models/booking_model.dart';
 import 'chat_screen.dart';
 import 'booking/booking_detail_screen.dart';
 import '../../shared/models/review_model.dart';
+import '../../core/providers/localization_provider.dart';
 import '../../shared/services/review_repository.dart';
 import '../../shared/services/auth_service.dart';
 import 'package:uuid/uuid.dart';
@@ -18,6 +19,7 @@ class TravelerBookingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final allBookings = ref.watch(filteredBookingsProvider);
+    final loc = ref.watch(localizationProvider);
 
     return DefaultTabController(
       length: 3,
@@ -25,7 +27,7 @@ class TravelerBookingsScreen extends ConsumerWidget {
         backgroundColor: AppColors.background,
         appBar: AppBar(
           title: Text(
-            'My Bookings',
+            loc.translate('my_bookings'),
             style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
           ),
           backgroundColor: Colors.white,
@@ -40,10 +42,10 @@ class TravelerBookingsScreen extends ConsumerWidget {
               fontWeight: FontWeight.w600,
               fontSize: 14,
             ),
-            tabs: const [
-              Tab(text: 'Upcoming'),
-              Tab(text: 'Completed'),
-              Tab(text: 'Canceled'),
+            tabs: [
+              Tab(text: loc.translate('upcoming')),
+              Tab(text: loc.translate('completed')),
+              Tab(text: loc.translate('canceled')),
             ],
           ),
         ),
@@ -57,19 +59,19 @@ class TravelerBookingsScreen extends ConsumerWidget {
                         b.status == BookingStatus.pending,
                   )
                   .toList(),
-              emptyMessage: 'No upcoming trips booked yet.',
+              emptyMessage: loc.translate('no_upcoming_trips'),
             ),
             _BookingList(
               bookings: allBookings
                   .where((b) => b.status == BookingStatus.completed)
                   .toList(),
-              emptyMessage: 'You haven\'t completed any trips yet.',
+              emptyMessage: loc.translate('no_completed_trips'),
             ),
             _BookingList(
               bookings: allBookings
                   .where((b) => b.status == BookingStatus.cancelled)
                   .toList(),
-              emptyMessage: 'No canceled bookings.',
+              emptyMessage: loc.translate('no_canceled_bookings'),
             ),
           ],
         ),
@@ -138,6 +140,7 @@ class _BookingCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final services = ref.watch(serviceProvider);
+    final loc = ref.watch(localizationProvider);
     final service = services
         .where((s) => s.id == booking.serviceId)
         .firstOrNull;
@@ -178,7 +181,7 @@ class _BookingCard extends ConsumerWidget {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    booking.statusLabel,
+                    loc.translate(booking.status.name.toLowerCase()),
                     style: GoogleFonts.poppins(
                       color: booking.statusColor,
                       fontWeight: FontWeight.bold,
@@ -188,7 +191,7 @@ class _BookingCard extends ConsumerWidget {
                   const Spacer(),
                   Flexible(
                     child: Text(
-                      "Ref: #${booking.id.toUpperCase()}",
+                      "${loc.translate('ref')}: #${booking.id.toUpperCase()}",
                       style: GoogleFonts.poppins(
                         color: Colors.grey[500],
                         fontSize: 10,
@@ -245,7 +248,7 @@ class _BookingCard extends ConsumerWidget {
                             const SizedBox(height: 4),
                             _buildInfoMiniRow(
                               Icons.people_alt_outlined,
-                              "${booking.guests} Guests",
+                              "${booking.guests} ${booking.guests == 1 ? loc.translate('guest') : loc.translate('guests')}",
                             ),
                           ],
                         ),
@@ -262,7 +265,7 @@ class _BookingCard extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Total Price',
+                            loc.translate('total_price'),
                             style: GoogleFonts.poppins(
                               color: Colors.grey[500],
                               fontSize: 12,
@@ -282,7 +285,7 @@ class _BookingCard extends ConsumerWidget {
                         children: [
                           // Icon-based Actions for space efficiency
                           Tooltip(
-                            message: 'View Details',
+                            message: loc.translate('view_details'),
                             child: IconButton(
                               icon: const Icon(Icons.visibility_outlined),
                               color: AppColors.primary,
@@ -300,7 +303,7 @@ class _BookingCard extends ConsumerWidget {
                           if (booking.status == BookingStatus.confirmed ||
                               booking.status == BookingStatus.pending) ...[
                             Tooltip(
-                              message: 'Cancel Booking',
+                              message: loc.translate('cancel_booking'),
                               child: OutlinedButton(
                                 onPressed: () =>
                                     _showCancelDialog(context, ref),
@@ -319,7 +322,7 @@ class _BookingCard extends ConsumerWidget {
                             ),
                             const SizedBox(width: 4),
                             Tooltip(
-                              message: 'Chat with Provider',
+                              message: loc.translate('chat_provider'),
                               child: ElevatedButton(
                                 onPressed: () {
                                   Navigator.push(
@@ -353,7 +356,7 @@ class _BookingCard extends ConsumerWidget {
                             OutlinedButton.icon(
                               onPressed: () => _showReviewDialog(context, ref),
                               icon: const Icon(Icons.star_outline, size: 18),
-                              label: const Text('Review'),
+                              label: Text(loc.translate('review')),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: AppColors.secondary,
                                 side: const BorderSide(
@@ -380,13 +383,14 @@ class _BookingCard extends ConsumerWidget {
   void _showCancelDialog(BuildContext context, WidgetRef ref) {
     final reasonController = TextEditingController();
     final formKey = GlobalKey<FormState>();
+    final loc = ref.read(localizationProvider);
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
-          'Cancel Booking',
+          loc.translate('cancel_booking'),
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.bold,
             color: Colors.red,
@@ -398,7 +402,7 @@ class _BookingCard extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Please tell us why you want to cancel your booking for ${booking.serviceTitle}.',
+                '${loc.translate('cancel_confirm_message')} ${booking.serviceTitle}.',
                 style:
                     GoogleFonts.poppins(fontSize: 13, color: Colors.grey[600]),
               ),
@@ -408,7 +412,7 @@ class _BookingCard extends ConsumerWidget {
                 maxLines: 3,
                 style: GoogleFonts.poppins(fontSize: 14),
                 decoration: InputDecoration(
-                  hintText: 'Enter reason for cancellation...',
+                  hintText: loc.translate('cancel_reason_hint'),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -418,7 +422,7 @@ class _BookingCard extends ConsumerWidget {
                   ),
                 ),
                 validator: (v) => v == null || v.trim().isEmpty
-                    ? 'Please provide a reason'
+                    ? loc.translate('provide_reason')
                     : null,
               ),
             ],
@@ -428,7 +432,7 @@ class _BookingCard extends ConsumerWidget {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
-              'Keep Booking',
+              loc.translate('keep_booking'),
               style: GoogleFonts.poppins(color: Colors.grey),
             ),
           ),
@@ -452,8 +456,8 @@ class _BookingCard extends ConsumerWidget {
                 if (context.mounted) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Booking cancelled successfully'),
+                    SnackBar(
+                      content: Text(loc.translate('cancel_success')),
                       backgroundColor: Colors.red,
                     ),
                   );
@@ -468,7 +472,7 @@ class _BookingCard extends ConsumerWidget {
               ),
             ),
             child: Text(
-              'Confirm Cancel',
+              loc.translate('confirm_cancel'),
               style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
             ),
           ),

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,25 +7,11 @@ import 'core/routing/router.dart';
 import 'core/services/supabase_service.dart';
 import 'shared/services/lookup_service.dart';
 import 'shared/services/settings_repository.dart';
-
-/// Bypasses strict SSL certificate validation.
-/// Fixes "CERTIFICATE_VERIFY_FAILED" / "HandshakeException" on older Android
-/// devices caused by expired Let's Encrypt root certificates.
-class _MyHttpOverrides extends HttpOverrides {
-  @override
-  HttpClient createHttpClient(SecurityContext? context) {
-    return super.createHttpClient(context)
-      ..badCertificateCallback =
-          (X509Certificate cert, String host, int port) => true;
-  }
-}
-
 void main() async {
   runZonedGuarded(
     () async {
       // MUST be called first, before any async work inside the zone
       WidgetsFlutterBinding.ensureInitialized();
-      HttpOverrides.global = _MyHttpOverrides();
 
       // Configure Google Fonts to always allow runtime fetching
       GoogleFonts.config.allowRuntimeFetching = true;

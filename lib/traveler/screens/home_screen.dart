@@ -18,6 +18,7 @@ import '../../shared/services/notification_repository.dart';
 import '../../shared/services/banner_repository.dart';
 import '../../shared/services/review_repository.dart';
 import '../../shared/services/lookup_service.dart';
+import '../../core/providers/localization_provider.dart';
 import '../../shared/services/highlight_repository.dart';
 import '../../shared/models/discount_model.dart';
 import '../../shared/services/discount_repository.dart';
@@ -488,6 +489,7 @@ class _HeroSectionState extends ConsumerState<_HeroSection> {
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider);
     final banners = ref.watch(activeBannersProvider);
+    final loc = ref.watch(localizationProvider);
     final userName = ref.watch(authProvider)?.name ?? 'Traveler';
     final categoriesAsync = ref.watch(categoriesProvider);
     final firstName = userName.split(' ').first;
@@ -680,7 +682,7 @@ class _HeroSectionState extends ConsumerState<_HeroSection> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Hello! $firstName',
+                      '${loc.translate('hello')} $firstName',
                       style: GoogleFonts.poppins(
                         fontSize: !context.isMobile ? 32 : 28,
                         fontWeight: FontWeight.bold,
@@ -697,7 +699,7 @@ class _HeroSectionState extends ConsumerState<_HeroSection> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Where would you like to go?',
+                      loc.translate('where_to_go'),
                       style: GoogleFonts.poppins(
                         fontSize: !context.isMobile ? 18 : 16,
                         fontWeight: FontWeight.w500,
@@ -741,7 +743,7 @@ class _HeroSectionState extends ConsumerState<_HeroSection> {
                                     onTap: () => widget.onCategorySelected(''),
                                     child: _CategoryIconCard(
                                       icon: Icons.grid_view_rounded,
-                                      label: 'All',
+                                      label: loc.translate('all'),
                                       isSelected:
                                           widget.selectedCategory == null ||
                                           widget.selectedCategory!.isEmpty,
@@ -757,7 +759,7 @@ class _HeroSectionState extends ConsumerState<_HeroSection> {
                                       ),
                                       child: _CategoryIconCard(
                                         icon: getLookupIcon(category.icon),
-                                        label: category.label,
+                                        label: loc.translate(category.key.toLowerCase()),
                                         isSelected: isSelected,
                                       ),
                                     );
@@ -820,7 +822,7 @@ class _HeroSectionState extends ConsumerState<_HeroSection> {
                   fontWeight: FontWeight.w500,
                 ),
                 decoration: InputDecoration(
-                  hintText: 'Hotels, Tours, Apartments…',
+                  hintText: loc.translate('search_placeholder'),
                   hintStyle: GoogleFonts.poppins(
                     fontSize: 14,
                     color: Colors.grey[400],
@@ -1544,18 +1546,18 @@ class _DestinationServiceCardState
 }
 
 // 🏨 Recommended Services Section
-class _RecommendedServicesSection extends StatefulWidget {
+class _RecommendedServicesSection extends ConsumerStatefulWidget {
   final List<Service> services;
 
   const _RecommendedServicesSection({required this.services});
 
   @override
-  State<_RecommendedServicesSection> createState() =>
+  ConsumerState<_RecommendedServicesSection> createState() =>
       _RecommendedServicesSectionState();
 }
 
 class _RecommendedServicesSectionState
-    extends State<_RecommendedServicesSection> {
+    extends ConsumerState<_RecommendedServicesSection> {
   late PageController _pageController;
 
   @override
@@ -1575,6 +1577,7 @@ class _RecommendedServicesSectionState
 
   @override
   Widget build(BuildContext context) {
+    final loc = ref.watch(localizationProvider);
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 24),
       child: Column(
@@ -1587,7 +1590,7 @@ class _RecommendedServicesSectionState
               children: [
                 Flexible(
                   child: Text(
-                    'Recommended',
+                    loc.translate('recommended'),
                     style: GoogleFonts.poppins(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -1598,7 +1601,7 @@ class _RecommendedServicesSectionState
                 TextButton(
                   onPressed: () {},
                   child: Text(
-                    'View All',
+                    loc.translate('view_all'),
                     style: GoogleFonts.poppins(
                       color: Colors.grey[600],
                       fontWeight: FontWeight.w500,
@@ -1626,7 +1629,7 @@ class _RecommendedServicesSectionState
                     Icon(Icons.recommend, color: Colors.grey[300], size: 48),
                     const SizedBox(height: 12),
                     Text(
-                      'No recommendations yet',
+                      loc.translate('no_recommendations'),
                       style: GoogleFonts.poppins(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,

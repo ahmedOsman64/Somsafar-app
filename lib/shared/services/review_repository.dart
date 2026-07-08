@@ -23,28 +23,19 @@ class ReviewRepository extends StateNotifier<List<Review>> {
         _subscription = null;
         state = [];
       } else if (previous?.id != next.id) {
-        _initStream(next);
+        _initStream();
+        fetchReviews();
       }
     }, fireImmediately: true);
   }
 
-  void _initStream(User user) {
+  void _initStream() {
     _subscription?.cancel();
     
-    dynamic query = SupabaseConfig.client
+    _subscription = SupabaseConfig.client
         .from('reviews')
-        .stream(primaryKey: ['id']);
-
-    // DB-level filtering based on role to save bandwidth
-    if (user.role == UserRole.provider || user.role == UserRole.providerHelper) {
-      final providerKey = user.providerId ?? user.id;
-      query = query.eq('provider_id', providerKey);
-    } else if (user.role == UserRole.traveler) {
-      query = query.eq('traveler_id', user.id);
-    }
-    // Admins see everything (no filter)
-
-    _subscription = query.listen((data) {
+        .stream(primaryKey: ['id'])
+        .listen((data) {
       if (!mounted) return;
       state = data.map((res) => Review.fromMap(res)).toList();
     }, onError: (e) => debugPrint('Review stream error: $e'));
@@ -99,7 +90,9 @@ final filteredReviewsProvider = Provider<List<Review>>((ref) {
   }
 
   if (user.role == UserRole.provider || user.role == UserRole.providerHelper) {
-    final providerKey = user.providerId ?? user.id;
+    final providerKey = (user.providerId != null && user.providerId!.isNotEmpty)
+        ? user.providerId!
+        : user.id;
     return reviews.where((r) => r.providerId == providerKey).toList();
   }
 

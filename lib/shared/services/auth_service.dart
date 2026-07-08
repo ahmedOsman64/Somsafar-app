@@ -155,49 +155,54 @@ class AuthService extends ChangeNotifier {
   Future<void> _fetchAndSetProfile(sb.Session session) async {
     int retries = 0;
     const maxRetries = 3;
+    bool querySucceeded = false;
+    Map<String, dynamic>? profileData;
 
     while (retries < maxRetries) {
       try {
         debugPrint(
           'DEBUG: Fetching profile for user ${session.user.id} from "users" table (Attempt ${retries + 1})...',
         );
-        final res = await SupabaseConfig.client
+        profileData = await SupabaseConfig.client
             .from('users')
             .select()
             .eq('id', session.user.id)
             .maybeSingle();
 
-        if (res != null) {
-          debugPrint('DEBUG: Profile found: ${res['role']}');
-          final user = _mapResToUser(res, session);
-          if (mounted) state = user;
-          return; // Success
-        }
-
-        debugPrint('DEBUG: Profile missing for ${session.user.id}.');
-
-        // Wait before retrying (exponential backoff or simple delay)
-        retries++;
-        if (retries < maxRetries) {
-          await Future.delayed(Duration(milliseconds: 200 * retries));
-        }
+        querySucceeded = true;
+        break; // Success (either profile found or confirmed missing)
       } on sb.PostgrestException catch (e) {
         debugPrint('ERROR: Database error querying "users": ${e.message}');
-        // Don't retry on certain DB errors if appropriate, but generally retry
         retries++;
-        await Future.delayed(Duration(milliseconds: 500 * retries));
+        if (retries < maxRetries) {
+          await Future.delayed(Duration(milliseconds: 500 * retries));
+        }
       } catch (e) {
         debugPrint('ERROR: Failed to fetch profile: $e');
         retries++;
-        await Future.delayed(Duration(milliseconds: 500 * retries));
+        if (retries < maxRetries) {
+          await Future.delayed(Duration(milliseconds: 500 * retries));
+        }
       }
     }
 
-    // If we reach here, retries failed
-    debugPrint('DEBUG: Retries exhausted. Creating default profile as fallback.');
-    final newUser = await _createDefaultProfile(session);
-    if (mounted && newUser != null) {
-      state = newUser;
+    if (!querySucceeded) {
+      debugPrint('ERROR: Failed to fetch profile after $maxRetries attempts due to database/network failure.');
+      // Do NOT create/upsert a default profile because we don't know if the user is suspended/blocked.
+      // Instead, propagate the error.
+      throw Exception('Failed to connect to the database to load user profile. Please check your connection.');
+    }
+
+    if (profileData != null) {
+      debugPrint('DEBUG: Profile found: ${profileData['role']}');
+      final user = _mapResToUser(profileData, session);
+      if (mounted) state = user;
+    } else {
+      debugPrint('DEBUG: Profile missing for ${session.user.id}. Creating default profile.');
+      final newUser = await _createDefaultProfile(session);
+      if (mounted && newUser != null) {
+        state = newUser;
+      }
     }
   }
 
@@ -684,6 +689,8 @@ class AuthService extends ChangeNotifier {
         );
       } on sb.AuthException {
         return 'Incorrect current password';
+      } finally {
+        tempClient.dispose();
       }
 
       // If we reach here, re-authentication succeeded
@@ -985,62 +992,66 @@ class AuthService extends ChangeNotifier {
         ),
       );
 
-      final res = await tempClient.auth.signUp(
-        email: signUpEmail,
-        password: password,
-        data: {
-          'name': fullName,
-          'username': username,
-          'role': 'provider_helper',
-          'provider_id': providerId,
-          'helper_role': helperRole,
-          'permissions': permissions,
-          'provider_email': providerEmail,
-        },
-      );
-
-      if (res.user != null) {
-        // Explicitly create the public profile using the PRIMARY client
-        try {
-          await SupabaseConfig.client.from('users').insert({
-            'id': res.user!.id,
+      try {
+        final res = await tempClient.auth.signUp(
+          email: signUpEmail,
+          password: password,
+          data: {
             'name': fullName,
-            'email': signUpEmail,
+            'username': username,
             'role': 'provider_helper',
             'provider_id': providerId,
-            'status': 'active',
-            'metadata': {
-              'helper_role': helperRole,
-              'permissions': permissions,
-              'username': username,
-              'provider_email': providerEmail,
-            },
-            'created_at': DateTime.now().toIso8601String(),
-            'updated_at': DateTime.now().toIso8601String(),
-            'date_of_birth': DateTime.now().toIso8601String(),
-          });
-        } on sb.PostgrestException catch (pe) {
-          // If the profile already exists (e.g. via trigger), we can ignore the error
-          if (pe.code != '23505') {
-            // Unique violation
-            debugPrint('Helper DB Insert Error: ${pe.message}');
-            // DELETE the auth user if profile creation failed to keep things in sync
-            try {
-               await SupabaseConfig.client.rpc('admin_delete_user', params: {'target_user_id': res.user!.id});
-            } catch (e) {
-               debugPrint('Cleanup failed: $e');
+            'helper_role': helperRole,
+            'permissions': permissions,
+            'provider_email': providerEmail,
+          },
+        );
+
+        if (res.user != null) {
+          // Explicitly create the public profile using the PRIMARY client
+          try {
+            await SupabaseConfig.client.from('users').insert({
+              'id': res.user!.id,
+              'name': fullName,
+              'email': signUpEmail,
+              'role': 'provider_helper',
+              'provider_id': providerId,
+              'status': 'active',
+              'metadata': {
+                'helper_role': helperRole,
+                'permissions': permissions,
+                'username': username,
+                'provider_email': providerEmail,
+              },
+              'created_at': DateTime.now().toIso8601String(),
+              'updated_at': DateTime.now().toIso8601String(),
+              'date_of_birth': DateTime.now().toIso8601String(),
+            });
+          } on sb.PostgrestException catch (pe) {
+            // If the profile already exists (e.g. via trigger), we can ignore the error
+            if (pe.code != '23505') {
+              // Unique violation
+              debugPrint('Helper DB Insert Error: ${pe.message}');
+              // DELETE the auth user if profile creation failed to keep things in sync
+              try {
+                 await SupabaseConfig.client.rpc('admin_delete_user', params: {'target_user_id': res.user!.id});
+              } catch (e) {
+                 debugPrint('Cleanup failed: $e');
+              }
+              
+              return {
+                'error': 'Profile creation failed (Database): ${pe.message}',
+              };
             }
-            
-            return {
-              'error': 'Profile creation failed (Database): ${pe.message}',
-            };
+          } catch (e) {
+               return {'error': 'Profile creation failed (Unexpected): $e'};
           }
-        } catch (e) {
-             return {'error': 'Profile creation failed (Unexpected): $e'};
+          return {'id': res.user!.id};
         }
-        return {'id': res.user!.id};
+        return {'error': 'Failed to create helper account (Auth).'};
+      } finally {
+        tempClient.dispose();
       }
-      return {'error': 'Failed to create helper account (Auth).'};
     } on sb.AuthException catch (e) {
       return {'error': e.message};
     } catch (e) {
@@ -1065,10 +1076,11 @@ class AuthService extends ChangeNotifier {
     Gender? gender,
     bool isVerified = false,
   }) async {
+    sb.SupabaseClient? tempClient;
     try {
       // Use a temporary client to perform the signUp
       // This prevents the main application from switching sessions to the new user
-      final tempClient = sb.SupabaseClient(
+      tempClient = sb.SupabaseClient(
         SupabaseConfig.url,
         SupabaseConfig.anonKey,
         authOptions: sb.AuthClientOptions(
@@ -1156,7 +1168,7 @@ class AuthService extends ChangeNotifier {
       print('Unexpected error in adminCreateUser: $e');
       return {'error': e.toString()};
     } finally {
-      // No need to explicitly dispose tempClient as it's not a service
+      tempClient?.dispose();
     }
   }
 

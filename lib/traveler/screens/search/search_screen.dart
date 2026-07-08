@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/providers/localization_provider.dart';
 import '../../../shared/services/service_repository.dart';
 import '../../../shared/services/discount_repository.dart';
 
@@ -349,6 +350,7 @@ class _TravelerSearchScreenState extends ConsumerState<TravelerSearchScreen> {
   }
 
   Widget _buildDesktopHeader() {
+    final loc = ref.watch(localizationProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.center,
@@ -359,7 +361,7 @@ class _TravelerSearchScreenState extends ConsumerState<TravelerSearchScreen> {
               flex: 3,
               child: SearchField(
                 controller: _destinationController,
-                hintText: 'Destination / City',
+                hintText: loc.translate('destination_city'),
                 icon: Icons.location_on,
                 onChanged: (val) => setState(() => _searchQuery = val),
               ),
@@ -369,7 +371,7 @@ class _TravelerSearchScreenState extends ConsumerState<TravelerSearchScreen> {
               flex: 2,
               child: DateField(
                 controller: _checkInController,
-                hintText: 'Check-in',
+                hintText: loc.translate('check_in'),
                 onTap: () => _selectDate(context, true),
               ),
             ),
@@ -378,7 +380,7 @@ class _TravelerSearchScreenState extends ConsumerState<TravelerSearchScreen> {
               flex: 2,
               child: DateField(
                 controller: _checkOutController,
-                hintText: 'Check-out',
+                hintText: loc.translate('check_out'),
                 onTap: () => _selectDate(context, false),
               ),
             ),
@@ -475,11 +477,12 @@ class _TravelerSearchScreenState extends ConsumerState<TravelerSearchScreen> {
   }
 
   Widget _buildMobileHeader() {
+    final loc = ref.watch(localizationProvider);
     return Column(
       children: [
         SearchField(
           controller: _destinationController,
-          hintText: 'Destination / City',
+          hintText: loc.translate('destination_city'),
           icon: Icons.location_on,
           onChanged: (val) => setState(() => _searchQuery = val),
         ),
@@ -489,7 +492,7 @@ class _TravelerSearchScreenState extends ConsumerState<TravelerSearchScreen> {
             Expanded(
               child: DateField(
                 controller: _checkInController,
-                hintText: 'Check-in',
+                hintText: loc.translate('check_in'),
                 onTap: () => _selectDate(context, true),
               ),
             ),
@@ -497,7 +500,7 @@ class _TravelerSearchScreenState extends ConsumerState<TravelerSearchScreen> {
             Expanded(
               child: DateField(
                 controller: _checkOutController,
-                hintText: 'Check-out',
+                hintText: loc.translate('check_out'),
                 onTap: () => _selectDate(context, false),
               ),
             ),
@@ -534,9 +537,9 @@ class _TravelerSearchScreenState extends ConsumerState<TravelerSearchScreen> {
                   });
                 }),
                 icon: const Icon(Icons.search),
-                label: const Text(
-                  'Search',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                label: Text(
+                  loc.translate('search'),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
