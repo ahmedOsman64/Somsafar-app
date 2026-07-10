@@ -46,7 +46,7 @@ graph TD
     end
 
     subgraph External Integrations
-        Stripe[Stripe / Payment Gateway]
+        WaafiPay[WaafiPay / Payment Gateway]
     end
 
     Flutter -->|Authentication| Auth
@@ -56,8 +56,8 @@ graph TD
     DB -->|Real-time Events| Realtime
     Realtime -->|Optimistic Sync| Flutter
     Flutter -->|Initiate Checkout| Edge
-    Edge -->|Verify/Callback| Stripe
-    Stripe -->|Payment Webhook Callback| Edge
+    Edge -->|Process/Verify| WaafiPay
+    WaafiPay -->|Payment Webhook Callback| Edge
     Edge -->|Update booking status| DB
 ```
 
@@ -69,7 +69,7 @@ graph TD
 *   **Aesthetic & Modern Discovery**: Immersive property browsing using high-quality visual carousels, hero banners, and region highlights.
 *   **Advanced Search & Filter**: Real-time service query filtering with an automated PostgreSQL RPC availability checker.
 *   **Intuitive Checkout Flow**: A structured, logical 5-step booking wizard with instant payment processing.
-*   **Secure Payment Integration**: In-app processing featuring automatic webhook verification via Supabase Edge Functions (`process-payment` and `verify-payment`).
+*   **Secure Payment Integration**: In-app processing featuring automatic webhook verification, background reconciliation, and status checks via Supabase Edge Functions (`process-payment`, `verify-payment`, `verify-webhook`, and `reconcile-payments`).
 *   **Real-time Communication**: Instant messaging channel with providers, featuring optimistic UI updates for a zero-latency feel.
 *   **Localization Support**: Dynamic multi-language features powered by a dedicated localization provider.
 
@@ -87,6 +87,7 @@ graph TD
 *   **Centralized Platform Overview**: Real-time administrative metrics dashboard monitoring overall users, services, and transactions.
 *   **Security & Tenant Isolation**: Secure database access governed by PostgreSQL Row-Level Security (RLS) policies, preventing cross-tenant data leaks.
 *   **Responsive Support Tickets**: Built-in support ticket creation, routing, and status tracking system.
+*   **Automated Booking Lifecycle**: Background database cron job (`pg_cron`) automatically transitions paid, pending bookings to a `confirmed` status after a 1-hour grace period.
 
 ---
 
@@ -117,7 +118,7 @@ The codebase is organized logically to separate client applications, backend dat
 ├── assets/             # Graphic assets, flowcharts, and performance diagrams
 ├── bin/                # Testing utilities (schema verification, stream tests)
 ├── supabase/           # Supabase Backend Configuration
-│   ├── functions/      # Edge Functions (process-payment, verify-payment)
+│   ├── functions/      # Edge Functions (process-payment, verify-payment, verify-webhook, reconcile-payments)
 │   ├── migrations/     # PostgreSQL Schema, RLS policies, and RPC definitions
 │   └── email_templates/# HTML templates for authentication
 ├── lib/                # Flutter Application Codebase
@@ -156,6 +157,8 @@ The codebase is organized logically to separate client applications, backend dat
     ```bash
     supabase functions deploy process-payment
     supabase functions deploy verify-payment
+    supabase functions deploy verify-webhook
+    supabase functions deploy reconcile-payments
     ```
 
 ---
