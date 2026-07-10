@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
         if (remoteStatus === 'SUCCESSFUL') {
             await supabaseClient
                 .from('bookings')
-                .update({ payment_status: 'paid', status: 'confirmed' })
+                .update({ payment_status: 'paid', status: 'pending' })
                 .eq('id', transaction.booking_id)
         }
     }

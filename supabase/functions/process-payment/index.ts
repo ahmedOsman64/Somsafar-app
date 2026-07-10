@@ -511,7 +511,7 @@ Deno.serve(async (req) => {
         .from('bookings')
         .update({
           payment_status: 'paid',
-          status: 'confirmed',
+          status: 'pending',
           transaction_id: waafiTransactionId || referenceId
         })
         .eq('id', booking_id)
