@@ -139,8 +139,7 @@ class User {
       dateOfBirth != null;
 
   bool get isVerified =>
-      ((metadata['is_verified'] == true) || name.startsWith('Verified')) &&
-      isProfileComplete;
+      (metadata['is_verified'] == true) || name.startsWith('Verified');
   bool get isSuperAdmin => adminRole == AdminRole.superAdmin;
   bool get isOpsAdmin => adminRole == AdminRole.opsAdmin;
   bool get isFinanceAdmin => adminRole == AdminRole.financeAdmin;

@@ -529,36 +529,42 @@ class _LiveChatDialogState extends ConsumerState<LiveChatDialog> {
       );
     }
 
-    // Simulate typing indicator for support agent
-    setState(() => _isTyping = true);
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        setState(() => _isTyping = false);
-        // Automatically append welcome reply to the ticket
-        if (activeTicket != null) {
-          ref.read(supportProvider.notifier).addMessage(
-            activeTicket.id,
-            'Thanks for your message! Our team has been notified and will get back to you shortly.',
-            isAdmin: true,
-          );
-        } else {
-          // If we just created the ticket, let's find it (or wait for stream) and reply
-          final updatedTickets = ref.read(supportProvider);
-          try {
-            final newTicket = updatedTickets.firstWhere(
-              (t) => t.userId == userId && t.type == TicketType.liveChat && t.status != TicketStatus.closed,
-            );
+    const autoReplyText = 'Thanks for your message! Our team has been notified and will get back to you shortly.';
+    final bool hasAlreadyAutoReplied = activeTicket != null &&
+        activeTicket.messages.any((m) => m.text == autoReplyText);
+
+    if (!hasAlreadyAutoReplied) {
+      // Simulate typing indicator for support agent
+      setState(() => _isTyping = true);
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) {
+          setState(() => _isTyping = false);
+          // Automatically append welcome reply to the ticket
+          if (activeTicket != null) {
             ref.read(supportProvider.notifier).addMessage(
-              newTicket.id,
-              'Thanks for your message! Our team has been notified and will get back to you shortly.',
+              activeTicket.id,
+              autoReplyText,
               isAdmin: true,
             );
-          } catch (_) {
-            // Ignore if not loaded yet
+          } else {
+            // If we just created the ticket, let's find it (or wait for stream) and reply
+            final updatedTickets = ref.read(supportProvider);
+            try {
+              final newTicket = updatedTickets.firstWhere(
+                (t) => t.userId == userId && t.type == TicketType.liveChat && t.status != TicketStatus.closed,
+              );
+              ref.read(supportProvider.notifier).addMessage(
+                newTicket.id,
+                autoReplyText,
+                isAdmin: true,
+              );
+            } catch (_) {
+              // Ignore if not loaded yet
+            }
           }
         }
-      }
-    });
+      });
+    }
   }
 
   @override
