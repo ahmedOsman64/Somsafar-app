@@ -89,16 +89,47 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         }
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                '✅ Registration successful! Please check your email to activate your account.',
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (dialogContext) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
               ),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 5),
+              icon: const Icon(
+                Icons.mark_email_unread_outlined,
+                size: 48,
+                color: Colors.green,
+              ),
+              title: const Text(
+                'Verify Your Email',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              content: const Text(
+                'Registration successful! Please check your email to activate your account.',
+                textAlign: TextAlign.center,
+              ),
+              actions: [
+                Center(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop();
+                      context.pop(); // Return to Login
+                    },
+                    child: const Text('OK'),
+                  ),
+                ),
+              ],
             ),
           );
-          context.pop(); // Return to Login
         }
       } else if (error == 'AUTO_LOGIN') {
         // Supabase logged us in directly (Email Confirmation is disabled)

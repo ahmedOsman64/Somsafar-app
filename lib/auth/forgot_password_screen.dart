@@ -27,14 +27,47 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             .sendOtp(_emailController.text.trim());
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ OTP sent to your email'),
-              backgroundColor: Colors.green,
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (dialogContext) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              icon: const Icon(
+                Icons.mark_email_unread_outlined,
+                size: 48,
+                color: Colors.green,
+              ),
+              title: const Text(
+                'Verify Your Email',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              content: const Text(
+                'An OTP has been sent to your email. Please check your inbox.',
+                textAlign: TextAlign.center,
+              ),
+              actions: [
+                Center(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop();
+                      context.go('/reset-password', extra: _emailController.text.trim());
+                    },
+                    child: const Text('OK'),
+                  ),
+                ),
+              ],
             ),
           );
-          // Go to reset password screen (OTP verification)
-          context.go('/reset-password', extra: _emailController.text.trim());
         }
       } catch (e) {
         if (mounted) {

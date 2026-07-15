@@ -134,7 +134,7 @@ class AuthService extends ChangeNotifier {
             await SupabaseConfig.client.auth.signOut();
             if (mounted) state = null;
           } else {
-            // Start monitoring for concurrent sessions
+            // Start monitoring for status changes/blocks
             _startSessionMonitoring(session.user.id, session.accessToken);
           }
         } else {
@@ -316,7 +316,7 @@ class AuthService extends ChangeNotifier {
   void _startSessionMonitoring(String userId, String currentSessionId) {
     _stopSessionMonitoring();
 
-    debugPrint('DEBUG: Starting session monitoring for $userId');
+    debugPrint('DEBUG: Starting session monitoring for status changes on $userId');
     _sessionChannel = SupabaseConfig.client
         .channel('public:users:id=eq.$userId')
         .onPostgresChanges(
@@ -329,15 +329,14 @@ class AuthService extends ChangeNotifier {
             value: userId,
           ),
           callback: (payload) async {
-            final newSessionId = payload.newRecord['last_session_id'];
+            final statusStr = payload.newRecord['status'] as String? ?? 'active';
             debugPrint(
-              'DEBUG: Session change detected. DB: $newSessionId, Local: $currentSessionId',
+              'DEBUG: User record update detected. Status: $statusStr',
             );
 
-            if (newSessionId != null && newSessionId != currentSessionId) {
-              debugPrint('DEBUG: Concurrent login detected. Forced logout.');
+            if (statusStr == 'blocked' || statusStr == 'suspended') {
+              debugPrint('DEBUG: Account status changed to $statusStr. Forced logout.');
               await logout();
-              // Optionally show a message to the user
             }
           },
         )

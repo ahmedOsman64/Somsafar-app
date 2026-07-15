@@ -1789,28 +1789,30 @@ class _ServiceHorizontalCardState
               Positioned(
                 top: 16,
                 right: 16,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.black.withAlpha(100),
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    icon: Icon(
-                      ref
-                              .watch(favoritesProvider)
-                              .any((s) => s.id == service.id)
-                          ? Icons.favorite
-                          : Icons.favorite_border,
-                      color: Colors.white,
-                      size: 24,
+                child: GestureDetector(
+                  onTap: () {
+                    ref
+                        .read(favoritesProvider.notifier)
+                        .toggleFavorite(service);
+                  },
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withAlpha(100),
+                      shape: BoxShape.circle,
                     ),
-                    onPressed: () {
-                      ref
-                          .read(favoritesProvider.notifier)
-                          .toggleFavorite(service);
-                    },
-                    constraints: const BoxConstraints(),
-                    padding: const EdgeInsets.all(10),
+                    child: Center(
+                      child: Icon(
+                        ref
+                                .watch(favoritesProvider)
+                                .any((s) => s.id == service.id)
+                            ? Icons.favorite
+                            : Icons.favorite_border,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
                   ),
                 ),
               ),
