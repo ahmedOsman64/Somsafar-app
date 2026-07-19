@@ -56,6 +56,9 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
   // Multi-Travelers
   final List<Map<String, TextEditingController>> _additionalTravelers = [];
 
+  String _departureTime = '';
+  String _returnTime = '';
+
   // Jumma Specific
   String _preferredLocation = 'Mogadishu';
   String _jummaTransport = 'Car';
@@ -137,6 +140,8 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
     // Populate metadata for Juma/Eid if available
     final metadata = widget.service.metadata;
     if (metadata.isNotEmpty) {
+      _departureTime = metadata['departureTime'] ?? '';
+      _returnTime = metadata['returnTime'] ?? '';
       if (metadata['package'] == 'jumma') {
         _preferredLocation =
             metadata['preferredLocation'] ?? _preferredLocation;
@@ -501,7 +506,7 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
             Padding(
               padding: const EdgeInsets.only(top: 8, left: 12),
               child: Text(
-                'Note: Date is automatically selected for this package.',
+                'Note: Date is predetermined for this tour package.',
                 style: TextStyle(
                   color: AppColors.primary,
                   fontSize: 12,
@@ -532,7 +537,7 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
           const SizedBox(height: 24),
           if (_package == TourPackage.jumma)
             _buildPackageSpecificSection(
-              'Juma Package Details',
+              'Day Trip Details',
               _buildJummaFields(),
             ),
           if (_package == TourPackage.eid)
@@ -701,9 +706,9 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
         ),
         const SizedBox(height: 12),
         _buildInfoTile(
-          'Accommodation',
+          'Meesha la Tagayo (Destination)',
           _accommodationType,
-          Icons.hotel_outlined,
+          Icons.map_outlined,
         ),
         const SizedBox(height: 12),
         _buildInfoTile(
@@ -711,6 +716,22 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
           _includeLunch ? 'Yes' : 'No',
           Icons.restaurant_outlined,
         ),
+        if (_departureTime.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _buildInfoTile(
+            'Saacadda la Baxayo (Departure)',
+            _departureTime,
+            Icons.departure_board_outlined,
+          ),
+        ],
+        if (_returnTime.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _buildInfoTile(
+            'Saacadda la soo Labanayo (Return)',
+            _returnTime,
+            Icons.keyboard_return_outlined,
+          ),
+        ],
       ],
     );
   }
@@ -738,6 +759,14 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
         ),
         const SizedBox(height: 12),
         _buildInfoTile('Food Package', _foodPackage, Icons.restaurant_outlined),
+        if (_departureTime.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _buildInfoTile(
+            'Saacadda la Baxayo (Departure)',
+            _departureTime,
+            Icons.departure_board_outlined,
+          ),
+        ],
         const Divider(height: 32),
         _premiumTextField(
           controller: _childSpecificNeedsController,
@@ -1301,14 +1330,14 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
   String _formatPackageName(TourPackage package, [double? multiplier]) {
     switch (package) {
       case TourPackage.jumma:
-        return 'Juma Package';
+        return 'Dalxiis Maalinle ah (Single Day Tour)';
       case TourPackage.eid:
         final percentage = multiplier != null && multiplier > 1.0
             ? ' (+${((multiplier - 1.0) * 100).toStringAsFixed(0)}%)'
             : '';
-        return 'Eid Package$percentage';
+        return 'Safar Dhowr Maalmood ah (Multi-Day Tour)$percentage';
       case TourPackage.custom:
-        return 'Custom Package';
+        return 'Dalxiis Gaar ah / Dalab (Custom & Private Tour)';
     }
   }
 

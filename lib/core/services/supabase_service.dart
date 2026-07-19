@@ -29,7 +29,7 @@ class SupabaseConfig {
     }
 
     final results = await Future.wait([
-      dotenv.load(fileName: 'assets/.env').catchError((e) {
+      dotenv.load(fileName: 'assets/env').catchError((e) {
         debugPrint('Note: assets/.env not found or failed to load. Using fallback/custom config.');
         return; // Non-fatal
       }),

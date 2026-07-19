@@ -8,7 +8,11 @@ enum SmokingPreference { smoking, nonSmoking, any }
 
 enum StayPurpose { business, vacation, family, longTerm }
 
-enum TourPackage { jumma, eid, custom }
+enum TourPackage { 
+  jumma, // Labeled in UI as "Dalxiis Maalinle ah (Single Day Tour / Day Trip)"
+  eid,    // Labeled in UI as "Safar Dhowr Maalmood ah (Multi-Day Tour / Group Package)"
+  custom, // Labeled in UI as "Dalxiis Gaar ah / Dalab (Custom & Private Tour)"
+}
 
 enum LanguageGuide { english, somali, arabic, italian }
 

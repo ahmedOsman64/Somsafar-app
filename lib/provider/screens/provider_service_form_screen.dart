@@ -35,6 +35,7 @@ class _ProviderServiceFormScreenState
   String? _selectedCategory;
   ServiceStatus _status = ServiceStatus.active;
   List<dynamic> _images = []; // Can be String (URL) or XFile (local)
+  bool _isLoadingService = false; // true while fetching service for edit
   bool _isUploading = false;
 
   late TextEditingController _regionController;
@@ -100,12 +101,17 @@ class _ProviderServiceFormScreenState
   final List<String> _tourLanguages = ['English'];
   final List<String> _tourIncludes = [];
   final List<String> _tourExcludes = [];
+  final _customInclusionController = TextEditingController();
+  final _customExclusionController = TextEditingController();
   TourPackage _selectedTourPackage = TourPackage.jumma;
+
+  late TextEditingController _departureTimeController;
+  late TextEditingController _returnTimeController;
 
   // Jumma Specific
   late TextEditingController _preferredLocationController;
   late TextEditingController _jummaTransportController;
-  String _accommodationType = 'Hotel';
+  late TextEditingController _jummaDestinationController;
   bool _includeLunch = true;
 
   // Eid Specific
@@ -179,9 +185,13 @@ class _ProviderServiceFormScreenState
     _vipAccessPriceController = TextEditingController();
     _translatorPriceController = TextEditingController();
 
+    _departureTimeController = TextEditingController();
+    _returnTimeController = TextEditingController();
+
     // Jumma
     _preferredLocationController = TextEditingController(text: 'Mogadishu');
     _jummaTransportController = TextEditingController(text: 'Car');
+    _jummaDestinationController = TextEditingController();
 
     // Eid
     _eidTransportController = TextEditingController(text: 'Bus');
@@ -195,6 +205,7 @@ class _ProviderServiceFormScreenState
     _eidDaysController = TextEditingController(text: '3');
 
     if (widget.serviceId != null) {
+      _isLoadingService = true;
       _loadServiceData();
     } else {
       // Auto-populate location from provider profile for new services
@@ -213,69 +224,88 @@ class _ProviderServiceFormScreenState
   }
 
   void _loadServiceData() {
-    Future.microtask(() {
-      final services = ref.read(filteredServicesProvider);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _tryLoadService();
+    });
+  }
 
-      try {
-        final service = services.firstWhere((s) => s.id == widget.serviceId);
-        setState(() {
-          _titleController.text = service.title;
-          _selectedCategory = service.category;
-          _priceController.text = service.price.toString();
-          _pricingType =
-              service.metadata['pricing_type'] ??
-              (service.category.toLowerCase().contains('apartment')
-                  ? 'monthly'
-                  : 'nightly');
-          _locationController.text = service.location;
-          _descriptionController.text = service.description;
-          _status = service.status;
-          _images = List.from(service.images);
+  Future<void> _tryLoadService() async {
+    if (!mounted) return;
 
-          // Populate metadata if available
-          if (service.metadata.isNotEmpty) {
-            if (service.metadata['region'] != null) {
-              final regionValue = service.metadata['region'].toString();
-              // Sanitize: do not use if it looks like a full address
-              // Sanitize: do not use if it looks like a full address
-              if (!regionValue.contains(',')) {
-                _regionController.text = regionValue;
-              }
-            }
-            _populateMetadata(service.category, service.metadata);
+    final services = ref.read(filteredServicesProvider);
+
+    // If services haven't loaded yet, wait and retry
+    if (services.isEmpty) {
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (mounted) await _tryLoadService();
+      return;
+    }
+
+    final serviceIndex = services.indexWhere((s) => s.id == widget.serviceId);
+    if (serviceIndex == -1) {
+      // Service not found in the list — show error
+      if (mounted) {
+        setState(() => _isLoadingService = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not find service data. Please try again.')),
+        );
+      }
+      return;
+    }
+
+    final service = services[serviceIndex];
+
+    if (!mounted) return;
+    setState(() {
+      _isLoadingService = false;
+      _titleController.text = service.title;
+      _selectedCategory = service.category;
+      _priceController.text = service.price.toString();
+      _pricingType =
+          service.metadata['pricing_type'] ??
+          (service.category.toLowerCase().contains('apartment')
+              ? 'monthly'
+              : 'nightly');
+      _locationController.text = service.location;
+      _descriptionController.text = service.description;
+      _status = service.status;
+      _images = List.from(service.images);
+
+      // Populate metadata if available
+      if (service.metadata.isNotEmpty) {
+        if (service.metadata['region'] != null) {
+          final regionValue = service.metadata['region'].toString();
+          // Sanitize: do not use if it looks like a full address
+          if (!regionValue.contains(',')) {
+            _regionController.text = regionValue;
           }
+        }
+        _populateMetadata(service.category, service.metadata);
+      }
 
-          final categoryLower = service.category.trim().toLowerCase();
-          // Populate extra prices from explicit fields
-          if (categoryLower.contains('hotel')) {
-            _breakfastPriceController.text =
-                service.breakfastPrice?.toString() ?? '';
-            _airportPickupPriceController.text =
-                service.airportPickupPrice?.toString() ?? '';
-            _extraBedPriceController.text =
-                service.extraBedPrice?.toString() ?? '';
+      final categoryLower = service.category.trim().toLowerCase();
+      // Populate extra prices from explicit fields
+      if (categoryLower.contains('hotel')) {
+        _breakfastPriceController.text =
+            service.breakfastPrice?.toString() ?? '';
+        _airportPickupPriceController.text =
+            service.airportPickupPrice?.toString() ?? '';
+        _extraBedPriceController.text =
+            service.extraBedPrice?.toString() ?? '';
 
-            // Ensure amenities are loaded even if not in metadata
-            if (service.amenities != null) {
-              _hotelAmenities.clear();
-              _hotelAmenities.addAll(List<String>.from(service.amenities!));
-            }
-          } else if (categoryLower.contains('apartment')) {
-            _cleaningPriceController.text =
-                service.cleaningPrice?.toString() ?? '';
+        // Ensure amenities are loaded even if not in metadata
+        if (service.amenities != null) {
+          _hotelAmenities.clear();
+          _hotelAmenities.addAll(List<String>.from(service.amenities!));
+        }
+      } else if (categoryLower.contains('apartment')) {
+        _cleaningPriceController.text =
+            service.cleaningPrice?.toString() ?? '';
 
-            // Ensure amenities are loaded even if not in metadata
-            if (service.amenities != null) {
-              _aptAmenities.clear();
-              _aptAmenities.addAll(List<String>.from(service.amenities!));
-            }
-          }
-        });
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Error loading service data')),
-          );
+        // Ensure amenities are loaded even if not in metadata
+        if (service.amenities != null) {
+          _aptAmenities.clear();
+          _aptAmenities.addAll(List<String>.from(service.amenities!));
         }
       }
     });
@@ -367,6 +397,8 @@ class _ProviderServiceFormScreenState
         _tourExclusionsController.text = metadata['tourExclusions'] ?? '';
         _tourItineraryController.text = metadata['tourItinerary'] ?? '';
         _tourImportantInfoController.text = metadata['tourImportantInfo'] ?? '';
+        _departureTimeController.text = metadata['departureTime'] ?? '';
+        _returnTimeController.text = metadata['returnTime'] ?? '';
         _tourDifficulty = metadata['tourDifficulty'] ?? 'Moderate';
         if (metadata['includes'] != null) {
           _tourIncludes.clear();
@@ -385,7 +417,8 @@ class _ProviderServiceFormScreenState
           _preferredLocationController.text =
               metadata['preferredLocation'] ?? '';
           _jummaTransportController.text = metadata['jummaTransport'] ?? '';
-          _accommodationType = metadata['accommodationType'] ?? 'Hotel';
+          _jummaDestinationController.text =
+              metadata['destination'] ?? metadata['accommodationType'] ?? '';
           _includeLunch = metadata['includeLunch'] ?? true;
         } else if (_selectedTourPackage == TourPackage.eid) {
           _eidType = metadata['eidType'] ?? 'Eid al-Fitr';
@@ -489,6 +522,7 @@ class _ProviderServiceFormScreenState
     _cleaningPriceController.dispose();
     _preferredLocationController.dispose();
     _jummaTransportController.dispose();
+    _jummaDestinationController.dispose();
     _eidTransportController.dispose();
     _eidFoodController.dispose();
     _budgetRangeController.dispose();
@@ -502,8 +536,61 @@ class _ProviderServiceFormScreenState
     _vipAccessPriceController.dispose();
     _translatorPriceController.dispose();
     _regionController.dispose();
+    _departureTimeController.dispose();
+    _returnTimeController.dispose();
+    _customInclusionController.dispose();
+    _customExclusionController.dispose();
 
     super.dispose();
+  }
+
+  Future<void> _selectTime(BuildContext context, TextEditingController controller) async {
+    TimeOfDay initialTime = TimeOfDay.now();
+    final text = controller.text.trim();
+    if (text.isNotEmpty) {
+      try {
+        final parts = text.split(' ');
+        if (parts.length == 2) {
+          final timeParts = parts[0].split(':');
+          int hour = int.parse(timeParts[0]);
+          int minute = int.parse(timeParts[1]);
+          final isPm = parts[1].toUpperCase() == 'PM';
+          if (isPm && hour < 12) hour += 12;
+          if (!isPm && hour == 12) hour = 0;
+          initialTime = TimeOfDay(hour: hour, minute: minute);
+        }
+      } catch (_) {
+        // Fallback to now
+      }
+    }
+
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: initialTime,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppColors.primary,
+              onPrimary: Colors.white,
+              onSurface: AppColors.dark,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      final hour = picked.hourOfPeriod == 0 ? 12 : picked.hourOfPeriod;
+      final minute = picked.minute.toString().padLeft(2, '0');
+      final period = picked.period == DayPeriod.am ? 'AM' : 'PM';
+      final formattedHour = hour.toString().padLeft(2, '0');
+      
+      setState(() {
+        controller.text = '$formattedHour:$minute $period';
+      });
+    }
   }
 
   Future<bool> _onWillPop() async {
@@ -530,7 +617,12 @@ class _ProviderServiceFormScreenState
     }
 
     try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1200,
+        maxHeight: 1200,
+        imageQuality: 75,
+      );
       if (image != null) {
         if (kIsWeb) {
           final bytes = await image.readAsBytes();
@@ -589,35 +681,40 @@ class _ProviderServiceFormScreenState
 
       setState(() => _isUploading = true);
 
-      try {
-        // 1. Upload new images
-        final List<String> finalImageUrls = [];
-        try {
-          for (final item in _images) {
-            if (item is String) {
-              finalImageUrls.add(item); // Already a URL
-            } else if (item is XFile) {
-              final url = await StorageService.uploadImage(item);
-              if (url != null) {
-                finalImageUrls.add(url);
-              }
-            } else if (item is Map && item.containsKey('file')) {
-              final url = await StorageService.uploadImage(
-                item['file'] as XFile,
-                bytes: item['bytes'] as List<int>?,
-              );
-              if (url != null) {
-                finalImageUrls.add(url);
-              }
-            }
-          }
-        } catch (uploadError) {
-          debugPrint('DEBUG: Detailed Upload Error: $uploadError');
-          throw Exception(
-            'Image upload failed: $uploadError. Please make sure storage bucket is configured.',
-          );
-        }
+      // 1. Upload images — parallel for speed
+      final List<String> existingUrls = [];
+      final List<Future<String?>> uploadFutures = [];
 
+      for (final item in _images) {
+        if (item is String) {
+          existingUrls.add(item); // Already uploaded URL
+        } else if (item is XFile) {
+          uploadFutures.add(StorageService.uploadImage(item));
+        } else if (item is Map && item.containsKey('file')) {
+          uploadFutures.add(StorageService.uploadImage(
+            item['file'] as XFile,
+            bytes: item['bytes'] as List<int>?,
+          ));
+        }
+      }
+
+      final List<String> finalImageUrls;
+      try {
+        final List<String?> uploadedUrls = uploadFutures.isNotEmpty
+            ? await Future.wait(uploadFutures)
+            : [];
+        finalImageUrls = [
+          ...existingUrls,
+          ...uploadedUrls.whereType<String>(),
+        ];
+      } catch (uploadError) {
+        debugPrint('DEBUG: Detailed Upload Error: $uploadError');
+        throw Exception(
+          'Image upload failed: $uploadError. Please make sure storage bucket is configured.',
+        );
+      }
+
+      try {
         if (finalImageUrls.isEmpty && _images.isNotEmpty) {
           throw Exception(
             'Failed to upload images: List is empty after processing. Check console logs.',
@@ -626,6 +723,9 @@ class _ProviderServiceFormScreenState
 
         final title = _titleController.text;
         final category = _selectedCategory!;
+        if (category.toLowerCase().contains('tour')) {
+          _adultPriceController.text = _priceController.text;
+        }
         final price = double.parse(_priceController.text);
         final location = _locationController.text;
         final description = _descriptionController.text;
@@ -693,6 +793,8 @@ class _ProviderServiceFormScreenState
             metadata['languages'] = _tourLanguages;
             metadata['includes'] = _tourIncludes;
             metadata['package'] = _selectedTourPackage.name;
+            metadata['departureTime'] = _departureTimeController.text;
+            metadata['returnTime'] = _returnTimeController.text;
             metadata['tourInclusions'] = _tourInclusionsController.text;
             metadata['tourExclusions'] = _tourExclusionsController.text;
             metadata['tourItinerary'] = _tourItineraryController.text;
@@ -703,7 +805,8 @@ class _ProviderServiceFormScreenState
             if (_selectedTourPackage == TourPackage.jumma) {
               metadata['preferredLocation'] = _preferredLocationController.text;
               metadata['jummaTransport'] = _jummaTransportController.text;
-              metadata['accommodationType'] = _accommodationType;
+              metadata['destination'] = _jummaDestinationController.text;
+              metadata['accommodationType'] = _jummaDestinationController.text;
               metadata['includeLunch'] = _includeLunch;
             } else if (_selectedTourPackage == TourPackage.eid) {
               metadata['eidType'] = _eidType;
@@ -1001,7 +1104,9 @@ class _ProviderServiceFormScreenState
               ),
           ],
         ),
-        body: SingleChildScrollView(
+        body: _isLoadingService
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Form(
             key: _formKey,
@@ -1198,38 +1303,37 @@ class _ProviderServiceFormScreenState
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: AppTextField(
-                controller: _priceController,
-                label:
-                    (_selectedCategory?.toLowerCase().contains('tour') ?? false)
-                    ? 'Qiimaha Maalintii (Price per Day) *'
-                    : ((_selectedCategory?.toLowerCase().contains(
-                                'apartment',
-                              ) ??
-                              false)
-                          ? (_pricingType == 'monthly'
-                                ? 'Qiimaha Bishii (Price per Month) *'
-                                : 'Qiimaha Habeenkii (Price per Night) *')
-                          : 'Qiimaha Habeenkii (Price per Night) *'),
-                hint: '0.00',
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
+        if (!(_selectedCategory?.toLowerCase().contains('tour') ?? false)) ...[
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: AppTextField(
+                  controller: _priceController,
+                  label: ((_selectedCategory?.toLowerCase().contains(
+                                  'apartment',
+                                ) ??
+                                false)
+                            ? (_pricingType == 'monthly'
+                                  ? 'Qiimaha Bishii (Price per Month) *'
+                                  : 'Qiimaha Habeenkii (Price per Night) *')
+                            : 'Qiimaha Habeenkii (Price per Night) *'),
+                  hint: '0.00',
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  prefixIcon: const Icon(Icons.attach_money),
+                  validator: (val) {
+                    if (val == null || val.isEmpty) return 'Required';
+                    final num = double.tryParse(val);
+                    if (num == null || num <= 0) return 'Invalid price';
+                    return null;
+                  },
                 ),
-                prefixIcon: const Icon(Icons.attach_money),
-                validator: (val) {
-                  if (val == null || val.isEmpty) return 'Required';
-                  final num = double.tryParse(val);
-                  if (num == null || num <= 0) return 'Invalid price';
-                  return null;
-                },
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
         if (_selectedCategory?.toLowerCase().contains('apartment') ??
             false) ...[
           const SizedBox(height: 16),
@@ -1888,7 +1992,7 @@ class _ProviderServiceFormScreenState
           children: [
             Expanded(
               child: AppTextField(
-                controller: _adultPriceController,
+                controller: _priceController,
                 label: 'Qiimaha Dadka Waaweyn (Adult Price) *',
                 hint: '0.00',
                 keyboardType: TextInputType.number,
@@ -1918,66 +2022,6 @@ class _ProviderServiceFormScreenState
           ],
         ),
         const SizedBox(height: 24),
-        _buildSectionTitle('Extra Service Prices (Custom Package)'),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: AppTextField(
-                controller: _guidePriceController,
-                label: 'Qiimaha Tilmaamaha (Guide Price)',
-                hint: '0.00',
-                keyboardType: TextInputType.number,
-                prefixIcon: const Icon(Icons.person_pin_outlined),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: AppTextField(
-                controller: _privateTransportPriceController,
-                label: 'Qiimaha Gaadiidka Gaarka ah (Private Transport)',
-                hint: '0.00',
-                keyboardType: TextInputType.number,
-                prefixIcon: const Icon(Icons.directions_car_outlined),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: AppTextField(
-                controller: _photographerPriceController,
-                label: 'Qiimaha Sawir-qaadaha (Photographer)',
-                hint: '0.00',
-                keyboardType: TextInputType.number,
-                prefixIcon: const Icon(Icons.camera_alt_outlined),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: AppTextField(
-                controller: _vipAccessPriceController,
-                label: 'Qiimaha VIP-da (VIP Access)',
-                hint: '0.00',
-                keyboardType: TextInputType.number,
-                prefixIcon: const Icon(Icons.stars_outlined),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        AppTextField(
-          controller: _translatorPriceController,
-          label: 'Qiimaha Turjumaanka (Translator Price)',
-          hint: '0.00',
-          keyboardType: TextInputType.number,
-          prefixIcon: const Icon(Icons.translate_outlined),
-        ),
-        const SizedBox(height: 24),
-        _buildSectionTitle('General Tour Details'),
-        const SizedBox(height: 16),
         const Text(
           'Select Tour Package Type *',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -1985,6 +2029,8 @@ class _ProviderServiceFormScreenState
         const SizedBox(height: 8),
         _buildPackageSelector(),
         const SizedBox(height: 32),
+        _buildSectionTitle('General Tour Details'),
+        const SizedBox(height: 16),
 
         // 1. Shared Fields (Duration, Max Travelers & Meeting Point)
         Row(
@@ -2032,173 +2078,293 @@ class _ProviderServiceFormScreenState
         if (_selectedTourPackage == TourPackage.eid) _buildEidPackageFields(),
         if (_selectedTourPackage == TourPackage.custom) ...[
           _buildCustomPackageFields(),
+          const SizedBox(height: 24),
+          _buildSectionTitle('Extra Service Prices (Custom Package)'),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: AppTextField(
+                  controller: _guidePriceController,
+                  label: 'Qiimaha Tilmaamaha (Guide Price)',
+                  hint: '0.00',
+                  keyboardType: TextInputType.number,
+                  prefixIcon: const Icon(Icons.person_pin_outlined),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: AppTextField(
+                  controller: _privateTransportPriceController,
+                  label: 'Qiimaha Gaadiidka Gaarka ah (Private Transport)',
+                  hint: '0.00',
+                  keyboardType: TextInputType.number,
+                  prefixIcon: const Icon(Icons.directions_car_outlined),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: AppTextField(
+                  controller: _photographerPriceController,
+                  label: 'Qiimaha Sawir-qaadaha (Photographer)',
+                  hint: '0.00',
+                  keyboardType: TextInputType.number,
+                  prefixIcon: const Icon(Icons.camera_alt_outlined),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: AppTextField(
+                  controller: _vipAccessPriceController,
+                  label: 'Qiimaha VIP-da (VIP Access)',
+                  hint: '0.00',
+                  keyboardType: TextInputType.number,
+                  prefixIcon: const Icon(Icons.stars_outlined),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          AppTextField(
+            controller: _translatorPriceController,
+            label: 'Qiimaha Turjumaanka (Translator Price)',
+            hint: '0.00',
+            keyboardType: TextInputType.number,
+            prefixIcon: const Icon(Icons.translate_outlined),
+          ),
           const SizedBox(height: 32),
+        ],
 
-          // 3. Extended Tour Fields (Only for Custom / Detailed Tours)
-          _buildSectionTitle('What\'s Included?'),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children:
-                [
-                  'Guide',
-                  'Transport',
-                  'Meals',
-                  'Tickets',
-                  'Equipment',
-                  'Insurance',
-                  'Hotel Pickup',
-                  'WiFi',
-                ].map((item) {
-                  final isSelected = _tourIncludes.contains(item);
+        // 3. Extended Tour Fields (Available for all Tour packages)
+        _buildSectionTitle('What\'s Included?'),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: {
+            'Guide',
+            'Transport',
+            'Meals',
+            'Tickets',
+            'Equipment',
+            'Insurance',
+            'Hotel Pickup',
+            'WiFi',
+            ..._tourIncludes,
+          }.map((item) {
+            final isSelected = _tourIncludes.contains(item);
+            return FilterChip(
+              label: Text(item),
+              selected: isSelected,
+              onSelected: (selected) {
+                setState(() {
+                  if (selected) {
+                    _tourIncludes.add(item);
+                  } else {
+                    _tourIncludes.remove(item);
+                  }
+                });
+              },
+              selectedColor: AppColors.primary.withValues(alpha: 0.2),
+              checkmarkColor: AppColors.primary,
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: AppTextField(
+                controller: _customInclusionController,
+                label: 'Add Custom Inclusion (Ku dar waxyaabaha kale)',
+                hint: 'e.g. Tour Guide Book, Snacks',
+                prefixIcon: const Icon(Icons.add_circle_outline, color: Colors.green),
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton.filled(
+              style: IconButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                final text = _customInclusionController.text.trim();
+                if (text.isNotEmpty) {
+                  setState(() {
+                    if (!_tourIncludes.contains(text)) {
+                      _tourIncludes.add(text);
+                    }
+                    _customInclusionController.clear();
+                  });
+                }
+              },
+              icon: const Icon(Icons.add),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        AppTextField(
+          controller: _tourInclusionsController,
+          label: 'Other Inclusions (Notes)',
+          hint: 'Enter any additional inclusions...',
+          maxLines: 2,
+          prefixIcon: const Icon(
+            Icons.add_circle_outline,
+            color: Colors.green,
+          ),
+        ),
+        const SizedBox(height: 24),
+        _buildSectionTitle('What\'s Not Included?'),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: {
+            'Tips',
+            'Personal Expenses',
+            'Flights',
+            'Entry Fees',
+            'Dinner',
+            'Alcohol',
+            ..._tourExcludes,
+          }.map((item) {
+            final isSelected = _tourExcludes.contains(item);
+            return FilterChip(
+              label: Text(item),
+              selected: isSelected,
+              onSelected: (selected) {
+                setState(() {
+                  if (selected) {
+                    _tourExcludes.add(item);
+                  } else {
+                    _tourExcludes.remove(item);
+                  }
+                });
+              },
+              selectedColor: Colors.red.withValues(alpha: 0.1),
+              checkmarkColor: Colors.red,
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: AppTextField(
+                controller: _customExclusionController,
+                label: 'Add Custom Exclusion (Ku dar waxyaabaha aan ku jirin)',
+                hint: 'e.g. Entry Tickets, Drinks',
+                prefixIcon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton.filled(
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                final text = _customExclusionController.text.trim();
+                if (text.isNotEmpty) {
+                  setState(() {
+                    if (!_tourExcludes.contains(text)) {
+                      _tourExcludes.add(text);
+                    }
+                    _customExclusionController.clear();
+                  });
+                }
+              },
+              icon: const Icon(Icons.add),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        AppTextField(
+          controller: _tourExclusionsController,
+          label: 'Other Exclusions (Notes)',
+          hint: 'Enter any additional exclusions...',
+          maxLines: 2,
+          prefixIcon: const Icon(
+            Icons.remove_circle_outline,
+            color: Colors.red,
+          ),
+        ),
+        const SizedBox(height: 24),
+        _buildSectionTitle('Tour Itinerary'),
+        const SizedBox(height: 8),
+        AppTextField(
+          controller: _tourItineraryController,
+          label: 'Step-by-step Plan',
+          hint: '08:00 AM - Pickup\n09:30 AM - Arrive at Jazeera\n...',
+          maxLines: 6,
+          prefixIcon: const Icon(Icons.map_outlined),
+        ),
+        const SizedBox(height: 24),
+        _buildSectionTitle('Important Information'),
+        const SizedBox(height: 8),
+        AppTextField(
+          controller: _tourImportantInfoController,
+          label: 'Requirements & Bring-alongs',
+          hint: 'Must bring Swimwear, Sunsreen, ID Card',
+          maxLines: 3,
+          prefixIcon: const Icon(Icons.info_outline),
+        ),
+        const SizedBox(height: 24),
+        const Text(
+          'Tour Difficulty',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          initialValue: _tourDifficulty,
+          decoration: InputDecoration(
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            prefixIcon: const Icon(Icons.speed_outlined),
+          ),
+          items: ['Easy', 'Moderate', 'Challenging', 'Strenuous'].map((diff) {
+            return DropdownMenuItem(value: diff, child: Text(diff));
+          }).toList(),
+          onChanged: (val) => setState(() => _tourDifficulty = val!),
+        ),
+        const SizedBox(height: 24),
+        const Text(
+          'Languages Available',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        ref.watch(languagesProvider).when(
+              data: (items) => Wrap(
+                spacing: 8,
+                children: items.map((item) {
+                  final lang = item.label;
+                  final isSelected = _tourLanguages.contains(lang);
                   return FilterChip(
-                    label: Text(item),
+                    label: Text(lang),
                     selected: isSelected,
                     onSelected: (selected) {
                       setState(() {
                         if (selected) {
-                          _tourIncludes.add(item);
+                          _tourLanguages.add(lang);
                         } else {
-                          _tourIncludes.remove(item);
+                          _tourLanguages.remove(lang);
                         }
                       });
                     },
-                    selectedColor: AppColors.primary.withValues(alpha: 0.2),
+                    selectedColor: AppColors.primary.withAlpha(50),
                     checkmarkColor: AppColors.primary,
                   );
                 }).toList(),
-          ),
-          const SizedBox(height: 12),
-          AppTextField(
-            controller: _tourInclusionsController,
-            label: 'Other Inclusions',
-            hint: 'Enter any additional inclusions...',
-            maxLines: 2,
-            prefixIcon: const Icon(
-              Icons.add_circle_outline,
-              color: Colors.green,
-            ),
-          ),
-          const SizedBox(height: 24),
-          _buildSectionTitle('What\'s Not Included?'),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children:
-                [
-                  'Tips',
-                  'Personal Expenses',
-                  'Flights',
-                  'Entry Fees',
-                  'Dinner',
-                  'Alcohol',
-                ].map((item) {
-                  final isSelected = _tourExcludes.contains(item);
-                  return FilterChip(
-                    label: Text(item),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      setState(() {
-                        if (selected) {
-                          _tourExcludes.add(item);
-                        } else {
-                          _tourExcludes.remove(item);
-                        }
-                      });
-                    },
-                    selectedColor: Colors.red.withValues(alpha: 0.1),
-                    checkmarkColor: Colors.red,
-                  );
-                }).toList(),
-          ),
-          const SizedBox(height: 12),
-          AppTextField(
-            controller: _tourExclusionsController,
-            label: 'Other Exclusions',
-            hint: 'Enter any additional exclusions...',
-            maxLines: 2,
-            prefixIcon: const Icon(
-              Icons.remove_circle_outline,
-              color: Colors.red,
-            ),
-          ),
-          const SizedBox(height: 24),
-          _buildSectionTitle('Tour Itinerary'),
-          const SizedBox(height: 8),
-          AppTextField(
-            controller: _tourItineraryController,
-            label: 'Step-by-step Plan',
-            hint: '08:00 AM - Pickup\n09:30 AM - Arrive at Jazeera\n...',
-            maxLines: 6,
-            prefixIcon: const Icon(Icons.map_outlined),
-          ),
-          const SizedBox(height: 24),
-          _buildSectionTitle('Important Information'),
-          const SizedBox(height: 8),
-          AppTextField(
-            controller: _tourImportantInfoController,
-            label: 'Requirements & Bring-alongs',
-            hint: 'Must bring Swimwear, Sunsreen, ID Card',
-            maxLines: 3,
-            prefixIcon: const Icon(Icons.info_outline),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'Tour Difficulty',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            initialValue: _tourDifficulty,
-            decoration: InputDecoration(
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
               ),
-              prefixIcon: const Icon(Icons.speed_outlined),
+              loading: () => const LinearProgressIndicator(),
+              error: (e, _) => const Text('Error loading languages'),
             ),
-            items: ['Easy', 'Moderate', 'Challenging', 'Strenuous'].map((diff) {
-              return DropdownMenuItem(value: diff, child: Text(diff));
-            }).toList(),
-            onChanged: (val) => setState(() => _tourDifficulty = val!),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'Languages Available',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          ref
-              .watch(languagesProvider)
-              .when(
-                data: (items) => Wrap(
-                  spacing: 8,
-                  children: items.map((item) {
-                    final lang = item.label;
-                    final isSelected = _tourLanguages.contains(lang);
-                    return FilterChip(
-                      label: Text(lang),
-                      selected: isSelected,
-                      onSelected: (selected) {
-                        setState(() {
-                          if (selected) {
-                            _tourLanguages.add(lang);
-                          } else {
-                            _tourLanguages.remove(lang);
-                          }
-                        });
-                      },
-                      selectedColor: AppColors.primary.withAlpha(50),
-                      checkmarkColor: AppColors.primary,
-                    );
-                  }).toList(),
-                ),
-                loading: () => const LinearProgressIndicator(),
-                error: (e, _) => const Text('Error loading languages'),
-              ),
         ],
-      ],
     );
   }
 
@@ -2657,19 +2823,19 @@ class _ProviderServiceFormScreenState
 
         switch (package) {
           case TourPackage.jumma:
-            icon = Icons.mosque_outlined;
+            icon = Icons.today_outlined;
             color = Colors.green;
-            label = 'Jumma Package';
+            label = 'Dalxiis Maalinle ah (Single Day Tour)';
             break;
           case TourPackage.eid:
-            icon = Icons.celebration_outlined;
+            icon = Icons.date_range_outlined;
             color = Colors.orange;
-            label = 'Eid Package';
+            label = 'Safar Dhowr Maalmood ah (Multi-Day Tour)';
             break;
           case TourPackage.custom:
-            icon = Icons.edit_note_outlined;
+            icon = Icons.dashboard_customize_outlined;
             color = AppColors.primary;
-            label = 'Custom / Manual Plan';
+            label = 'Dalxiis Gaar ah / Dalab (Custom & Private Tour)';
             break;
         }
 
@@ -2692,13 +2858,53 @@ class _ProviderServiceFormScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle('Jumma Details'),
+        _buildSectionTitle('Muuqaalka Safarka Maalinlaha ah (Day Trip Details)'),
         const SizedBox(height: 16),
         AppTextField(
           controller: _preferredLocationController,
           label: 'Preferred Location *',
           hint: 'e.g. Mogadishu, Jazeera',
           prefixIcon: const Icon(Icons.location_on_outlined),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: AppTextField(
+                controller: _departureTimeController,
+                label: 'Saacadda la Baxayo (Departure Time) *',
+                hint: 'e.g. 08:00 AM',
+                readOnly: true,
+                onTap: () => _selectTime(context, _departureTimeController),
+                prefixIcon: const Icon(Icons.departure_board_outlined),
+                validator: (val) {
+                  if (_selectedTourPackage == TourPackage.jumma &&
+                      (val == null || val.isEmpty)) {
+                    return 'Required';
+                  }
+                  return null;
+                },
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: AppTextField(
+                controller: _returnTimeController,
+                label: 'Saacadda la soo Labanayo (Return Time) *',
+                hint: 'e.g. 05:00 PM',
+                readOnly: true,
+                onTap: () => _selectTime(context, _returnTimeController),
+                prefixIcon: const Icon(Icons.keyboard_return_outlined),
+                validator: (val) {
+                  if (_selectedTourPackage == TourPackage.jumma &&
+                      (val == null || val.isEmpty)) {
+                    return 'Required';
+                  }
+                  return null;
+                },
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 16),
         AppTextField(
@@ -2708,15 +2914,18 @@ class _ProviderServiceFormScreenState
           prefixIcon: const Icon(Icons.directions_bus_outlined),
         ),
         const SizedBox(height: 16),
-        AppDropdown<String>(
-          label: 'Accommodation *',
-          value: _accommodationType,
-          items: [
-            'Hotel',
-            'Apartment',
-            'None',
-          ].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-          onChanged: (val) => setState(() => _accommodationType = val!),
+        AppTextField(
+          controller: _jummaDestinationController,
+          label: 'Meesha la Tagayo (Destination) *',
+          hint: 'e.g. Jazeera Beach, Liido Beach',
+          prefixIcon: const Icon(Icons.map_outlined),
+          validator: (val) {
+            if (_selectedTourPackage == TourPackage.jumma &&
+                (val == null || val.isEmpty)) {
+              return 'Required';
+            }
+            return null;
+          },
         ),
         const SizedBox(height: 8),
         SwitchListTile(
@@ -2734,7 +2943,7 @@ class _ProviderServiceFormScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle('Eid Details'),
+        _buildSectionTitle('Faahfaahinta Safarka Dhowrka Maalmood ah (Multi-Day Details)'),
         const SizedBox(height: 16),
         AppDropdown<String>(
           label: 'Eid Type *',
@@ -2751,6 +2960,22 @@ class _ProviderServiceFormScreenState
           label: 'Destination *',
           hint: 'e.g. Istanbul, Dubai',
           prefixIcon: const Icon(Icons.map_outlined),
+        ),
+        const SizedBox(height: 16),
+        AppTextField(
+          controller: _departureTimeController,
+          label: 'Saacadda la Baxayo (Departure Time) *',
+          hint: 'e.g. 08:00 AM',
+          readOnly: true,
+          onTap: () => _selectTime(context, _departureTimeController),
+          prefixIcon: const Icon(Icons.departure_board_outlined),
+          validator: (val) {
+            if (_selectedTourPackage == TourPackage.eid &&
+                (val == null || val.isEmpty)) {
+              return 'Required';
+            }
+            return null;
+          },
         ),
         const SizedBox(height: 16),
         AppTextField(
@@ -2791,7 +3016,7 @@ class _ProviderServiceFormScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle('Custom Package Details'),
+        _buildSectionTitle('Qaabeynta Safarka Gaarka ah (Custom Tour Details)'),
         const SizedBox(height: 16),
         AppTextField(
           controller: _budgetRangeController,

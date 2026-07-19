@@ -3,7 +3,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:io';
 
 void main() async {
-  await dotenv.load(fileName: 'assets/.env');
+  await dotenv.load(fileName: 'assets/env');
   final supabase = SupabaseClient(
     dotenv.env['SUPABASE_URL'] ?? '',
     dotenv.env['SUPABASE_ANON_KEY'] ?? '',

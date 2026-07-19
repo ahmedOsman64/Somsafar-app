@@ -4,13 +4,13 @@ import 'dart:io';
 
 void main() async {
   print('Loading environment variables...');
-  await dotenv.load(fileName: 'assets/.env');
+  await dotenv.load(fileName: 'assets/env');
   
   final supabaseUrl = dotenv.env['SUPABASE_URL'];
   final supabaseKey = dotenv.env['SUPABASE_SERVICE_ROLE_KEY'] ?? dotenv.env['SUPABASE_ANON_KEY'];
 
   if (supabaseUrl == null || supabaseKey == null) {
-    print('Error: Missing Supabase credentials in assets/.env');
+    print('Error: Missing Supabase credentials in assets/env');
     exit(1);
   }
 

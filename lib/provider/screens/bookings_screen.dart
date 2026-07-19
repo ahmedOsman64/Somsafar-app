@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
@@ -9,6 +10,7 @@ import '../../shared/services/auth_service.dart';
 import '../../shared/widgets/confirmation_dialog.dart';
 import '../../shared/services/service_repository.dart';
 import '../../shared/models/user_model.dart';
+import '../../shared/services/receipt_pdf_service.dart';
 
 class ProviderBookingsScreen extends ConsumerWidget {
   const ProviderBookingsScreen({super.key});
@@ -621,6 +623,43 @@ class _BookingCard extends StatelessWidget {
             child: const Text('Cancel'),
           ),
           const SizedBox(width: 8),
+          if (kIsWeb) ...[
+            OutlinedButton.icon(
+              onPressed: () async {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Generating receipt PDF...'),
+                    duration: Duration(seconds: 1),
+                  ),
+                );
+                try {
+                  await ReceiptPdfService.generateAndShare(booking);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Receipt PDF downloaded successfully!'),
+                        backgroundColor: AppColors.success,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to generate PDF: $e'),
+                        backgroundColor: AppColors.error,
+                      ),
+                    );
+                  }
+                }
+              },
+              icon: const Icon(Icons.download_outlined, size: 18),
+              label: const Text('Download Receipt'),
+            ),
+            const SizedBox(width: 8),
+          ],
           OutlinedButton.icon(
             onPressed: () async {
               ScaffoldMessenger.of(context).showSnackBar(

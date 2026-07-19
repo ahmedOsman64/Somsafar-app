@@ -283,8 +283,9 @@ class ServiceDetailsScreen extends ConsumerWidget {
             border: Border.all(color: Colors.grey[200]!),
           ),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (category.contains('hotel')) ...[
+              if (category.contains('hotel')) ...[ 
                 _buildInfoRow(
                   Icons.schedule,
                   'Check-in / Out',
@@ -295,13 +296,6 @@ class ServiceDetailsScreen extends ConsumerWidget {
                   'Standard Bed',
                   metadata['bedType'] ?? 'Double Bed',
                 ),
-                /*
-                _buildInfoRow(
-                  Icons.meeting_room,
-                  'Available Rooms',
-                  '${metadata['rooms'] ?? 'N/A'}',
-                ),
-                */
                 _buildInfoRow(
                   Icons.smoke_free,
                   'Smoking',
@@ -338,173 +332,279 @@ class ServiceDetailsScreen extends ConsumerWidget {
                     'Cleaning Fee',
                     '\$${service.cleaningPrice}',
                   ),
-                if (service.earlyCheckInPrice != null &&
-                    service.earlyCheckInPrice! > 0)
+                if (service.earlyCheckInPrice != null && service.earlyCheckInPrice! > 0)
                   _buildInfoRow(
                     Icons.wb_sunny_outlined,
                     'Early Check-in',
                     '\$${service.earlyCheckInPrice}',
                   ),
-                if (service.lateCheckoutPrice != null &&
-                    service.lateCheckoutPrice! > 0)
+                if (service.lateCheckoutPrice != null && service.lateCheckoutPrice! > 0)
                   _buildInfoRow(
                     Icons.nightlight_outlined,
                     'Late Checkout fee',
                     '\$${service.lateCheckoutPrice}',
                   ),
               ] else if (category.contains('tour')) ...[
-                // Package Type Highlight
+                // ── Package Type ──────────────────────────────────────────
                 if (metadata['package'] != null)
                   _buildInfoRow(
-                    Icons.inventory_2_outlined,
-                    'Package Type',
-                    metadata['package'].toString().toUpperCase(),
+                    metadata['package'].toString().toLowerCase() == 'jumma'
+                        ? Icons.today_outlined
+                        : (metadata['package'].toString().toLowerCase() == 'eid'
+                            ? Icons.date_range_outlined
+                            : Icons.dashboard_customize_outlined),
+                    'Nooca Dalxiiska',
+                    metadata['package'].toString().toLowerCase() == 'jumma'
+                        ? 'Dalxiis Maalinle ah (Day Trip)'
+                        : (metadata['package'].toString().toLowerCase() == 'eid'
+                            ? 'Safar Dhowr Maalmood ah (Multi-Day)'
+                            : 'Dalxiis Gaar ah (Custom Tour)'),
                   ),
 
-                // Common Tour Info
-                _buildInfoRow(
-                  Icons.timer,
-                  'Duration',
-                  metadata['duration'] ?? 'N/A',
-                ),
-                _buildInfoRow(
-                  Icons.place,
-                  'Meeting Point',
-                  metadata['meetingPoint'] ?? 'N/A',
-                ),
-                _buildInfoRow(
-                  Icons.group,
-                  'Max Travelers',
-                  '${metadata['maxTravelers'] ?? 'N/A'}',
-                ),
+                // ── Common Tour Info ──────────────────────────────────────
+                if ((metadata['duration'] ?? '').toString().isNotEmpty)
+                  _buildInfoRow(Icons.timer, 'Muddada Safarka', metadata['duration']),
+                if ((metadata['meetingPoint'] ?? '').toString().isNotEmpty)
+                  _buildInfoRow(Icons.place, 'Goobta la kulanka', metadata['meetingPoint']),
+                () {
+                  final v = metadata['max_guests'] ?? metadata['maxTravelers'];
+                  if (v == null) return const SizedBox.shrink();
+                  return _buildInfoRow(Icons.group, 'Tirada ugu badan', '$v qof');
+                }(),
 
-                // Package Specific Info
+                // ── Departure / Return Times ──────────────────────────────
+                if ((metadata['departureTime'] ?? '').toString().isNotEmpty)
+                  _buildInfoRow(
+                    Icons.departure_board_outlined,
+                    'Saacadda la Baxayo',
+                    metadata['departureTime'].toString(),
+                  ),
+                if ((metadata['returnTime'] ?? '').toString().isNotEmpty)
+                  _buildInfoRow(
+                    Icons.keyboard_return_outlined,
+                    'Saacadda la soo Labanayo',
+                    metadata['returnTime'].toString(),
+                  ),
+
+                // ── Jumma-specific ────────────────────────────────────────
                 if (metadata['package'] == 'jumma') ...[
-                  _buildInfoRow(
-                    Icons.mosque_outlined,
-                    'Prayer Location',
-                    metadata['preferredLocation'] ?? 'N/A',
-                  ),
-                  _buildInfoRow(
-                    Icons.directions_bus_outlined,
-                    'Transport',
-                    metadata['jummaTransport'] ?? 'N/A',
-                  ),
-                  _buildInfoRow(
-                    Icons.apartment_outlined,
-                    'Stay Type',
-                    metadata['accommodationType'] ?? 'N/A',
-                  ),
+                  if ((metadata['preferredLocation'] ?? '').toString().isNotEmpty)
+                    _buildInfoRow(
+                      Icons.location_city_outlined,
+                      'Degmada / Goobta',
+                      metadata['preferredLocation'],
+                    ),
+                  if ((metadata['destination'] ?? metadata['accommodationType'] ?? '').toString().isNotEmpty)
+                    _buildInfoRow(
+                      Icons.map_outlined,
+                      'Meesha la Tagayo',
+                      metadata['destination'] ?? metadata['accommodationType'],
+                    ),
+                  if ((metadata['jummaTransport'] ?? '').toString().isNotEmpty)
+                    _buildInfoRow(
+                      Icons.directions_bus_outlined,
+                      'Gaadiidka',
+                      metadata['jummaTransport'],
+                    ),
                   _buildInfoRow(
                     Icons.restaurant_outlined,
-                    'Lunch',
-                    metadata['includeLunch'] == true
-                        ? 'Included'
-                        : 'Not Included',
+                    'Qado',
+                    metadata['includeLunch'] == true ? 'Waa ku jiraa' : 'Kuma jirto',
                   ),
+
+                // ── Eid/Multi-Day-specific ────────────────────────────────
                 ] else if (metadata['package'] == 'eid') ...[
-                  _buildInfoRow(
-                    Icons.celebration_outlined,
-                    'Eid Package',
-                    metadata['eidType'] ?? 'N/A',
-                  ),
-                  _buildInfoRow(
-                    Icons.map_outlined,
-                    'Destination',
-                    metadata['destination'] ?? 'N/A',
-                  ),
-                  _buildInfoRow(
-                    Icons.calendar_month_outlined,
-                    'Duration',
-                    '${metadata['numberOfDays'] ?? 'N/A'} Days',
-                  ),
-                  // _buildInfoRow(Icons.hotel_outlined, 'Hotel Rating', '${metadata['hotelRating'] ?? 'N/A'} Stars'),
-                  _buildInfoRow(
-                    Icons.restaurant_outlined,
-                    'Food Package',
-                    metadata['foodPackage'] ?? 'N/A',
-                  ),
+                  if ((metadata['destination'] ?? '').toString().isNotEmpty)
+                    _buildInfoRow(
+                      Icons.map_outlined,
+                      'Meesha la Tagayo',
+                      metadata['destination'],
+                    ),
+                  if (metadata['numberOfDays'] != null)
+                    _buildInfoRow(
+                      Icons.calendar_month_outlined,
+                      'Tirada Maalmaha',
+                      '${metadata['numberOfDays']} maalmood',
+                    ),
+                  if ((metadata['foodPackage'] ?? '').toString().isNotEmpty)
+                    _buildInfoRow(
+                      Icons.restaurant_outlined,
+                      'Xaashida Cuntada',
+                      metadata['foodPackage'],
+                    ),
+
+                // ── Custom-specific ───────────────────────────────────────
                 ] else if (metadata['package'] == 'custom') ...[
-                  _buildInfoRow(
-                    Icons.account_balance_wallet_outlined,
-                    'Suggested Budget',
-                    metadata['budgetRange'] ?? 'N/A',
-                  ),
-                  if (metadata['availableServices'] != null)
+                  if ((metadata['budgetRange'] ?? '').toString().isNotEmpty)
+                    _buildInfoRow(
+                      Icons.account_balance_wallet_outlined,
+                      'Miisaaniyad la filayo',
+                      metadata['budgetRange'],
+                    ),
+                  if (metadata['availableServices'] != null &&
+                      (metadata['availableServices'] as List).isNotEmpty)
                     _buildInfoRow(
                       Icons.room_service_outlined,
-                      'Services Provided',
+                      'Adeegyada la heli karo',
                       (metadata['availableServices'] as List).join(', '),
                     ),
                 ],
 
+                // ── Difficulty ────────────────────────────────────────────
+                if ((metadata['tourDifficulty'] ?? '').toString().isNotEmpty)
+                  _buildInfoRow(Icons.speed_outlined, 'Adag/Fudud', metadata['tourDifficulty']),
+
+                // ── Languages ────────────────────────────────────────────
                 if (metadata['languages'] != null &&
                     (metadata['languages'] as List).isNotEmpty)
                   _buildInfoRow(
                     Icons.translate,
-                    'Languages',
+                    'Luuqadaha',
                     (metadata['languages'] as List).join(', '),
-                  ),
-                if (metadata['includes'] != null &&
-                    (metadata['includes'] as List).isNotEmpty)
-                  _buildInfoRow(
-                    Icons.check_circle_outline,
-                    'Included',
-                    (metadata['includes'] as List).join(', '),
                   ),
               ],
 
-              // Extras & Prices
-              if (service.breakfastPrice != null && service.breakfastPrice! > 0)
-                _buildInfoRow(
-                  Icons.restaurant,
-                  'Breakfast',
-                  '\$${service.breakfastPrice!.toStringAsFixed(0)} / person',
-                ),
-              if (service.airportPickupPrice != null &&
-                  service.airportPickupPrice! > 0)
-                _buildInfoRow(
-                  Icons.local_airport,
-                  'Airport Pickup',
-                  '\$${service.airportPickupPrice!.toStringAsFixed(0)} flat fee',
-                ),
-              if (service.extraBedPrice != null && service.extraBedPrice! > 0)
-                _buildInfoRow(
-                  Icons.single_bed,
-                  'Extra Bed',
-                  '\$${service.extraBedPrice!.toStringAsFixed(0)} / night',
-                ),
-
-              // Policy Highlights
-              const Divider(height: 24),
-              Row(
-                children: [
-                  Icon(Icons.info_outline, size: 16, color: Colors.blue[700]),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Early Check-in: ${metadata['earlyCheckInAllowed'] == true ? 'Yes' : 'Request only'}',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                    ),
+              // ── Extras & Add-on Prices (Hotel/Apartment only) ────────────
+              if (!category.contains('tour')) ...[
+                if (service.breakfastPrice != null && service.breakfastPrice! > 0)
+                  _buildInfoRow(
+                    Icons.restaurant,
+                    'Breakfast',
+                    '\$${service.breakfastPrice!.toStringAsFixed(0)} / person',
                   ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Icon(Icons.info_outline, size: 16, color: Colors.blue[700]),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Late Checkout: ${metadata['lateCheckoutAllowed'] == true ? 'Yes' : 'Request only'}',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                    ),
+                if (service.airportPickupPrice != null && service.airportPickupPrice! > 0)
+                  _buildInfoRow(
+                    Icons.local_airport,
+                    'Airport Pickup',
+                    '\$${service.airportPickupPrice!.toStringAsFixed(0)} flat fee',
                   ),
-                ],
-              ),
+                if (service.extraBedPrice != null && service.extraBedPrice! > 0)
+                  _buildInfoRow(
+                    Icons.single_bed,
+                    'Extra Bed',
+                    '\$${service.extraBedPrice!.toStringAsFixed(0)} / night',
+                  ),
+                const Divider(height: 24),
+                Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 16, color: Colors.blue[700]),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Early Check-in: ${metadata['earlyCheckInAllowed'] == true ? 'Yes' : 'Request only'}',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 16, color: Colors.blue[700]),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Late Checkout: ${metadata['lateCheckoutAllowed'] == true ? 'Yes' : 'Request only'}',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
+
+        // ── What's Included / Excluded (Tours) ───────────────────────────
+        if (category.contains('tour')) ...[
+          const SizedBox(height: 24),
+          if (metadata['includes'] != null &&
+              (metadata['includes'] as List).isNotEmpty) ...[
+            Text(
+              'Waxa ku jira Qiimaha ✅',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: (metadata['includes'] as List).map((item) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withAlpha(25),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.green.withAlpha(80)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.check_circle_outline, size: 14, color: Colors.green),
+                      const SizedBox(width: 6),
+                      Text(item.toString(), style: const TextStyle(fontSize: 13, color: Colors.green)),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (metadata['tourExclusions'] != null &&
+              metadata['tourExclusions'].toString().trim().isNotEmpty) ...[
+            Text(
+              'Waxa kuma jirto Qiimaha ❌',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              metadata['tourExclusions'].toString(),
+              style: TextStyle(color: Colors.grey[700], fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (metadata['tourItinerary'] != null &&
+              metadata['tourItinerary'].toString().trim().isNotEmpty) ...[
+            Text(
+              'Hannaanka Safarka 🗺️',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withAlpha(10),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.primary.withAlpha(40)),
+              ),
+              child: Text(
+                metadata['tourItinerary'].toString(),
+                style: TextStyle(color: Colors.grey[800], fontSize: 14, height: 1.6),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (metadata['tourImportantInfo'] != null &&
+              metadata['tourImportantInfo'].toString().trim().isNotEmpty) ...[
+            Text(
+              'Macluumaadka Muhiimka ah ℹ️',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              metadata['tourImportantInfo'].toString(),
+              style: TextStyle(color: Colors.grey[700], fontSize: 14),
+            ),
+          ],
+        ],
       ],
     );
   }

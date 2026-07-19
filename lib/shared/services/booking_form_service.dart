@@ -132,7 +132,7 @@ class BookingFormService {
       errors['preferredLocation'] = 'Location is required';
     }
     if (data.tourDate.weekday != DateTime.friday) {
-      errors['tourDate'] = 'Jumma package is only available on Fridays';
+      errors['tourDate'] = 'Day Trip is only available on Fridays';
     }
 
     return FormValidationState(isValid: errors.isEmpty, errors: errors);
@@ -585,18 +585,18 @@ class BookingFormService {
     // Multipliers (Jumma/Eid) - Labels only now as multiplier is dynamic
     switch (data.package) {
       case TourPackage.jumma:
-        extras['packageUpgrade'] = 'Jumma Package';
+        extras['packageUpgrade'] = 'Dalxiis Maalinle ah (Day Trip)';
         break;
       case TourPackage.eid:
         if (packageMultiplier > 1.0) {
           extras['packageUpgrade'] =
-              'Eid Package (+${((packageMultiplier - 1.0) * 100).toStringAsFixed(0)}%)';
+              'Safar Dhowr Maalmood ah (Multi-Day Tour) (+${((packageMultiplier - 1.0) * 100).toStringAsFixed(0)}%)';
         } else {
-          extras['packageUpgrade'] = 'Eid Package';
+          extras['packageUpgrade'] = 'Safar Dhowr Maalmood ah (Multi-Day Tour)';
         }
         break;
       case TourPackage.custom:
-        extras['packageUpgrade'] = 'Custom Package';
+        extras['packageUpgrade'] = 'Dalxiis Gaar ah / Dalab (Custom & Private Tour)';
         break;
     }
 

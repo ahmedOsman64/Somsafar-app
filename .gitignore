@@ -39,3 +39,9 @@ dist/
 # Signing files
 *.jks
 android/key.properties
+
+# Secrets and environment files
+assets/env
+
+# Supabase temp files
+supabase/.temp/

@@ -2,10 +2,10 @@ import 'package:supabase/supabase.dart';
 import 'dart:io';
 
 void main() async {
-  print('Loading assets/.env manually...');
-  final envFile = File('assets/.env');
+  print('Loading assets/env manually...');
+  final envFile = File('assets/env');
   if (!envFile.existsSync()) {
-    print('Error: assets/.env file not found');
+    print('Error: assets/env file not found');
     exit(1);
   }
 

@@ -5,7 +5,9 @@ import 'package:mailer/smtp_server.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
+import 'dart:convert';
 import '../models/booking_model.dart';
+import '../../core/services/supabase_service.dart';
 
 /// Handles automatic email delivery of booking confirmation receipts.
 /// Uses Gmail SMTP (App Password) to send PDF attachments.
@@ -29,6 +31,34 @@ class EmailService {
 
     // 1. Generate the PDF bytes
     final pdfBytes = await _generateReceiptPdf(booking);
+
+    if (kIsWeb) {
+      debugPrint('EmailService: Web platform detected. Invoking send-email Edge Function...');
+      try {
+        final pdfBase64 = base64Encode(pdfBytes);
+        final response = await SupabaseConfig.client.functions.invoke(
+          'send-email',
+          body: {
+            'booking_id': booking.id,
+            'recipient': booking.contactEmail.trim(),
+            'pdf_base64': pdfBase64,
+            'subject': '✅ Booking Confirmed – ${booking.serviceTitle}',
+            'html_body': _buildEmailBody(booking),
+          },
+        );
+
+        if (response.status == 200) {
+          debugPrint('EmailService: Edge Function sent confirmation email successfully.');
+        } else {
+          final errorMsg = response.data?['message'] ?? response.data?['error'] ?? 'Unknown error';
+          throw Exception('Edge Function returned status ${response.status}: $errorMsg');
+        }
+      } catch (e) {
+        debugPrint('EmailService: Failed to send email via Edge Function: $e');
+        rethrow;
+      }
+      return;
+    }
 
     // 2. Build the email message
     final smtpServer = gmail(_senderEmail, _senderAppPassword);
