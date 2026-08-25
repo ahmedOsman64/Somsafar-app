@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../core/theme/app_colors.dart';
 import '../../shared/services/auth_service.dart';
 import '../../shared/models/user_model.dart';
 import '../../shared/services/booking_repository.dart';
 import '../../shared/services/review_repository.dart';
+import '../../shared/services/service_repository.dart';
 import '../../shared/models/booking_model.dart';
 import '../../core/services/storage_service.dart';
-import 'package:image_picker/image_picker.dart';
 import '../../shared/widgets/confirmation_dialog.dart';
+import 'settings/payout_accounts_screen.dart';
+import 'settings/manage_helpers_screen.dart';
 import 'settings_screen.dart';
 
 class ProviderProfileScreen extends ConsumerStatefulWidget {
@@ -38,17 +42,12 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
     final user = ref.read(authProvider);
     _nameController = TextEditingController(text: user?.name ?? '');
 
-    // Gracefully handle 'ENCRYPTED' placeholder from database
-    final displayPhone = (user?.phone == 'ENCRYPTED')
-        ? ''
-        : (user?.phone ?? '');
+    final displayPhone = (user?.phone == 'ENCRYPTED') ? '' : (user?.phone ?? '');
     _phoneController = TextEditingController(text: displayPhone);
 
     _locationController = TextEditingController(text: user?.location ?? '');
     _emailController = TextEditingController(text: user?.email ?? '');
-    _publicEmailController = TextEditingController(
-      text: user?.publicEmail ?? '',
-    );
+    _publicEmailController = TextEditingController(text: user?.publicEmail ?? '');
     _providerIdController = TextEditingController(
       text: user?.providerId ?? user?.id ?? '',
     );
@@ -70,45 +69,20 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
     if (user != null) {
       setState(() => _isSaving = true);
       try {
-        final error = await ref
-            .read(authServiceProvider)
-            .updateProfile(
-              name: _nameController.text,
-              phone: _phoneController.text,
-              location: _locationController.text,
-              publicEmail: _publicEmailController.text,
+        final error = await ref.read(authServiceProvider).updateProfile(
+              name: _nameController.text.trim(),
+              phone: _phoneController.text.trim(),
+              location: _locationController.text.trim(),
+              publicEmail: _publicEmailController.text.trim(),
             );
 
         if (!mounted) return;
 
         if (error != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error: $error'),
-              backgroundColor: Colors.red,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          );
+          _showSnackbar('Error updating profile: $error', isError: true);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Row(
-                children: [
-                  Icon(Icons.check_circle, color: Colors.white, size: 18),
-                  SizedBox(width: 8),
-                  Text('Profile updated successfully'),
-                ],
-              ),
-              backgroundColor: Colors.green,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          );
+          _showSnackbar('Profile updated successfully!', isError: false);
+          setState(() => _isEditMode = false);
         }
       } finally {
         if (mounted) setState(() => _isSaving = false);
@@ -119,7 +93,7 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
   Future<void> _pickProfileImage() async {
     final XFile? image = await _picker.pickImage(
       source: ImageSource.gallery,
-      imageQuality: 70,
+      imageQuality: 75,
     );
 
     if (image == null) return;
@@ -140,20 +114,14 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
         if (!mounted) return;
 
         if (error != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error updating profile: $error')),
-          );
+          _showSnackbar('Error updating profile image: $error', isError: true);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Profile image updated')),
-          );
+          _showSnackbar('Profile image updated!', isError: false);
         }
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+      _showSnackbar('Upload failed: $e', isError: true);
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }
@@ -165,10 +133,10 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
 
     final confirmed = await ConfirmationDialog.show(
       context: context,
-      title: 'Verify Your Identity?',
+      title: 'Verify Business Identity?',
       message:
-          'Confirm Action: By clicking verify, you confirm that your business details are accurate. This will activate your account automatically.',
-      confirmLabel: 'Yes, Verify Me',
+          'By clicking verify, you confirm your business information is legitimate and accurate. This will mark your account as a Verified Provider.',
+      confirmLabel: 'Yes, Verify Account',
       type: ConfirmationDialogType.info,
       icon: Icons.verified_user_outlined,
     );
@@ -187,23 +155,40 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
       if (!mounted) return;
 
       if (error != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Verification failed: $error'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showSnackbar('Verification failed: $error', isError: true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Account verified successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        _showSnackbar('Account verified successfully!', isError: false);
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  void _copyToClipboard(String label, String value) {
+    if (value.isEmpty) return;
+    Clipboard.setData(ClipboardData(text: value));
+    _showSnackbar('$label copied to clipboard!');
+  }
+
+  void _showSnackbar(String text, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              isError ? Icons.error_outline : Icons.check_circle_outline,
+              color: Colors.white,
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Expanded(child: Text(text)),
+          ],
+        ),
+        backgroundColor: isError ? AppColors.error : const Color(0xFF10B981),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 
   @override
@@ -215,25 +200,28 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
 
     final allBookings = ref.watch(filteredBookingsProvider);
     final reviews = ref.watch(reviewProvider);
+    final services = ref.watch(serviceProvider);
     final providerKey = user.providerId ?? user.id;
 
-    final providerAllBookings = allBookings
+    final providerBookings = allBookings
         .where((b) => b.providerId == providerKey)
+        .toList();
+
+    final myServices = services
+        .where((s) => s.providerId == providerKey)
         .toList();
 
     double acceptanceRate = 1.0;
     double speedScore = 100.0;
 
-    final confirmedBookings = providerAllBookings
-        .where(
-          (b) =>
-              b.status == BookingStatus.confirmed ||
-              b.status == BookingStatus.completed,
-        )
+    final confirmedBookings = providerBookings
+        .where((b) =>
+            b.status == BookingStatus.confirmed ||
+            b.status == BookingStatus.completed)
         .toList();
 
-    if (providerAllBookings.isNotEmpty) {
-      final decidedBookings = providerAllBookings
+    if (providerBookings.isNotEmpty) {
+      final decidedBookings = providerBookings
           .where((b) => b.status != BookingStatus.pending)
           .toList();
 
@@ -241,7 +229,6 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
         acceptanceRate = confirmedBookings.length / decidedBookings.length;
       }
 
-      // Calculate Average Speed Score
       if (confirmedBookings.isNotEmpty) {
         double totalSpeedPoints = 0;
         int speedCount = 0;
@@ -280,13 +267,10 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
 
     double finalPerformance;
     if (reviews.isNotEmpty) {
-      // 50% Rating, 25% Acceptance, 25% Speed
-      finalPerformance =
-          ((avgRating * 20) * 0.5) +
+      finalPerformance = ((avgRating * 20) * 0.5) +
           ((acceptanceRate * 100) * 0.25) +
           (speedScore * 0.25);
     } else {
-      // If no reviews: 50% Acceptance, 50% Speed
       finalPerformance = ((acceptanceRate * 100) * 0.5) + (speedScore * 0.5);
     }
 
@@ -298,59 +282,84 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F4F8),
+      backgroundColor: const Color(0xFFF4F6F9),
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // ── Gradient Header ──────────────────────────────────
+            // ── Modern Gradient Header ───────────────────────────
             _buildHeader(user),
 
-            // ── Stats Row ────────────────────────────────────────
+            const SizedBox(height: 20),
+
+            // ── Responsive Performance & Metric Cards ──────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-              child: Row(
-                children: [
-                  _buildStatChip(
-                    Icons.speed_rounded,
-                    'Performance',
-                    performanceScore,
-                    const Color(0xFF22C55E),
-                  ),
-                  const SizedBox(width: 12),
-                  _buildStatChip(
-                    Icons.account_balance_wallet_rounded,
-                    'Earnings',
-                    '\$${totalEarnings.toStringAsFixed(0)}',
-                    const Color(0xFF3B82F6),
-                  ),
-                  const SizedBox(width: 12),
-                  _buildStatChip(
-                    Icons.calendar_month_rounded,
-                    'Joined',
-                    joinedDate,
-                    const Color(0xFFF97316),
-                  ),
-                ],
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isMobile = constraints.maxWidth < 600;
+                  final cardWidth = isMobile
+                      ? (constraints.maxWidth - 12) / 2
+                      : (constraints.maxWidth - 36) / 4;
+
+                  return Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      _buildMetricCard(
+                        width: cardWidth,
+                        title: 'Performance',
+                        value: performanceScore,
+                        subtitle: 'Overall Reliability',
+                        icon: Icons.speed_rounded,
+                        color: const Color(0xFF10B981),
+                      ),
+                      _buildMetricCard(
+                        width: cardWidth,
+                        title: 'Gross Earnings',
+                        value: '\$${totalEarnings.toStringAsFixed(2)}',
+                        subtitle: 'Completed Revenue',
+                        icon: Icons.account_balance_wallet_rounded,
+                        color: AppColors.primary,
+                      ),
+                      _buildMetricCard(
+                        width: cardWidth,
+                        title: 'Active Services',
+                        value: '${myServices.length}',
+                        subtitle: 'Published Listings',
+                        icon: Icons.grid_view_rounded,
+                        color: const Color(0xFF6366F1),
+                      ),
+                      _buildMetricCard(
+                        width: cardWidth,
+                        title: 'Joined Date',
+                        value: joinedDate,
+                        subtitle: 'Member Since',
+                        icon: Icons.calendar_month_rounded,
+                        color: const Color(0xFFF59E0B),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
-            // ── Profile Info Card ────────────────────────────────
+            // ── Account Details Card ─────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: _buildInfoCard(user),
+              child: _buildAccountDetailsCard(user),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
-            // ── Action Cards ─────────────────────────────────────
+            // ── Business Settings & Shortcut Cards ────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: _buildActionCards(context),
+              child: _buildBusinessShortcuts(context, user),
             ),
 
-            const SizedBox(height: 32),
+            const SizedBox(height: 40),
           ],
         ),
       ),
@@ -358,30 +367,31 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
   }
 
   Widget _buildHeader(User user) {
+    final providerTypeLabel =
+        (user.providerType ?? ProviderType.hotel).name.toUpperCase().replaceAll('_', ' ');
+
     return Container(
       width: double.infinity,
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFF0D3B66), Color(0xFF1A6B9A)],
+          colors: [Color(0xFF0F172A), Color(0xFF1E3A8A)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(36),
-          bottomRight: Radius.circular(36),
+          bottomLeft: Radius.circular(32),
+          bottomRight: Radius.circular(32),
         ),
       ),
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 36),
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
           child: Column(
             children: [
               // Avatar
               GestureDetector(
-                onTap: (_isUploading || !_isEditMode)
-                    ? null
-                    : _pickProfileImage,
+                onTap: _isUploading ? null : _pickProfileImage,
                 child: Stack(
                   alignment: Alignment.bottomRight,
                   children: [
@@ -391,99 +401,159 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
                         border: Border.all(color: Colors.white, width: 3),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.25),
-                            blurRadius: 20,
-                            offset: const Offset(0, 8),
+                            color: Colors.black.withAlpha(50),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
                           ),
                         ],
                       ),
                       child: CircleAvatar(
-                        radius: 52,
-                        backgroundColor: Colors.white.withValues(alpha: 0.15),
-                        backgroundImage:
-                            user.profileImage != null &&
+                        radius: 48,
+                        backgroundColor: Colors.white.withAlpha(20),
+                        backgroundImage: user.profileImage != null &&
                                 user.profileImage!.isNotEmpty
                             ? NetworkImage(
-                                StorageService.ensurePublicUrl(
-                                  user.profileImage!,
-                                ),
+                                StorageService.ensurePublicUrl(user.profileImage!),
                               )
                             : null,
                         child: _isUploading
-                            ? const CircularProgressIndicator(
-                                color: Colors.white,
-                              )
+                            ? const CircularProgressIndicator(color: Colors.white)
                             : (user.profileImage == null ||
-                                  user.profileImage!.isEmpty)
-                            ? const Icon(
-                                Icons.person,
-                                size: 52,
-                                color: Colors.white,
-                              )
-                            : null,
+                                    user.profileImage!.isEmpty)
+                                ? const Icon(
+                                    Icons.business_rounded,
+                                    size: 48,
+                                    color: Colors.white,
+                                  )
+                                : null,
                       ),
                     ),
-                    if (_isEditMode)
-                      Container(
-                        padding: const EdgeInsets.all(7),
-                        decoration: BoxDecoration(
-                          color: AppColors.secondary,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
-                        ),
-                        child: const Icon(
-                          Icons.camera_alt,
-                          color: Colors.white,
-                          size: 14,
-                        ),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.secondary,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
                       ),
+                      child: const Icon(
+                        Icons.camera_alt_rounded,
+                        color: Colors.white,
+                        size: 14,
+                      ),
+                    ),
                   ],
                 ),
               ),
+
               const SizedBox(height: 14),
-              // Name field inline
-              TextField(
-                controller: _nameController,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-                decoration: InputDecoration(
-                  border: InputBorder.none,
-                  isDense: true,
-                  filled: true,
-                  fillColor: Colors.transparent,
-                  hintText: 'Enter name',
-                  hintStyle: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.5),
+
+              // Business Name
+              _isEditMode
+                  ? SizedBox(
+                      width: 360,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: TextField(
+                          controller: _nameController,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Enter Business Name',
+                            hintStyle: TextStyle(color: Colors.white.withAlpha(120)),
+                            filled: true,
+                            fillColor: Colors.white.withAlpha(20),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                                vertical: 10, horizontal: 16),
+                          ),
+                        ),
+                      ),
+                    )
+                  : Text(
+                      user.name,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+
+              const SizedBox(height: 10),
+
+              // Badges Row
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: [
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: user.isVerified
+                          ? const Color(0xFF10B981).withAlpha(40)
+                          : Colors.amber.withAlpha(40),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: user.isVerified
+                            ? const Color(0xFF10B981)
+                            : Colors.amber,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          user.isVerified
+                              ? Icons.verified_rounded
+                              : Icons.gpp_maybe_rounded,
+                          color: user.isVerified
+                              ? const Color(0xFF10B981)
+                              : Colors.amber,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          user.isVerified ? 'VERIFIED BUSINESS' : 'UNVERIFIED',
+                          style: TextStyle(
+                            color: user.isVerified
+                                ? const Color(0xFF10B981)
+                                : Colors.amber,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                readOnly: !_isEditMode,
-              ),
-              const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.secondary.withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: AppColors.secondary.withValues(alpha: 0.5),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withAlpha(20),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.white.withAlpha(40)),
+                    ),
+                    child: Text(
+                      '$providerTypeLabel PROVIDER',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
                   ),
-                ),
-                child: Text(
-                  user.role.name.toUpperCase(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 11,
-                    letterSpacing: 1.2,
-                  ),
-                ),
+                ],
               ),
             ],
           ),
@@ -492,69 +562,25 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
     );
   }
 
-  Widget _buildStatChip(
-    IconData icon,
-    String label,
-    String value,
-    Color color,
-  ) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: 0.12),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: color, size: 18),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: const TextStyle(fontSize: 10, color: Colors.grey),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoCard(User user) {
+  Widget _buildMetricCard({
+    required double width,
+    required String title,
+    required String value,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+  }) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      width: width,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 20,
-            offset: const Offset(0, 6),
+            color: Colors.black.withAlpha(8),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -564,103 +590,204 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Account Details',
+              Text(
+                title,
                 style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF0D3B66),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[600],
                 ),
               ),
-              TextButton.icon(
-                onPressed: () {
-                  if (_isEditMode) {
-                    _saveProfile();
-                  }
-                  setState(() => _isEditMode = !_isEditMode);
-                },
-                icon: Icon(
-                  _isEditMode
-                      ? Icons.check_circle_outline
-                      : Icons.edit_outlined,
-                  size: 18,
-                  color: _isEditMode ? Colors.green : AppColors.secondary,
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: color.withAlpha(25),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                label: Text(
-                  _isEditMode ? 'Done' : 'Edit',
-                  style: TextStyle(
-                    color: _isEditMode ? Colors.green : AppColors.secondary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  backgroundColor:
-                      (_isEditMode ? Colors.green : AppColors.secondary)
-                          .withValues(alpha: 0.1),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                ),
+                child: Icon(icon, color: color, size: 18),
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          _buildInfoField(
-            Icons.email_rounded,
-            'Email Address',
-            _emailController,
-            readOnly: true,
-            color: const Color(0xFF8B5CF6),
+          const SizedBox(height: 10),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF0F172A),
+            ),
           ),
-          _buildDivider(),
-          _buildInfoField(
-            Icons.business_rounded,
-            'Public Business Email',
-            _publicEmailController,
-            readOnly: !_isEditMode,
-            color: const Color(0xFFF43F5E), // Rose color
-          ),
-          _buildDivider(),
-          _buildInfoField(
-            Icons.phone_rounded,
-            'Phone Number',
-            _phoneController,
-            readOnly: !_isEditMode,
-            color: const Color(0xFF3B82F6),
-          ),
-          _buildDivider(),
-          _buildInfoField(
-            Icons.location_on_rounded,
-            'Business Location',
-            _locationController,
-            readOnly: !_isEditMode,
-            color: const Color(0xFF22C55E),
-          ),
-          _buildDivider(),
-          _buildInfoField(
-            Icons.badge_rounded,
-            'Provider ID',
-            _providerIdController,
-            readOnly: true,
-            color: const Color(0xFFF97316),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDivider() => const Padding(
-    padding: EdgeInsets.symmetric(vertical: 12),
-    child: Divider(height: 1, color: Color(0xFFF1F5F9)),
-  );
+  Widget _buildAccountDetailsCard(User user) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(8),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withAlpha(15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.business_center_rounded,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Account & Business Information',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                ],
+              ),
+              ElevatedButton.icon(
+                onPressed: () {
+                  if (_isEditMode) {
+                    _saveProfile();
+                  } else {
+                    setState(() => _isEditMode = true);
+                  }
+                },
+                icon: Icon(
+                  _isEditMode ? Icons.check_circle_rounded : Icons.edit_rounded,
+                  size: 16,
+                ),
+                label: Text(_isEditMode ? 'Save' : 'Edit'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _isEditMode
+                      ? const Color(0xFF10B981)
+                      : AppColors.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ],
+          ),
 
-  Widget _buildInfoField(
-    IconData icon,
-    String label,
-    TextEditingController controller, {
-    bool readOnly = false,
-    Color color = AppColors.primary,
+          const SizedBox(height: 20),
+
+          // Fields
+          _buildInfoRow(
+            icon: Icons.email_rounded,
+            color: const Color(0xFF6366F1),
+            label: 'Primary Account Email',
+            value: user.email,
+            controller: _emailController,
+            isEditable: false,
+            onCopy: () => _copyToClipboard('Primary Email', user.email),
+          ),
+          _buildFieldDivider(),
+
+          _buildInfoRow(
+            icon: Icons.mark_email_read_rounded,
+            color: const Color(0xFFEC4899),
+            label: 'Public Business Email',
+            value: user.publicEmail ?? 'Not specified',
+            controller: _publicEmailController,
+            isEditable: _isEditMode,
+            onCopy: user.publicEmail != null
+                ? () => _copyToClipboard('Business Email', user.publicEmail!)
+                : null,
+          ),
+          _buildFieldDivider(),
+
+          _buildInfoRow(
+            icon: Icons.phone_android_rounded,
+            color: const Color(0xFF3B82F6),
+            label: 'Contact Phone Number',
+            value: _phoneController.text.isNotEmpty
+                ? _phoneController.text
+                : 'Not specified',
+            controller: _phoneController,
+            isEditable: _isEditMode,
+            onCopy: _phoneController.text.isNotEmpty
+                ? () => _copyToClipboard('Phone Number', _phoneController.text)
+                : null,
+          ),
+          _buildFieldDivider(),
+
+          _buildInfoRow(
+            icon: Icons.location_on_rounded,
+            color: const Color(0xFF10B981),
+            label: 'Business Location / City',
+            value: _locationController.text.isNotEmpty
+                ? _locationController.text
+                : 'Not specified',
+            controller: _locationController,
+            isEditable: _isEditMode,
+          ),
+          _buildFieldDivider(),
+
+          _buildInfoRow(
+            icon: Icons.badge_rounded,
+            color: const Color(0xFFF59E0B),
+            label: 'Provider Account ID',
+            value: user.providerId ?? user.id,
+            controller: _providerIdController,
+            isEditable: false,
+            onCopy: () => _copyToClipboard(
+              'Provider ID',
+              user.providerId ?? user.id,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFieldDivider() {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 12),
+      child: Divider(height: 1, color: Color(0xFFF1F5F9)),
+    );
+  }
+
+  Widget _buildInfoRow({
+    required IconData icon,
+    required Color color,
+    required String label,
+    required String value,
+    required TextEditingController controller,
+    required bool isEditable,
+    VoidCallback? onCopy,
   }) {
     return Row(
       children: [
@@ -668,84 +795,126 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
+            color: color.withAlpha(20),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(icon, size: 20, color: color),
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: 14),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
-                  color: Colors.grey,
+                  color: Colors.grey[500],
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(height: 2),
-              TextField(
-                controller: controller,
-                readOnly: readOnly,
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.zero,
-                ),
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: readOnly ? Colors.grey : const Color(0xFF0D3B66),
-                ),
-              ),
+              const SizedBox(height: 3),
+              _isEditMode && isEditable
+                  ? TextField(
+                      controller: controller,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0F172A),
+                      ),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: Colors.grey[300]!),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: AppColors.primary),
+                        ),
+                      ),
+                    )
+                  : Text(
+                      value,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
             ],
           ),
         ),
-        if (!readOnly && _isEditMode)
-          Icon(Icons.edit, size: 16, color: Colors.grey.shade400),
+        if (onCopy != null && !_isEditMode)
+          IconButton(
+            onPressed: onCopy,
+            icon: Icon(Icons.copy_rounded, size: 16, color: Colors.grey[400]),
+            tooltip: 'Copy $label',
+          ),
       ],
     );
   }
 
-  Widget _buildActionCards(BuildContext context) {
+  Widget _buildBusinessShortcuts(BuildContext context, User user) {
     return Column(
       children: [
-        if (ref.watch(authProvider)?.isVerified == false) ...[
-          const SizedBox(height: 12),
-          _buildActionTile(
+        if (!user.isVerified) ...[
+          _buildShortcutTile(
             context,
             icon: Icons.verified_user_rounded,
-            title: 'Verify Identity',
-            subtitle: 'Get verified to start receiving bookings',
-            color: Colors.orange,
+            title: 'Verify Business Identity',
+            subtitle: 'Activate verified badge & boost search ranking',
+            color: const Color(0xFFF97316),
             isLoading: _isSaving,
             onTap: _verifyIdentity,
           ),
+          const SizedBox(height: 12),
         ],
-        const SizedBox(height: 12),
-        _buildActionTile(
+
+        _buildShortcutTile(
           context,
-          icon: Icons.notifications_rounded,
-          title: 'Notifications',
-          subtitle: 'Manage your alerts & preferences',
-          color: const Color(0xFF8B5CF6),
+          icon: Icons.account_balance_rounded,
+          title: 'Payout Accounts & Financial Settings',
+          subtitle: 'Manage EVC Plus, Zaad, Sahal, or Bank payout details',
+          color: const Color(0xFF10B981),
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => const ProviderSettingsScreen(),
+              builder: (context) => const PayoutAccountsScreen(),
             ),
           ),
         ),
+
         const SizedBox(height: 12),
-        _buildActionTile(
+
+        _buildShortcutTile(
           context,
-          icon: Icons.lock_rounded,
-          title: 'Privacy & Security',
-          subtitle: 'Password and security settings',
-          color: const Color(0xFF22C55E),
+          icon: Icons.group_outlined,
+          title: 'Manage Staff & Helper Access',
+          subtitle: 'Grant delegate permissions for booking handlers',
+          color: const Color(0xFF6366F1),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const ManageHelpersScreen(),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        _buildShortcutTile(
+          context,
+          icon: Icons.security_rounded,
+          title: 'Security & Privacy Settings',
+          subtitle: 'Change password, 2FA, & account preferences',
+          color: AppColors.primary,
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute(
@@ -757,7 +926,7 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
     );
   }
 
-  Widget _buildActionTile(
+  Widget _buildShortcutTile(
     BuildContext context, {
     required IconData icon,
     required String title,
@@ -768,15 +937,15 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
   }) {
     return InkWell(
       onTap: isLoading ? null : onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: Colors.black.withAlpha(8),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -785,11 +954,11 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
         child: Row(
           children: [
             Container(
-              width: 48,
-              height: 48,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(14),
+                color: color.withAlpha(20),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: isLoading
                   ? Padding(
@@ -799,9 +968,9 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
                         valueColor: AlwaysStoppedAnimation<Color>(color),
                       ),
                     )
-                  : Icon(icon, color: color, size: 24),
+                  : Icon(icon, color: color, size: 22),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -810,22 +979,22 @@ class _ProviderProfileScreenState extends ConsumerState<ProviderProfileScreen> {
                     title,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                      color: Color(0xFF0D3B66),
+                      fontSize: 14,
+                      color: Color(0xFF0F172A),
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                   ),
                 ],
               ),
             ),
             Icon(
               Icons.chevron_right_rounded,
-              color: Colors.grey.shade300,
-              size: 22,
+              color: Colors.grey[400],
+              size: 20,
             ),
           ],
         ),

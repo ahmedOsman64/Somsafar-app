@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
@@ -51,6 +53,9 @@ class _HotelBookingFormState extends ConsumerState<HotelBookingForm>
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _locationController = TextEditingController();
+  XFile? _idDocumentFile;
+  Uint8List? _idDocumentBytes;
+  String? _idDocumentUrl;
 
   // Room Preferences
   BedType _bedType = BedType.single;
@@ -349,6 +354,19 @@ class _HotelBookingFormState extends ConsumerState<HotelBookingForm>
             keyboardType: TextInputType.text,
             validator: (v) =>
                 v?.trim().isEmpty ?? true ? 'Location is required' : null,
+          ),
+          const SizedBox(height: 16),
+          IdDocumentUploaderWidget(
+            initialFile: _idDocumentFile,
+            initialBytes: _idDocumentBytes,
+            initialUrl: _idDocumentUrl,
+            onChanged: (file, bytes, url) {
+              setState(() {
+                _idDocumentFile = file;
+                _idDocumentBytes = bytes;
+                _idDocumentUrl = url;
+              });
+            },
           ),
         ],
       ),
@@ -905,6 +923,10 @@ class _HotelBookingFormState extends ConsumerState<HotelBookingForm>
             specialRequests: bookingData.specialRequests,
             metadata: {
               'serviceType': 'hotel',
+              if (_idDocumentUrl != null && _idDocumentUrl!.isNotEmpty)
+                'idDocumentUrl': _idDocumentUrl,
+              if (_idDocumentFile?.name != null)
+                'idDocumentFileName': _idDocumentFile!.name,
             },
           ),
         ),

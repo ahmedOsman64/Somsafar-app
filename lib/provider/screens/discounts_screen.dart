@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/responsive.dart';
 import '../../shared/models/discount_model.dart';
 import '../../shared/services/discount_repository.dart';
-import 'create_discount_screen.dart';
 import '../../shared/widgets/confirmation_dialog.dart';
+import 'create_discount_screen.dart';
+
+final discountTabFilterProvider = StateProvider<String>((ref) => 'all');
 
 class ProviderDiscountsScreen extends ConsumerStatefulWidget {
   const ProviderDiscountsScreen({super.key});
@@ -14,7 +18,8 @@ class ProviderDiscountsScreen extends ConsumerStatefulWidget {
       _ProviderDiscountsScreenState();
 }
 
-class _ProviderDiscountsScreenState extends ConsumerState<ProviderDiscountsScreen> {
+class _ProviderDiscountsScreenState
+    extends ConsumerState<ProviderDiscountsScreen> {
   @override
   void initState() {
     super.initState();
@@ -26,8 +31,8 @@ class _ProviderDiscountsScreenState extends ConsumerState<ProviderDiscountsScree
   @override
   Widget build(BuildContext context) {
     final discounts = ref.watch(filteredDiscountsProvider);
+    final activeTab = ref.watch(discountTabFilterProvider);
 
-    // Calculate stats
     final activeCount =
         discounts.where((d) => d.status == DiscountStatus.active).length;
     final scheduledCount =
@@ -37,199 +42,347 @@ class _ProviderDiscountsScreenState extends ConsumerState<ProviderDiscountsScree
     final inactiveCount =
         discounts.where((d) => d.status == DiscountStatus.inactive).length;
 
-    return DefaultTabController(
-      length: 5,
-      child: Scaffold(
-        backgroundColor: AppColors.background,
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          elevation: 0,
-          toolbarHeight: 0, // Hidden but needed for TabBar
-          bottom: TabBar(
-            isScrollable: true,
-            labelColor: AppColors.primary,
-            unselectedLabelColor: Colors.grey,
-            indicatorColor: AppColors.secondary,
-            indicatorWeight: 3,
-            indicatorSize: TabBarIndicatorSize.label,
-            labelStyle: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-            ),
-            tabs: const [
-              Tab(text: 'All Promotions'),
-              Tab(text: 'Active'),
-              Tab(text: 'Scheduled'),
-              Tab(text: 'Expired'),
-              Tab(text: 'Inactive'),
-            ],
-          ),
-        ),
-        body: Column(
+    List<Discount> displayedDiscounts;
+    if (activeTab == 'active') {
+      displayedDiscounts =
+          discounts.where((d) => d.status == DiscountStatus.active).toList();
+    } else if (activeTab == 'scheduled') {
+      displayedDiscounts =
+          discounts.where((d) => d.status == DiscountStatus.scheduled).toList();
+    } else if (activeTab == 'expired') {
+      displayedDiscounts =
+          discounts.where((d) => d.status == DiscountStatus.ended).toList();
+    } else if (activeTab == 'inactive') {
+      displayedDiscounts =
+          discounts.where((d) => d.status == DiscountStatus.inactive).toList();
+    } else {
+      displayedDiscounts = [...discounts];
+    }
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF4F6F9),
+      body: SingleChildScrollView(
+        child: Column(
           children: [
-            // Premium Header with Stats
-            Container(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-              color: Colors.white,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            // ── Full-Width Gradient Header Banner ────────────────
+            _buildHeader(
+              context,
+              activeTab,
+              discounts.length,
+              activeCount,
+              scheduledCount,
+              endedCount,
+              inactiveCount,
+            ),
+
+            const SizedBox(height: 20),
+
+            // ── Responsive Stat Cards ────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isMobile = constraints.maxWidth < 600;
+                  final cardWidth = isMobile
+                      ? (constraints.maxWidth - 12) / 2
+                      : (constraints.maxWidth - 36) / 4;
+
+                  return Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Promotions & Discounts',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.primary,
-                                letterSpacing: -0.5,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Manage your offers and attract more bookings',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 14,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
+                      _buildStatCard(
+                        width: cardWidth,
+                        label: 'Active Offers',
+                        value: activeCount.toString(),
+                        subtitle: 'Live discounts now',
+                        icon: Icons.check_circle_rounded,
+                        color: const Color(0xFF10B981),
                       ),
-                      _buildCreateButton(context),
+                      _buildStatCard(
+                        width: cardWidth,
+                        label: 'Scheduled',
+                        value: scheduledCount.toString(),
+                        subtitle: 'Upcoming promos',
+                        icon: Icons.calendar_today_rounded,
+                        color: const Color(0xFF3B82F6),
+                      ),
+                      _buildStatCard(
+                        width: cardWidth,
+                        label: 'Expired',
+                        value: endedCount.toString(),
+                        subtitle: 'Past deals',
+                        icon: Icons.history_rounded,
+                        color: const Color(0xFF64748B),
+                      ),
+                      _buildStatCard(
+                        width: cardWidth,
+                        label: 'Inactive',
+                        value: inactiveCount.toString(),
+                        subtitle: 'Paused offers',
+                        icon: Icons.pause_circle_rounded,
+                        color: const Color(0xFFEF4444),
+                      ),
                     ],
-                  ),
-                  const SizedBox(height: 24),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _buildStatCard(
-                          'Active',
-                          activeCount.toString(),
-                          Icons.check_circle_outline,
-                          Colors.green,
-                        ),
-                        const SizedBox(width: 12),
-                        _buildStatCard(
-                          'Scheduled',
-                          scheduledCount.toString(),
-                          Icons.calendar_today_outlined,
-                          Colors.blue,
-                        ),
-                        const SizedBox(width: 12),
-                        _buildStatCard(
-                          'Expired',
-                          endedCount.toString(),
-                          Icons.history,
-                          Colors.grey,
-                        ),
-                        const SizedBox(width: 12),
-                        _buildStatCard(
-                          'Inactive',
-                          inactiveCount.toString(),
-                          Icons.pause_circle_outline,
-                          Colors.red,
-                        ),
-                      ],
+                  );
+                },
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // ── Promotions Voucher List / Empty State ───────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: displayedDiscounts.isEmpty
+                  ? _buildEmptyState(context, activeTab)
+                  : ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: displayedDiscounts.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 16),
+                      itemBuilder: (context, index) => _buildDiscountCard(
+                        context,
+                        ref,
+                        displayedDiscounts[index],
+                      ),
                     ),
-                  ),
-                ],
-              ),
             ),
-            
-            // Tab View Content
-            Expanded(
-              child: TabBarView(
-                children: [
-                  _buildDiscountList(context, ref, discounts),
-                  _buildDiscountList(
-                    context,
-                    ref,
-                    discounts.where((d) => d.status == DiscountStatus.active).toList(),
-                  ),
-                  _buildDiscountList(
-                    context,
-                    ref,
-                    discounts.where((d) => d.status == DiscountStatus.scheduled).toList(),
-                  ),
-                  _buildDiscountList(
-                    context,
-                    ref,
-                    discounts.where((d) => d.status == DiscountStatus.ended).toList(),
-                  ),
-                  _buildDiscountList(
-                    context,
-                    ref,
-                    discounts.where((d) => d.status == DiscountStatus.inactive).toList(),
-                  ),
-                ],
-              ),
-            ),
+
+            const SizedBox(height: 40),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCreateButton(BuildContext context) {
+  Widget _buildHeader(
+    BuildContext context,
+    String activeTab,
+    int totalCount,
+    int activeCount,
+    int scheduledCount,
+    int endedCount,
+    int inactiveCount,
+  ) {
     return Container(
+      width: double.infinity,
       decoration: BoxDecoration(
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.secondary.withValues(alpha: 0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ElevatedButton.icon(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const CreateDiscountScreen(),
-            ),
-          );
-        },
-        icon: const Icon(Icons.add, color: Colors.white, size: 20),
-        label: const Text(
-          'Create New',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-          ),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0F172A), Color(0xFF1E3A8A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.secondary,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(context.isMobile ? 0 : 32),
+          bottomRight: Radius.circular(context.isMobile ? 0 : 32),
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(24, 20, 24, context.isMobile ? 24 : 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withAlpha(25),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(
+                          Icons.local_offer_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Promotions & Discounts',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          Text(
+                            'Create promotional vouchers & boost sales',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.white70,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const CreateDiscountScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: const Text('Create New'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.secondary,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 24),
+
+              // Tab Pill Selector Bar
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildTabPill(
+                      'All Promotions',
+                      'all',
+                      totalCount,
+                      activeTab,
+                    ),
+                    const SizedBox(width: 8),
+                    _buildTabPill(
+                      'Active',
+                      'active',
+                      activeCount,
+                      activeTab,
+                    ),
+                    const SizedBox(width: 8),
+                    _buildTabPill(
+                      'Scheduled',
+                      'scheduled',
+                      scheduledCount,
+                      activeTab,
+                    ),
+                    const SizedBox(width: 8),
+                    _buildTabPill(
+                      'Expired',
+                      'expired',
+                      endedCount,
+                      activeTab,
+                    ),
+                    const SizedBox(width: 8),
+                    _buildTabPill(
+                      'Inactive',
+                      'inactive',
+                      inactiveCount,
+                      activeTab,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          elevation: 0,
         ),
       ),
     );
   }
 
-  Widget _buildStatCard(String label, String value, IconData icon, Color color) {
+  Widget _buildTabPill(
+    String label,
+    String key,
+    int count,
+    String activeTab,
+  ) {
+    final isSelected = activeTab == key;
+    return GestureDetector(
+      onTap: () {
+        ref.read(discountTabFilterProvider.notifier).state = key;
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.secondary : Colors.white.withAlpha(20),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? AppColors.secondary
+                : Colors.white.withAlpha(40),
+          ),
+        ),
+        child: Row(
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                fontSize: 13,
+              ),
+            ),
+            if (count > 0) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? Colors.white.withAlpha(50)
+                      : Colors.white.withAlpha(30),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '$count',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatCard({
+    required double width,
+    required String label,
+    required String value,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+  }) {
     return Container(
-      width: 140,
+      width: width,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.1), width: 1),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(8),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -237,89 +390,104 @@ class _ProviderDiscountsScreenState extends ConsumerState<ProviderDiscountsScree
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(icon, color: color, size: 20),
               Text(
-                value,
+                label,
                 style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: color,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[600],
                 ),
+                overflow: TextOverflow.ellipsis,
+              ),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: color.withAlpha(25),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: color, size: 18),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: color.withValues(alpha: 0.8),
-              fontWeight: FontWeight.w600,
+            value,
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF0F172A),
             ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDiscountList(
-    BuildContext context,
-    WidgetRef ref,
-    List<Discount> filteredList,
-  ) {
-    if (filteredList.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 20,
-                  ),
-                ],
-              ),
-              child: Icon(
-                Icons.confirmation_number_outlined,
-                size: 64,
-                color: Colors.grey[300],
+  Widget _buildEmptyState(BuildContext context, String activeTab) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(40),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(8),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.confirmation_number_outlined,
+              size: 64, color: Colors.grey[300]),
+          const SizedBox(height: 16),
+          Text(
+            activeTab == 'all'
+                ? 'No promotions created yet'
+                : 'No $activeTab promotions found',
+            style: const TextStyle(
+              color: Color(0xFF0F172A),
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Create your first promotional discount voucher to attract more travelers & boost bookings.',
+            style: TextStyle(color: Colors.grey[500], fontSize: 13),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const CreateDiscountScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: const Text('Create First Offer'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
               ),
             ),
-            const SizedBox(height: 24),
-            Text(
-              'No active promotions',
-              style: TextStyle(
-                color: AppColors.primary,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 48),
-              child: Text(
-                'Start by creating your first discount to attract more travelers.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey[500], height: 1.5),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return ListView.separated(
-      padding: const EdgeInsets.all(24),
-      itemCount: filteredList.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 20),
-      itemBuilder: (context, index) {
-        return _buildDiscountCard(context, ref, filteredList[index]);
-      },
+          ),
+        ],
+      ),
     );
   }
 
@@ -328,40 +496,36 @@ class _ProviderDiscountsScreenState extends ConsumerState<ProviderDiscountsScree
     WidgetRef ref,
     Discount discount,
   ) {
+    final startFormatted = DateFormat('MMM d, yyyy').format(discount.startDate);
+    final endFormatted = DateFormat('MMM d, yyyy').format(discount.endDate);
+
     return Container(
-      height: 120,
+      height: 130,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
+            color: Colors.black.withAlpha(8),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: Stack(
+        borderRadius: BorderRadius.circular(20),
+        child: Row(
           children: [
-            // Status Indicator Bar
-            Positioned(
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: 6,
-              child: Container(color: discount.statusColor),
-            ),
-            Row(
-              children: [
-                // Left Side: Value & Pattern
-                Container(
-                  width: 100,
-                  decoration: BoxDecoration(
-                    color: discount.statusColor.withValues(alpha: 0.05),
-                  ),
-                  child: Column(
+            // Left Coupon Voucher Stub
+            Container(
+              width: 110,
+              decoration: BoxDecoration(
+                color: discount.statusColor.withAlpha(20),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
@@ -381,132 +545,149 @@ class _ProviderDiscountsScreenState extends ConsumerState<ProviderDiscountsScree
                           color: discount.statusColor,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'OFF',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          color: discount.statusColor.withValues(alpha: 0.6),
-                          letterSpacing: 1.2,
-                        ),
-                      ),
                     ],
                   ),
-                ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'OFF',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: discount.statusColor,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
-                // Dashed Separator (Custom design with circles)
-                SizedBox(
-                  width: 20,
-                  child: Column(
-                    children: List.generate(
-                      6,
-                      (index) => Expanded(
-                        child: Container(
-                          width: 2,
-                          margin: const EdgeInsets.symmetric(vertical: 4),
-                          color: Colors.grey[200],
-                        ),
-                      ),
+            // Dashed Ticket Separator Line
+            SizedBox(
+              width: 16,
+              child: Column(
+                children: List.generate(
+                  8,
+                  (index) => Expanded(
+                    child: Container(
+                      width: 2,
+                      margin: const EdgeInsets.symmetric(vertical: 3),
+                      color: Colors.grey[200],
                     ),
                   ),
                 ),
+              ),
+            ),
 
-                // Right Side: Info
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 16, 16, 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+            // Right Info Details
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 16, 16, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                discount.discountText,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.primary,
+                        Expanded(
+                          child: Text(
+                            discount.discountText,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F172A),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: discount.statusColor.withAlpha(20),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            discount.status.name.toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: discount.statusColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Icon(Icons.calendar_month_rounded,
+                            size: 14, color: Colors.grey[500]),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            '$startFormatted - $endFormatted',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        PopupMenuButton<String>(
+                          padding: EdgeInsets.zero,
+                          icon: Icon(Icons.more_horiz_rounded,
+                              color: Colors.grey[600]),
+                          onSelected: (value) {
+                            if (value == 'edit') {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => CreateDiscountScreen(
+                                    discountToEdit: discount,
+                                  ),
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                              );
+                            } else if (value == 'delete') {
+                              _showDeleteDialog(context, ref, discount);
+                            } else if (value == 'toggle_status') {
+                              _toggleDiscountStatus(context, ref, discount);
+                            }
+                          },
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(
+                              value: 'edit',
+                              child: Text('Edit Promotion'),
+                            ),
+                            PopupMenuItem(
+                              value: 'toggle_status',
+                              child: Text(
+                                discount.status == DiscountStatus.inactive
+                                    ? 'Activate'
+                                    : 'Deactivate',
                               ),
                             ),
-                            _buildStatusBadge(discount),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        const Spacer(),
-                        Row(
-                          children: [
-                            Icon(Icons.calendar_today, size: 12, color: Colors.grey[600]),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${discount.startDate.day}/${discount.startDate.month} - ${discount.endDate.day}/${discount.endDate.month}',
-                              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-                            ),
-                            const Spacer(),
-                            PopupMenuButton<String>(
-                              padding: EdgeInsets.zero,
-                              icon: const Icon(Icons.more_horiz, color: Colors.grey),
-                              onSelected: (value) {
-                                if (value == 'edit') {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          CreateDiscountScreen(discountToEdit: discount),
-                                    ),
-                                  );
-                                } else if (value == 'delete') {
-                                  _showDeleteDialog(context, ref, discount);
-                                } else if (value == 'toggle_status') {
-                                  _toggleDiscountStatus(context, ref, discount);
-                                }
-                              },
-                              itemBuilder: (context) => [
-                                const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                                PopupMenuItem(
-                                  value: 'toggle_status',
-                                  child: Text(discount.status == DiscountStatus.inactive
-                                      ? 'Activate'
-                                      : 'Deactivate'),
-                                ),
-                                const PopupMenuItem(
-                                  value: 'delete',
-                                  child: Text('Delete', style: TextStyle(color: Colors.red)),
-                                ),
-                              ],
+                            const PopupMenuItem(
+                              value: 'delete',
+                              child: Text(
+                                'Delete',
+                                style: TextStyle(color: Colors.red),
+                              ),
                             ),
                           ],
                         ),
                       ],
                     ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatusBadge(Discount discount) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: discount.statusColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        discount.status.name.toUpperCase(),
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-          color: discount.statusColor,
         ),
       ),
     );
@@ -532,10 +713,13 @@ class _ProviderDiscountsScreenState extends ConsumerState<ProviderDiscountsScree
           .deleteDiscount(discount.id);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Discount deleted successfully!'),
+          SnackBar(
+            content: const Text('Discount deleted successfully!'),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         );
       }
@@ -548,7 +732,7 @@ class _ProviderDiscountsScreenState extends ConsumerState<ProviderDiscountsScree
     Discount discount,
   ) async {
     final isDeactivating = discount.status != DiscountStatus.inactive;
-    
+
     await ref
         .read(discountRepositoryProvider.notifier)
         .toggleDiscountStatus(discount);
@@ -557,12 +741,16 @@ class _ProviderDiscountsScreenState extends ConsumerState<ProviderDiscountsScree
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            isDeactivating 
-                ? 'Discount deactivated successfully!' 
+            isDeactivating
+                ? 'Discount deactivated successfully!'
                 : 'Discount activated successfully!',
           ),
-          backgroundColor: isDeactivating ? Colors.orange : Colors.green,
+          backgroundColor:
+              isDeactivating ? Colors.orange : const Color(0xFF10B981),
           behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       );
     }

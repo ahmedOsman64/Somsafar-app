@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../shared/models/booking_forms_model.dart';
 import '../../../../shared/widgets/app_network_image.dart';
+import '../../../../shared/services/media_service.dart';
 
 // ─────────────────────────────────────────────
 //  Custom Step Indicator
@@ -1019,6 +1021,429 @@ class _GalleryNavButton extends StatelessWidget {
         ),
         child: Icon(icon, color: Colors.white, size: 24),
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+//  ID Card / Passport / Ticket Image Uploader Widget
+// ─────────────────────────────────────────────
+class IdDocumentUploaderWidget extends StatefulWidget {
+  final XFile? initialFile;
+  final Uint8List? initialBytes;
+  final String? initialUrl;
+  final Function(XFile? file, Uint8List? bytes, String? url) onChanged;
+
+  const IdDocumentUploaderWidget({
+    this.initialFile,
+    this.initialBytes,
+    this.initialUrl,
+    required this.onChanged,
+    super.key,
+  });
+
+  @override
+  State<IdDocumentUploaderWidget> createState() =>
+      _IdDocumentUploaderWidgetState();
+}
+
+class _IdDocumentUploaderWidgetState extends State<IdDocumentUploaderWidget> {
+  XFile? _file;
+  Uint8List? _bytes;
+  String? _url;
+  bool _isUploading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _file = widget.initialFile;
+    _bytes = widget.initialBytes;
+    _url = widget.initialUrl;
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(
+      source: source,
+      maxWidth: 1920,
+      maxHeight: 1080,
+      imageQuality: 85,
+    );
+
+    if (image != null) {
+      final bytes = await image.readAsBytes();
+      setState(() {
+        _file = image;
+        _bytes = bytes;
+        _url = image.path;
+        _isUploading = true;
+      });
+
+      widget.onChanged(_file, _bytes, _url);
+
+      try {
+        final mediaService = MediaService();
+        final uploadedUrl = await mediaService.uploadImage(image);
+        if (uploadedUrl != null && mounted) {
+          setState(() {
+            _url = uploadedUrl;
+            _isUploading = false;
+          });
+          widget.onChanged(_file, _bytes, _url);
+        }
+      } catch (e) {
+        if (mounted) setState(() => _isUploading = false);
+        debugPrint('Upload error: $e');
+      }
+    }
+  }
+
+  void _clearImage() {
+    setState(() {
+      _file = null;
+      _bytes = null;
+      _url = null;
+      _isUploading = false;
+    });
+    widget.onChanged(null, null, null);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage = _bytes != null || (_url != null && _url!.isNotEmpty);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: const Text(
+                'Your Photo',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            if (hasImage)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border:
+                      Border.all(color: const Color(0xFF10B981), width: 0.8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_isUploading)
+                      const SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Color(0xFF10B981),
+                        ),
+                      )
+                    else
+                      const Icon(
+                        Icons.check_circle_rounded,
+                        color: Color(0xFF10B981),
+                        size: 14,
+                      ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _isUploading ? 'Uploading...' : '✓ Uploaded',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF10B981),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+
+        if (hasImage) ...[
+          // Uploaded Thumbnail & Banner Box
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFF10B981).withValues(alpha: 0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: _bytes != null
+                      ? Image.memory(
+                          _bytes!,
+                          width: 56,
+                          height: 56,
+                          fit: BoxFit.cover,
+                        )
+                      : (_url != null && _url!.startsWith('http')
+                          ? Image.network(
+                              _url!,
+                              width: 56,
+                              height: 56,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                width: 56,
+                                height: 56,
+                                color: Colors.grey[200],
+                                child: const Icon(Icons.badge_outlined,
+                                    color: Colors.grey),
+                              ),
+                            )
+                          : Container(
+                              width: 56,
+                              height: 56,
+                              color: Colors.grey[200],
+                              child: const Icon(Icons.badge_outlined,
+                                  color: Colors.grey),
+                            )),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.check_circle_rounded,
+                            color: Color(0xFF10B981),
+                            size: 16,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              _isUploading
+                                  ? 'Uploading Document Photo...'
+                                  : 'Document Photo Uploaded!',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF0F172A),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        _file?.name ?? 'ID_Passport_Photo.jpg',
+                        style: TextStyle(
+                            fontSize: 11, color: Colors.grey[600]),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                PopupMenuButton<ImageSource>(
+                  onSelected: (src) => _pickImage(src),
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: ImageSource.camera,
+                      child: Row(
+                        children: [
+                          Icon(Icons.camera_alt_outlined, size: 18),
+                          SizedBox(width: 8),
+                          Text('Take Photo'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: ImageSource.gallery,
+                      child: Row(
+                        children: [
+                          Icon(Icons.photo_library_outlined, size: 18),
+                          SizedBox(width: 8),
+                          Text('Choose from Gallery'),
+                        ],
+                      ),
+                    ),
+                  ],
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    child: const Text(
+                      'Change',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: _clearImage,
+                  icon: const Icon(Icons.close_rounded,
+                      size: 18, color: Colors.red),
+                  tooltip: 'Remove',
+                ),
+              ],
+            ),
+          ),
+        ] else ...[
+          // Empty State Upload Box
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.add_a_photo_outlined,
+                        color: AppColors.primary,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Upload Your Photo',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Take photo with camera or choose from gallery',
+                            style: TextStyle(
+                                fontSize: 11, color: Colors.grey[600]),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _pickImage(ImageSource.camera),
+                        icon: const Icon(Icons.camera_alt_outlined, size: 16),
+                        label:
+                            const Text('Camera', style: TextStyle(fontSize: 12)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          side: BorderSide(
+                              color: AppColors.primary.withValues(alpha: 0.4)),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => _pickImage(ImageSource.gallery),
+                        icon: const Icon(Icons.photo_library_outlined, size: 16),
+                        label:
+                            const Text('Gallery', style: TextStyle(fontSize: 12)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFBEB),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.5)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(
+                Icons.warning_amber_rounded,
+                color: Color(0xFFD97706),
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Fadlan hubi in sawirku yahay mid cad oo xogtiisu akhrismayso.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF92400E),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Haddii xogta ama sawirku noqdo kuwo qalad ah ama aan is lahayn, booking-ka waa la kansali doonaa. Fadlan geli xog sax ah.\n(Please ensure document photo is clear & legible. Inaccurate or mismatched details will cause booking cancellation).',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: Colors.amber[900],
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

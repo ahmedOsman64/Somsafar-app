@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'core/theme/app_theme.dart';
@@ -7,11 +8,21 @@ import 'core/routing/router.dart';
 import 'core/services/supabase_service.dart';
 import 'shared/services/lookup_service.dart';
 import 'shared/services/settings_repository.dart';
+
 void main() async {
   runZonedGuarded(
     () async {
       // MUST be called first, before any async work inside the zone
       WidgetsFlutterBinding.ensureInitialized();
+
+      // Set status bar to transparent for edge-to-edge layout
+      SystemChrome.setSystemUIOverlayStyle(
+        const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
+        ),
+      );
 
       // Configure Google Fonts to always allow runtime fetching
       GoogleFonts.config.allowRuntimeFetching = true;

@@ -6,7 +6,7 @@ enum AdminRole { superAdmin, opsAdmin, financeAdmin, supportAdmin }
 
 enum UserStatus { active, blocked, suspended }
 
-enum ProviderType { hotel, home, apartment, all, tour, tailor }
+enum ProviderType { hotel, home, apartment, all, tour }
 enum Gender { male, female }
 
 enum TravelerType { leisure, business, family, solo, adventure }

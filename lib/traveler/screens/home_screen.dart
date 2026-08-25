@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -138,26 +139,32 @@ class _TravelerHomeScreenState extends ConsumerState<TravelerHomeScreen> {
     final favorites = ref.watch(favoritesProvider);
     final displayServices = favorites.take(10).toList();
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: CustomScrollView(
-        controller: _scrollController,
-        slivers: [
-          // 🖼 Hero Section (Includes Logo, Notifications, Profile and Search Bar)
-          SliverToBoxAdapter(
-            child: _HeroSection(
-              selectedCategory: _selectedCategory,
-              onProfileTap: () => _showProfileMenu(context),
-              onSearchChanged: (query) {
-                setState(() => _searchQuery = query);
-              },
-              onCategorySelected: (categoryKey) {
-                setState(() => _selectedCategory = categoryKey);
-                // Navigate to search screen with category filter
-                context.push('/traveler/search?category=$categoryKey');
-              },
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Color(0xFF1E3A8A),
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF4F6F9),
+        body: CustomScrollView(
+          controller: _scrollController,
+          slivers: [
+            // 🖼 Hero Section (Includes Logo, Notifications, Profile and Search Bar)
+            SliverToBoxAdapter(
+              child: _HeroSection(
+                selectedCategory: _selectedCategory,
+                onProfileTap: () => _showProfileMenu(context),
+                onSearchChanged: (query) {
+                  setState(() => _searchQuery = query);
+                },
+                onCategorySelected: (categoryKey) {
+                  setState(() => _selectedCategory = categoryKey);
+                  // Navigate to search screen with category filter
+                  context.push('/traveler/search?category=$categoryKey');
+                },
+              ),
             ),
-          ),
 
           // 🗺 Search Results (shown when searching)
           if (_searchQuery.isNotEmpty)
@@ -327,8 +334,9 @@ class _TravelerHomeScreenState extends ConsumerState<TravelerHomeScreen> {
           const SliverToBoxAdapter(child: SizedBox(height: 40)),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   void _showProfileMenu(BuildContext context) {
     showModalBottomSheet(
@@ -1327,13 +1335,13 @@ class _DestinationServiceCardState
             builder: (context, constraints) {
               final isNarrow = constraints.maxWidth < 500;
               return SizedBox(
-                height: isNarrow ? 130 : 160,
+                height: isNarrow ? 136 : 160,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // Image
                     SizedBox(
-                      width: isNarrow ? 120 : 180,
+                      width: isNarrow ? 115 : 180,
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
@@ -1467,27 +1475,30 @@ class _DestinationServiceCardState
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Price/night',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        color: Colors.grey[500],
+                                Flexible(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Price/night',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: Colors.grey[500],
+                                        ),
                                       ),
-                                    ),
-                                    Text(
-                                      '\$${service.price}',
-                                      style: TextStyle(
-                                        fontSize: isNarrow ? 15 : 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppColors.primary,
+                                      Text(
+                                        '\$${service.price}',
+                                        style: TextStyle(
+                                          fontSize: isNarrow ? 14 : 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.primary,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                                 Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
                                     // Quick Preview Button
                                     IconButton(
@@ -1496,20 +1507,20 @@ class _DestinationServiceCardState
                                       icon: Icon(
                                         Icons.visibility_outlined,
                                         color: AppColors.primary.withAlpha(180),
-                                        size: 20,
+                                        size: 18,
                                       ),
                                       onPressed: () =>
                                           _openQuickPreview(context, service),
                                       tooltip: 'Quick Preview',
                                     ),
-                                    const SizedBox(width: 10),
+                                    SizedBox(width: isNarrow ? 4 : 8),
                                     AnimatedContainer(
                                       duration: const Duration(
                                         milliseconds: 200,
                                       ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 8,
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: isNarrow ? 10 : 16,
+                                        vertical: isNarrow ? 6 : 8,
                                       ),
                                       decoration: BoxDecoration(
                                         color: _isHovered
@@ -1520,7 +1531,7 @@ class _DestinationServiceCardState
                                       child: Text(
                                         'View',
                                         style: GoogleFonts.poppins(
-                                          fontSize: 13,
+                                          fontSize: isNarrow ? 12 : 13,
                                           fontWeight: FontWeight.w600,
                                           color: Colors.white,
                                         ),
@@ -2720,7 +2731,10 @@ class _TravelHighlightsSection extends ConsumerWidget {
         clipBehavior: Clip.antiAlias,
         child: Container(
           width: MediaQuery.of(context).size.width * 0.9,
-          constraints: const BoxConstraints(maxWidth: 500),
+          constraints: BoxConstraints(
+            maxWidth: 500,
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2750,114 +2764,116 @@ class _TravelHighlightsSection extends ConsumerWidget {
               ),
 
               // Content Area
-              Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                item['title']!,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.dark,
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item['title']!,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.dark,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.location_on_rounded,
-                                    size: 14,
-                                    color: AppColors.primary,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    item['location']!,
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 13,
-                                      color: Colors.grey[600],
-                                      fontWeight: FontWeight.w500,
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.location_on_rounded,
+                                      size: 14,
+                                      color: AppColors.primary,
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      item['location']!,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 13,
+                                        color: Colors.grey[600],
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              item['tag']!,
+                              style: GoogleFonts.poppins(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.primary,
                               ),
-                            ],
+                            ),
                           ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      const Divider(height: 1),
+                      const SizedBox(height: 20),
+                      Text(
+                        'About this place',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.dark,
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        item['description'] == null || item['description'].isEmpty
+                            ? 'Visit this beautiful location in ${item['location']}. Explore the local culture and scenery.'
+                            : item['description'],
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          height: 1.6,
+                          color: Colors.grey[800],
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
                           ),
                           child: Text(
-                            item['tag']!,
+                            'Cool, thanks!',
                             style: GoogleFonts.poppins(
-                              fontSize: 11,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.primary,
+                              fontSize: 14,
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    const Divider(height: 1),
-                    const SizedBox(height: 20),
-                    Text(
-                      'About this place',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.dark,
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      item['description'] == null || item['description'].isEmpty
-                          ? 'Visit this beautiful location in ${item['location']}. Explore the local culture and scenery.'
-                          : item['description'],
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        height: 1.6,
-                        color: Colors.grey[800],
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 0,
-                        ),
-                        child: Text(
-                          'Cool, thanks!',
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],

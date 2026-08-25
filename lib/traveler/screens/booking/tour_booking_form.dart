@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
@@ -52,6 +54,9 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
   final _phoneController = TextEditingController();
   final _passportNumberController = TextEditingController();
   final _locationController = TextEditingController();
+  XFile? _idDocumentFile;
+  Uint8List? _idDocumentBytes;
+  String? _idDocumentUrl;
 
   // Multi-Travelers
   final List<Map<String, TextEditingController>> _additionalTravelers = [];
@@ -785,6 +790,19 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
           controller: _locationController,
           label: 'Location (Where you live)',
           icon: Icons.location_on_outlined,
+        ),
+        const SizedBox(height: 16),
+        IdDocumentUploaderWidget(
+          initialFile: _idDocumentFile,
+          initialBytes: _idDocumentBytes,
+          initialUrl: _idDocumentUrl,
+          onChanged: (file, bytes, url) {
+            setState(() {
+              _idDocumentFile = file;
+              _idDocumentBytes = bytes;
+              _idDocumentUrl = url;
+            });
+          },
         ),
         const SizedBox(height: 16),
         _premiumTextField(

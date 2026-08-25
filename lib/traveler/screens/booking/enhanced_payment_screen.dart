@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +9,7 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/models/booking_forms_model.dart';
 import '../../../shared/services/booking_form_service.dart';
+import '../../../shared/services/media_service.dart';
 
 import '../../../shared/services/auth_service.dart';
 import '../../../shared/services/booking_integration_service.dart';
@@ -104,6 +107,9 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
   // Pay Later Verification
   final _verificationIdController = TextEditingController();
   final _alternativePhoneController = TextEditingController();
+  XFile? _idDocumentFile;
+  Uint8List? _idDocumentBytes;
+  String? _idDocumentUrl;
 
   bool _showSummary = true;
 
@@ -115,6 +121,9 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
         widget.contactPhone; // Pre-fill from booking form
     _acceptHouseRules = widget.acceptHouseRules;
     _acceptRentalTerms = widget.acceptRentalTerms;
+    if (widget.metadata?['idDocumentUrl'] != null) {
+      _idDocumentUrl = widget.metadata!['idDocumentUrl'] as String?;
+    }
 
     _animController = AnimationController(
       vsync: this,
@@ -1159,15 +1168,7 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
             ),
             const SizedBox(height: 16),
 
-            _paymentTextField(
-              controller: _verificationIdController,
-              label: ref.watch(localizationProvider).translate('id_card_label'),
-              icon: Icons.badge_outlined,
-              hintText: ref.watch(localizationProvider).translate('id_card_hint'),
-              validator: (v) => v?.trim().isEmpty ?? true
-                  ? ref.read(localizationProvider).translate('id_required')
-                  : null,
-            ),
+            _buildIdDocumentUploader(),
             const SizedBox(height: 12),
             _paymentTextField(
               controller: _alternativePhoneController,
@@ -1213,10 +1214,13 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
               ),
             ),
             const SizedBox(height: 12),
-            Row(
+            Wrap(
+              spacing: 12,
+              runSpacing: 6,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 _InfoPoint(text: ref.watch(localizationProvider).translate('no_upfront')),
-                const Spacer(),
                 _InfoPoint(text: ref.watch(localizationProvider).translate('free_cancellation')),
               ],
             ),
@@ -1224,6 +1228,314 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
         ),
       ),
     );
+  }
+
+  Widget _buildIdDocumentUploader() {
+    final hasUploaded = _idDocumentFile != null || _idDocumentUrl != null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: const Text(
+                'Your Photo',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            if (hasUploaded)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF10B981), width: 0.8),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.check_circle_rounded,
+                      color: Color(0xFF10B981),
+                      size: 14,
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      '✓ Uploaded',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF10B981),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+
+        if (hasUploaded) ...[
+          // Uploaded State Banner & Preview
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFF10B981).withValues(alpha: 0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: _idDocumentBytes != null
+                      ? Image.memory(
+                          _idDocumentBytes!,
+                          width: 56,
+                          height: 56,
+                          fit: BoxFit.cover,
+                        )
+                      : (_idDocumentUrl != null && _idDocumentUrl!.startsWith('http')
+                          ? Image.network(
+                              _idDocumentUrl!,
+                              width: 56,
+                              height: 56,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                width: 56,
+                                height: 56,
+                                color: Colors.grey[200],
+                                child: const Icon(Icons.badge_outlined, color: Colors.grey),
+                              ),
+                            )
+                          : Container(
+                              width: 56,
+                              height: 56,
+                              color: Colors.grey[200],
+                              child: const Icon(Icons.badge_outlined, color: Colors.grey),
+                            )),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(
+                            Icons.check_circle_rounded,
+                            color: Color(0xFF10B981),
+                            size: 16,
+                          ),
+                          SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              'ID Photo Uploaded!',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF0F172A),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        _idDocumentFile?.name ?? 'ID_Passport_Photo.jpg',
+                        style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                PopupMenuButton<ImageSource>(
+                  onSelected: (source) => _pickIdDocument(source),
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: ImageSource.camera,
+                      child: Row(
+                        children: [
+                          Icon(Icons.camera_alt_outlined, size: 18),
+                          SizedBox(width: 8),
+                          Text('Take Photo'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: ImageSource.gallery,
+                      child: Row(
+                        children: [
+                          Icon(Icons.photo_library_outlined, size: 18),
+                          SizedBox(width: 8),
+                          Text('Choose from Gallery'),
+                        ],
+                      ),
+                    ),
+                  ],
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    child: const Text(
+                      'Change',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () {
+                    setState(() {
+                      _idDocumentFile = null;
+                      _idDocumentBytes = null;
+                      _idDocumentUrl = null;
+                    });
+                  },
+                  icon: const Icon(Icons.close_rounded, size: 18, color: Colors.red),
+                  tooltip: 'Remove',
+                ),
+              ],
+            ),
+          ),
+        ] else ...[
+          // Empty State Upload Box
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.add_a_photo_outlined,
+                        color: AppColors.primary,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Upload Your Photo',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Take photo with camera or choose from gallery',
+                            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _pickIdDocument(ImageSource.camera),
+                        icon: const Icon(Icons.camera_alt_outlined, size: 16),
+                        label: const Text('Camera', style: TextStyle(fontSize: 12)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          side: BorderSide(color: AppColors.primary.withValues(alpha: 0.4)),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => _pickIdDocument(ImageSource.gallery),
+                        icon: const Icon(Icons.photo_library_outlined, size: 16),
+                        label: const Text('Gallery', style: TextStyle(fontSize: 12)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _pickIdDocument(ImageSource source) async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(
+      source: source,
+      maxWidth: 1920,
+      maxHeight: 1080,
+      imageQuality: 85,
+    );
+
+    if (image != null) {
+      final bytes = await image.readAsBytes();
+      setState(() {
+        _idDocumentFile = image;
+        _idDocumentBytes = bytes;
+        _idDocumentUrl = image.path;
+      });
+
+      try {
+        final mediaService = MediaService();
+        final url = await mediaService.uploadImage(image);
+        if (url != null && mounted) {
+          setState(() {
+            _idDocumentUrl = url;
+          });
+        }
+      } catch (e) {
+        debugPrint('Upload error: $e');
+      }
+    }
   }
 
   Widget _buildAgreementsSection() {
@@ -1660,11 +1972,16 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
         'metadata': {
           ...widget.metadata ?? {},
           if (widget.discount > 0) 'discount_amount': widget.discount,
-          if (_selectedMethod == PaymentMethod.payLater) ...{
+          if (_verificationIdController.text.trim().isNotEmpty)
             'verificationId': _verificationIdController.text.trim(),
+          if (_alternativePhoneController.text.trim().isNotEmpty)
             'alternativePhone': _alternativePhoneController.text.trim(),
+          if (_idDocumentUrl != null && _idDocumentUrl!.trim().isNotEmpty)
+            'idDocumentUrl': _idDocumentUrl!.trim(),
+          if (_idDocumentFile?.name != null)
+            'idDocumentFileName': _idDocumentFile!.name,
+          if (_selectedMethod == PaymentMethod.payLater)
             'verifiedAtArrival': true,
-          },
         },
         'bookingType': widget.serviceType.name,
         // Extract traveler counts from metadata for compatibility/validation logic
@@ -1837,10 +2154,17 @@ class _InfoPoint extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         const Icon(Icons.check, color: AppColors.success, size: 16),
         const SizedBox(width: 4),
-        Text(text, style: const TextStyle(fontSize: 13)),
+        Flexible(
+          child: Text(
+            text,
+            style: const TextStyle(fontSize: 12.5),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
       ],
     );
   }

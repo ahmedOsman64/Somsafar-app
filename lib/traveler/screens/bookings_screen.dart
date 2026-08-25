@@ -11,6 +11,7 @@ import '../../shared/models/review_model.dart';
 import '../../core/providers/localization_provider.dart';
 import '../../shared/services/review_repository.dart';
 import '../../shared/services/auth_service.dart';
+import '../../shared/services/receipt_pdf_service.dart';
 import 'package:uuid/uuid.dart';
 
 class TravelerBookingsScreen extends ConsumerWidget {
@@ -298,6 +299,15 @@ class _BookingCard extends ConsumerWidget {
                                   ),
                                 );
                               },
+                            ),
+                          ),
+                          Tooltip(
+                            message: 'Download Receipt',
+                            child: IconButton(
+                              icon: const Icon(Icons.picture_as_pdf_outlined),
+                              color: Colors.grey[700],
+                              onPressed: () =>
+                                  ReceiptPdfService.generateAndShare(booking),
                             ),
                           ),
                           if (booking.status == BookingStatus.confirmed ||

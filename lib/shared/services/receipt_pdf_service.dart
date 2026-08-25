@@ -8,11 +8,10 @@ class ReceiptPdfService {
   static Future<void> generateAndShare(Booking booking) async {
     final pdf = pw.Document();
     
-    // Load Unicode font
+    // Load Unicode fonts including Arabic
     final font = await PdfGoogleFonts.notoSansRegular();
     final fontBold = await PdfGoogleFonts.notoSansBold();
-    
-    // Set default style for the entire document
+    final fontArabic = await PdfGoogleFonts.amiriRegular();
 
     final metadata = booking.metadata;
     final isTour = metadata['serviceType']?.toString().toLowerCase() == 'tour' ||
@@ -38,15 +37,17 @@ class ReceiptPdfService {
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
                   pw.Text(
-                    'SomSafar',
+                    booking.serviceTitle.isNotEmpty
+                        ? booking.serviceTitle
+                        : 'SomSafar Partner',
                     style: pw.TextStyle(
-                      fontSize: 26,
+                      fontSize: 22,
                       fontWeight: pw.FontWeight.bold,
                       color: PdfColor.fromInt(0xFF0A3D62),
                     ),
                   ),
                   pw.Text(
-                    'Travel with Confidence',
+                    'Official Booking Receipt · Verified Service',
                     style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey),
                   ),
                 ],
@@ -56,7 +57,7 @@ class ReceiptPdfService {
                 children: [
                   pw.Text(
                     'BOOKING RECEIPT',
-                    style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+                    style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
                   ),
                   pw.Text(
                     'Ref: #${booking.id.toUpperCase()}',
@@ -134,33 +135,118 @@ class ReceiptPdfService {
             _buildPdfRow('Payment Status', booking.paymentStatus.name.toUpperCase()),
           ]),
 
-          pw.SizedBox(height: 40),
-          pw.Divider(thickness: 1, color: PdfColors.grey300),
-          pw.SizedBox(height: 10),
-          pw.Center(
-            child: pw.Text(
-              'This is a computer generated receipt. No signature required.',
-              style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey),
+          // ── Multi-lingual Customer Appreciation & Platform Promotion Banner ──
+          pw.SizedBox(height: 24),
+          pw.Container(
+            width: double.infinity,
+            padding: const pw.EdgeInsets.all(12),
+            decoration: pw.BoxDecoration(
+              color: PdfColor.fromInt(0xFFF8FAFC),
+              borderRadius: pw.BorderRadius.circular(8),
+              border: pw.Border.all(color: PdfColor.fromInt(0xFFE2E8F0), width: 1),
+            ),
+            child: pw.Column(
+              children: [
+                // English Praise & Service App Mention
+                pw.Text(
+                  'Thank you for choosing ${booking.serviceTitle.isNotEmpty ? booking.serviceTitle : 'our service'}! We are honored to serve you.',
+                  textAlign: pw.TextAlign.center,
+                  style: pw.TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColor.fromInt(0xFF0F172A),
+                  ),
+                ),
+                pw.SizedBox(height: 2),
+                pw.Text(
+                  'Book your next stay, vehicle, or tour anytime on SomSafar App.',
+                  textAlign: pw.TextAlign.center,
+                  style: const pw.TextStyle(
+                    fontSize: 8.5,
+                    color: PdfColors.grey700,
+                  ),
+                ),
+                pw.SizedBox(height: 6),
+
+                // Somali Praise
+                pw.Text(
+                  'Waad ku mahadsan tahay doorashada ${booking.serviceTitle.isNotEmpty ? booking.serviceTitle : 'adeeggeenna'}! Waxaa sharaf noo ah inaan kuu adeegno.',
+                  textAlign: pw.TextAlign.center,
+                  style: pw.TextStyle(
+                    fontSize: 9,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColor.fromInt(0xFF1E3A8A),
+                  ),
+                ),
+                pw.SizedBox(height: 2),
+                pw.Text(
+                  'Safarkaaga & hoygaaga xiga ka dalbo SomSafar App si sahlan oo aamin ah.',
+                  textAlign: pw.TextAlign.center,
+                  style: const pw.TextStyle(
+                    fontSize: 8.5,
+                    color: PdfColors.grey700,
+                  ),
+                ),
+                pw.SizedBox(height: 6),
+
+                // Arabic Praise
+                pw.Text(
+                  'شكراً لاختياركم ${booking.serviceTitle.isNotEmpty ? booking.serviceTitle : 'خدمتنا'}! يسعدنا ويشرفنا خدمتكم.',
+                  textAlign: pw.TextAlign.center,
+                  textDirection: pw.TextDirection.rtl,
+                  style: pw.TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: pw.FontWeight.bold,
+                    font: fontArabic,
+                    color: PdfColor.fromInt(0xFF065F46),
+                  ),
+                ),
+                pw.SizedBox(height: 2),
+                pw.Text(
+                  'احجز رحلتك، إقامتك، وسيارتك القادمة بكل سهولة وأمان عبر تطبيق SomSafar.',
+                  textAlign: pw.TextAlign.center,
+                  textDirection: pw.TextDirection.rtl,
+                  style: pw.TextStyle(
+                    fontSize: 8.5,
+                    font: fontArabic,
+                    color: PdfColors.grey700,
+                  ),
+                ),
+              ],
             ),
           ),
-          pw.SizedBox(height: 5),
-          pw.Center(
-            child: pw.Text(
-              'Thank you for choosing SomSafar!',
-              style: pw.TextStyle(
-                fontSize: 10,
-                fontWeight: pw.FontWeight.bold,
-                color: PdfColor.fromInt(0xFF06253B),
-              ),
+
+          pw.SizedBox(height: 12),
+
+          // ── Verification Badge Footer ──
+          pw.Container(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: pw.BoxDecoration(
+              color: PdfColor.fromInt(0xFF0F172A),
+              borderRadius: pw.BorderRadius.circular(6),
+            ),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(
+                  'Official Computer-Generated Receipt · Verified by SomSafar',
+                  style: const pw.TextStyle(fontSize: 8, color: PdfColors.white),
+                ),
+                pw.Text(
+                  'No Signature Required',
+                  style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey300),
+                ),
+              ],
             ),
           ),
         ],
       ),
     );
 
+    final cleanTitle = booking.serviceTitle.replaceAll(RegExp(r'[^\w\s]'), '').replaceAll(' ', '_');
     await Printing.sharePdf(
       bytes: await pdf.save(),
-      filename: 'SomSafar_Receipt_${booking.id.toUpperCase()}.pdf',
+      filename: '${cleanTitle}_Receipt_${booking.id.toUpperCase()}.pdf',
     );
   }
 

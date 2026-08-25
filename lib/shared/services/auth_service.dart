@@ -1218,4 +1218,52 @@ class AuthService extends ChangeNotifier {
       print('ERROR: Failed to handle failed login: $e');
     }
   }
+
+  Future<String?> createHelperAccount({
+    required String fullName,
+    required String email,
+    required String password,
+    required String roleCategory,
+    required List<String> permissions,
+  }) async {
+    try {
+      final currentUser = state;
+      if (currentUser == null) return 'Not authenticated';
+
+      final authRes = await SupabaseConfig.client.auth.signUp(
+        email: email,
+        password: password,
+        data: {
+          'name': fullName,
+          'role': 'provider_helper',
+          'provider_id': currentUser.id,
+          'helper_role': roleCategory,
+          'permissions': permissions,
+        },
+      );
+
+      final helperUser = authRes.user;
+      if (helperUser == null) {
+        return 'Failed to create helper auth account';
+      }
+
+      await SupabaseConfig.client.from('users').upsert({
+        'id': helperUser.id,
+        'name': fullName,
+        'email': email,
+        'role': 'provider_helper',
+        'provider_id': currentUser.id,
+        'status': 'active',
+        'metadata': {
+          'helper_role': roleCategory,
+          'permissions': permissions,
+        },
+      });
+
+      return null;
+    } catch (e) {
+      debugPrint('Error creating helper account: $e');
+      return e.toString();
+    }
+  }
 }

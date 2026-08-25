@@ -1009,8 +1009,6 @@ class _ProviderServiceFormScreenState
           case ProviderType.all:
           case ProviderType.tour:
             return catId.toLowerCase() == 'tour';
-          case ProviderType.tailor:
-            return catId.toLowerCase() == 'tailor';
         }
       }).toList(),
       loading: () => [],
@@ -1040,9 +1038,6 @@ class _ProviderServiceFormScreenState
         break;
       case ProviderType.tour:
         typeLabel = 'Tour';
-        break;
-      case ProviderType.tailor:
-        typeLabel = 'Tailor';
         break;
     }
 

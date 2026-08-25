@@ -190,7 +190,8 @@ class BookingDetailScreen extends ConsumerWidget {
               const Divider(height: 32),
             ],
 
-            if (booking.status == BookingStatus.confirmed) ...[
+            if (booking.status == BookingStatus.confirmed ||
+                booking.status == BookingStatus.pending) ...[
               const SizedBox(height: 32),
               SizedBox(
                 width: double.infinity,

@@ -27,11 +27,8 @@ import '../../provider/screens/services_list_screen.dart';
 import '../../provider/screens/bookings_screen.dart';
 import '../../provider/screens/discounts_screen.dart';
 import '../../provider/screens/reports_screen.dart';
+import '../../provider/screens/analysis_screen.dart';
 import '../../provider/screens/reviews_screen.dart';
-import '../../provider/screens/tailor/tailor_dashboard_view.dart';
-import '../../provider/screens/tailor/tailor_customers_view.dart';
-import '../../provider/screens/tailor/tailor_orders_view.dart';
-import '../../provider/screens/tailor/tailor_financials_view.dart';
 import '../../provider/screens/profile_screen.dart';
 import '../../provider/screens/settings_screen.dart';
 import '../../provider/screens/settings/payout_accounts_screen.dart';
@@ -362,42 +359,18 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: '/provider/dashboard',
-            pageBuilder: (context, state) => NoTransitionPage(
-              child: Consumer(
-                builder: (context, ref, _) {
-                  final user = ref.watch(authProvider);
-                  return user?.providerType == ProviderType.tailor
-                      ? const TailorDashboardView()
-                      : const ProviderDashboardScreen();
-                },
-              ),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ProviderDashboardScreen()),
           ),
           GoRoute(
             path: '/provider/services',
-            pageBuilder: (context, state) => NoTransitionPage(
-              child: Consumer(
-                builder: (context, ref, _) {
-                  final user = ref.watch(authProvider);
-                  return user?.providerType == ProviderType.tailor
-                      ? const TailorCustomersView()
-                      : const ProviderServicesScreen();
-                },
-              ),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ProviderServicesScreen()),
           ),
           GoRoute(
             path: '/provider/bookings',
-            pageBuilder: (context, state) => NoTransitionPage(
-              child: Consumer(
-                builder: (context, ref, _) {
-                  final user = ref.watch(authProvider);
-                  return user?.providerType == ProviderType.tailor
-                      ? const TailorOrdersView()
-                      : const ProviderBookingsScreen();
-                },
-              ),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ProviderBookingsScreen()),
           ),
           GoRoute(
             path: '/provider/discounts',
@@ -406,16 +379,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/provider/reports',
-            pageBuilder: (context, state) => NoTransitionPage(
-              child: Consumer(
-                builder: (context, ref, _) {
-                  final user = ref.watch(authProvider);
-                  return user?.providerType == ProviderType.tailor
-                      ? const TailorFinancialsView()
-                      : const ProviderReportsScreen();
-                },
-              ),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ProviderReportsScreen()),
+          ),
+          GoRoute(
+            path: '/provider/analysis',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ProviderAnalysisScreen()),
           ),
           GoRoute(
             path: '/provider/reviews',
