@@ -52,6 +52,10 @@ class SupabaseConfig {
     final supabaseUrl = SupabaseConfig.url;
     final supabaseAnonKey = SupabaseConfig.anonKey;
 
+    if (dotenv.isInitialized && (dotenv.env['SUPABASE_ANON_KEY'] == null || dotenv.env['SUPABASE_ANON_KEY']!.isEmpty)) {
+      debugPrint('WARNING [Security]: SUPABASE_ANON_KEY not found in .env file. Falling back to default configuration.');
+    }
+
     if (supabaseUrl.isEmpty || !supabaseUrl.startsWith('http')) {
       throw Exception('Invalid Supabase URL: "$supabaseUrl". Check your .env file or database settings.');
     }

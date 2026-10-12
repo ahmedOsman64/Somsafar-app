@@ -121,9 +121,6 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
         widget.contactPhone; // Pre-fill from booking form
     _acceptHouseRules = widget.acceptHouseRules;
     _acceptRentalTerms = widget.acceptRentalTerms;
-    if (widget.metadata?['idDocumentUrl'] != null) {
-      _idDocumentUrl = widget.metadata!['idDocumentUrl'] as String?;
-    }
 
     _animController = AnimationController(
       vsync: this,
@@ -1976,10 +1973,15 @@ class _EnhancedPaymentScreenState extends ConsumerState<EnhancedPaymentScreen>
             'verificationId': _verificationIdController.text.trim(),
           if (_alternativePhoneController.text.trim().isNotEmpty)
             'alternativePhone': _alternativePhoneController.text.trim(),
-          if (_idDocumentUrl != null && _idDocumentUrl!.trim().isNotEmpty)
+          if (_idDocumentUrl != null && _idDocumentUrl!.trim().isNotEmpty) ...{
+            'paymentIdDocumentUrl': _idDocumentUrl!.trim(),
+            'verificationIdDocumentUrl': _idDocumentUrl!.trim(),
             'idDocumentUrl': _idDocumentUrl!.trim(),
-          if (_idDocumentFile?.name != null)
+          },
+          if (_idDocumentFile?.name != null) ...{
+            'paymentIdDocumentFileName': _idDocumentFile!.name,
             'idDocumentFileName': _idDocumentFile!.name,
+          },
           if (_selectedMethod == PaymentMethod.payLater)
             'verifiedAtArrival': true,
         },

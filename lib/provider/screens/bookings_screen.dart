@@ -659,6 +659,8 @@ class _BookingCard extends StatelessWidget {
           // 🛡️ Traveler Identity Verification & Document Photo (Provider View)
           if ((booking.metadata['verificationId'] as String?)?.isNotEmpty == true ||
               (booking.metadata['alternativePhone'] as String?)?.isNotEmpty == true ||
+              (booking.metadata['guestIdDocumentUrl'] as String?)?.isNotEmpty == true ||
+              (booking.metadata['paymentIdDocumentUrl'] as String?)?.isNotEmpty == true ||
               (booking.metadata['idDocumentUrl'] as String?)?.isNotEmpty == true) ...[
             const SizedBox(height: 12),
             Container(
@@ -751,68 +753,35 @@ class _BookingCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                  if (booking.metadata['idDocumentUrl'] != null &&
-                      (booking.metadata['idDocumentUrl'] as String).isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    GestureDetector(
-                      onTap: () => _showDocumentPhotoDialog(
-                        context,
-                        booking.metadata['idDocumentUrl'].toString(),
-                        booking.metadata['idDocumentFileName']?.toString() ??
-                            'ID Document Photo',
-                      ),
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppColors.primary.withAlpha(80)),
-                        ),
-                        child: Row(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: _buildDocumentImageWidget(
-                                booking.metadata['idDocumentUrl'].toString(),
-                                width: 52,
-                                height: 52,
-                                fit: BoxFit.cover,
-                              ),
+                  Builder(
+                    builder: (context) {
+                      final guestDocUrl = (booking.metadata['guestIdDocumentUrl'] ??
+                          (booking.metadata['paymentIdDocumentUrl'] == null ? booking.metadata['idDocumentUrl'] : null)) as String?;
+                      final guestDocFileName = (booking.metadata['guestIdDocumentFileName'] ?? booking.metadata['idDocumentFileName']) as String?;
+                      final paymentDocUrl = (booking.metadata['paymentIdDocumentUrl'] ?? booking.metadata['verificationIdDocumentUrl']) as String?;
+                      final paymentDocFileName = (booking.metadata['paymentIdDocumentFileName'] ?? booking.metadata['idDocumentFileName']) as String?;
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (guestDocUrl != null && guestDocUrl.isNotEmpty)
+                            _buildDocumentTile(
+                              context,
+                              url: guestDocUrl,
+                              label: 'Guest Info Photo',
+                              fileName: guestDocFileName,
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Your Photo Attached',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF0F172A),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    'Tap to view full resolution document photo 🔍',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                ],
-                              ),
+                          if (paymentDocUrl != null && paymentDocUrl.isNotEmpty && paymentDocUrl != guestDocUrl)
+                            _buildDocumentTile(
+                              context,
+                              url: paymentDocUrl,
+                              label: 'Payment Verification Photo',
+                              fileName: paymentDocFileName,
                             ),
-                            const Icon(
-                              Icons.open_in_full_rounded,
-                              size: 16,
-                              color: AppColors.primary,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+                        ],
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
@@ -1149,8 +1118,11 @@ class _BookingCard extends StatelessWidget {
 
     final verificationId = booking.metadata['verificationId'] as String?;
     final altPhone = booking.metadata['alternativePhone'] as String?;
-    final idDocUrl = booking.metadata['idDocumentUrl'] as String?;
-    final idDocFileName = booking.metadata['idDocumentFileName'] as String?;
+    final guestDocUrl = (booking.metadata['guestIdDocumentUrl'] ??
+        (booking.metadata['paymentIdDocumentUrl'] == null ? booking.metadata['idDocumentUrl'] : null)) as String?;
+    final guestDocFileName = (booking.metadata['guestIdDocumentFileName'] ?? booking.metadata['idDocumentFileName']) as String?;
+    final paymentDocUrl = (booking.metadata['paymentIdDocumentUrl'] ?? booking.metadata['verificationIdDocumentUrl']) as String?;
+    final paymentDocFileName = (booking.metadata['paymentIdDocumentFileName'] ?? booking.metadata['idDocumentFileName']) as String?;
 
     showDialog(
       context: context,
@@ -1247,7 +1219,8 @@ class _BookingCard extends StatelessWidget {
 
                 // 🛡️ Traveler Identity Verification & Document Photo
                 if ((verificationId != null && verificationId.isNotEmpty) ||
-                    (idDocUrl != null && idDocUrl.isNotEmpty)) ...[
+                    (guestDocUrl != null && guestDocUrl.isNotEmpty) ||
+                    (paymentDocUrl != null && paymentDocUrl.isNotEmpty)) ...[
                   const SizedBox(height: 16),
                   _buildModalSectionHeader(Icons.verified_user_outlined,
                       'Identity Verification & Documents'),
@@ -1255,69 +1228,20 @@ class _BookingCard extends StatelessWidget {
                   if (verificationId != null && verificationId.isNotEmpty)
                     _buildModalDetailRow('ID / Passport #:', verificationId,
                         isHighlight: true),
-                  if (idDocUrl != null && idDocUrl.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    GestureDetector(
-                      onTap: () => _showDocumentPhotoDialog(
-                        context,
-                        idDocUrl,
-                        idDocFileName ?? 'ID Document Photo',
-                      ),
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981).withAlpha(12),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                              color: const Color(0xFF10B981).withAlpha(60)),
-                        ),
-                        child: Row(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Image.network(
-                                idDocUrl,
-                                width: 56,
-                                height: 56,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Container(
-                                  width: 56,
-                                  height: 56,
-                                  color: Colors.grey[200],
-                                  child: const Icon(Icons.insert_drive_file,
-                                      color: Colors.grey),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Your Photo Attached',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF0F172A),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    'Tap to open full resolution viewer',
-                                    style: TextStyle(
-                                        fontSize: 11, color: Colors.grey[600]),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Icon(Icons.open_in_full_rounded,
-                                size: 18, color: AppColors.primary),
-                          ],
-                        ),
-                      ),
+                  if (guestDocUrl != null && guestDocUrl.isNotEmpty)
+                    _buildDocumentTile(
+                      context,
+                      url: guestDocUrl,
+                      label: 'Guest Info Photo',
+                      fileName: guestDocFileName,
                     ),
-                  ],
+                  if (paymentDocUrl != null && paymentDocUrl.isNotEmpty && paymentDocUrl != guestDocUrl)
+                    _buildDocumentTile(
+                      context,
+                      url: paymentDocUrl,
+                      label: 'Payment Verification Photo',
+                      fileName: paymentDocFileName,
+                    ),
                 ],
 
                 const SizedBox(height: 16),
@@ -1414,6 +1338,75 @@ class _BookingCard extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDocumentTile(
+    BuildContext context, {
+    required String url,
+    required String label,
+    String? fileName,
+  }) {
+    return GestureDetector(
+      onTap: () => _showDocumentPhotoDialog(
+        context,
+        url,
+        fileName ?? label,
+      ),
+      child: Container(
+        margin: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.primary.withAlpha(80)),
+        ),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: _buildDocumentImageWidget(
+                url,
+                width: 52,
+                height: 52,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F172A),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    fileName ?? 'Tap to view full resolution photo 🔍',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey[600],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.open_in_full_rounded,
+              size: 16,
+              color: AppColors.primary,
+            ),
+          ],
         ),
       ),
     );

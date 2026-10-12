@@ -284,18 +284,18 @@ Deno.serve(async (req) => {
       )
     }
 
-    // 2. Rate Limiting (DISABLED for testing as requested)
-    /*
-    const { data: isAllowed, error: rateLimitError } = await supabaseClient
+    // 2. Rate Limiting (Enforced to prevent payment brute-forcing and flooding)
+    const { data: isAllowed, error: rateLimitError } = await adminClient
       .rpc('check_payment_rate_limit', { p_user_id: user.id })
 
-    if (rateLimitError || !isAllowed) {
+    if (rateLimitError) {
+      console.warn('[Payment] Rate limit check error:', rateLimitError)
+    } else if (isAllowed === false) {
       return new Response(
         JSON.stringify({ success: false, message: 'Isku dayitaan aad u badan. Fadlan sug daqiiqad kaddibna isku day mar kale.' }),
         { headers: corsHeaders, status: 429 }
       )
     }
-    */
 
     const invoiceId = `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`
     const referenceId = `REF-${crypto.randomUUID()}`
@@ -412,9 +412,11 @@ Deno.serve(async (req) => {
 
     // 5. Execute Payment with Retry Logic or Mock Sandbox Success
     let result;
-    const isSandbox = WAAFIPAY_API_URL.includes('sandbox') || WAAFIPAY_API_URL.includes('api-test') || WAAFIPAY_API_URL.includes('test');
+    const isExplicitSandboxEnv = (Deno.env.get('ENVIRONMENT') ?? Deno.env.get('DENO_ENV') ?? '').toLowerCase() === 'sandbox';
+    const isSandboxUrl = WAAFIPAY_API_URL.includes('sandbox') || WAAFIPAY_API_URL.includes('api-test') || WAAFIPAY_API_URL.includes('test');
     const isOfficialTestNumber = sanitizedAccount === '252615000000' || sanitizedAccount === '252613000000' || sanitizedAccount === '252617000000';
-    const shouldMockSuccess = isSandbox && !isOfficialTestNumber;
+    // Mocking only triggers if environment is explicitly configured as sandbox AND using a sandbox URL
+    const shouldMockSuccess = isExplicitSandboxEnv && isSandboxUrl && !isOfficialTestNumber;
 
     if (shouldMockSuccess) {
       console.log(`[Payment] Sandbox Mode: Mocking successful payment for unregistered number: ${sanitizedAccount}`);

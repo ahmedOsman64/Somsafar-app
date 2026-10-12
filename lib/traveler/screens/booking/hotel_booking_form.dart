@@ -923,10 +923,14 @@ class _HotelBookingFormState extends ConsumerState<HotelBookingForm>
             specialRequests: bookingData.specialRequests,
             metadata: {
               'serviceType': 'hotel',
-              if (_idDocumentUrl != null && _idDocumentUrl!.isNotEmpty)
+              if (_idDocumentUrl != null && _idDocumentUrl!.isNotEmpty) ...{
+                'guestIdDocumentUrl': _idDocumentUrl,
                 'idDocumentUrl': _idDocumentUrl,
-              if (_idDocumentFile?.name != null)
+              },
+              if (_idDocumentFile?.name != null) ...{
+                'guestIdDocumentFileName': _idDocumentFile!.name,
                 'idDocumentFileName': _idDocumentFile!.name,
+              },
             },
           ),
         ),

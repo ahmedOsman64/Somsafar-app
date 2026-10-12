@@ -1518,12 +1518,20 @@ class _TourBookingFormState extends ConsumerState<TourBookingForm>
         });
       }
 
-      // Add age breakdown to metadata
+      // Add age breakdown and guest document photo to metadata
       metadata.addAll({
         'adultsCount': _adultsCount,
         'childrenCount': _childrenCount,
         'infantsCount': _infantsCount,
         'totalTravelers': _adultsCount + _childrenCount + _infantsCount,
+        if (_idDocumentUrl != null && _idDocumentUrl!.isNotEmpty) ...{
+          'guestIdDocumentUrl': _idDocumentUrl,
+          'idDocumentUrl': _idDocumentUrl,
+        },
+        if (_idDocumentFile?.name != null) ...{
+          'guestIdDocumentFileName': _idDocumentFile!.name,
+          'idDocumentFileName': _idDocumentFile!.name,
+        },
       });
 
       if (!mounted) return;
